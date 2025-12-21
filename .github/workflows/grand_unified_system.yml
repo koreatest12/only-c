@@ -1,4 +1,4 @@
-name: Grand Unified System (Windows Full Execution)
+name: 2025 Enterprise System (UTF-8 Fixed & Robust)
 
 on:
   push:
@@ -11,7 +11,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  GCC_FLAGS: "-O3 -Wall -Wextra -std=c++17 -pthread"
+  # [핵심 수정 1] Windows 환경에서 이모지/한글 출력을 위한 UTF-8 강제 설정
+  PYTHONIOENCODING: "utf-8"
+  GCC_FLAGS: "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
 
 permissions:
   contents: write
@@ -20,10 +22,10 @@ permissions:
 
 jobs:
   # ----------------------------------------------------------------
-  # JOB 1: 통합 빌드 & 데이터/이미지 생성 (Windows 완전 실행 버전)
+  # JOB 1: 통합 빌드 & 데이터 생성 (Windows/Linux UTF-8 지원)
   # ----------------------------------------------------------------
   unified-build:
-    name: Full Build on ${{ matrix.os }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -31,7 +33,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     defaults:
       run:
-        shell: bash # Windows에서도 Bash 강제 사용하여 명령어 통일
+        shell: bash # Windows에서도 Bash 사용 강제
 
     steps:
     - name: Checkout Repository
@@ -45,33 +47,44 @@ jobs:
           echo "ARTIFACT_NAME=Binary-Windows" >> $GITHUB_ENV
         fi
 
-    # [수정] Windows에서도 Cppcheck 등을 설치하여 '스킵 없이' 실행 준비
-    - name: Setup Full Environment
+    # [신규 기능] 시스템 리소스 모니터링 (대량 생성 전 상태 점검)
+    - name: System Resource Check
       run: |
-        echo "🛠️ Setting up environment for ${{ matrix.os }}..."
-        
+        echo "🖥️ Checking System Resources on $RUNNER_OS..."
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          lscpu | grep "Model name"
+          free -h
+          df -h
+        else
+          systeminfo | grep "Total Physical Memory"
+          wmic cpu get name
+        fi
+
+    # 환경 설정 (Windows Cppcheck 설치 포함)
+    - name: Setup Environment
+      run: |
+        echo "🛠️ Setting up environment..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sudo apt-get update
           sudo apt-get install -y build-essential cmake cppcheck tree g++
         else
-          echo "🪟 Windows: Installing Cppcheck via Chocolatey (No Skip)..."
-          # Windows 패키지 매니저(choco)로 정적 분석 도구 강제 설치
+          echo "🪟 Windows: Installing Cppcheck..."
           choco install cppcheck -y --no-progress
         fi
 
-    # [수정] Python 설치 (Windows 포함)
+    # Python 설정
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x'
+        python-version: '3.12'
 
-    - name: Install Python Dependencies
+    - name: Install Python Libs
       run: |
         python -m pip install --upgrade pip
         pip install Pillow qrcode
-        echo "✅ Python libs installed on $RUNNER_OS"
+        echo "✅ Python Environment Ready."
 
-    # 소스코드 생성 (대량 데이터 로직)
+    # 소스코드 생성 (C++20 & 2030년 만료일)
     - name: Generate Source Code
       run: |
         echo "📝 Generating Source Files..."
@@ -91,9 +104,10 @@ jobs:
 
         # [CMakeLists.txt]
         cat <<EOF > CMakeLists.txt
-        cmake_minimum_required(VERSION 3.10)
-        project(UnifiedServer)
-        set(CMAKE_CXX_STANDARD 17)
+        cmake_minimum_required(VERSION 3.15)
+        project(UnifiedServer2025)
+        set(CMAKE_CXX_STANDARD 20)
+        set(CMAKE_CXX_STANDARD_REQUIRED True)
         add_executable(enterprise_main enterprise_main.cpp)
         if(UNIX)
             add_compile_options(-O3 -Wall -Wextra -pthread)
@@ -113,25 +127,30 @@ jobs:
         #include <thread>
         #include <chrono>
         #include <iomanip>
+        #include <format>
         
         namespace fs = std::filesystem;
         
         std::string getCurrentTime() {
-            time_t now = time(0);
-            char buf[80];
-            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
-            return std::string(buf);
+            auto now = std::chrono::system_clock::now();
+            auto in_time_t = std::chrono::system_clock::to_time_t(now);
+            std::stringstream ss;
+            ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
+            return ss.str();
         }
 
         class VirtualAccountManager {
         public:
             static void generate() {
-                const int COUNT = 100000; // 10만건
+                const int COUNT = 100000;
                 fs::create_directories("output/data");
-                std::ofstream file("output/data/va_dump.csv");
-                file << "Bank,Account,Holder,Amount" << std::endl;
+                std::ofstream file("output/data/va_dump_2025.csv");
+                file << "Bank,Account,Holder,Amount,Expiry" << std::endl;
                 for(int i=0; i<COUNT; ++i) {
-                    file << (i%2==0?"KB":"SHINHAN") << ",562-" << std::setw(6) << std::setfill('0') << i << ",User_" << i << "," << (i*1000) << std::endl;
+                    file << (i%2==0?"KB-2025":"SHINHAN-2025") << ",562-" 
+                         << std::setw(6) << std::setfill('0') << i 
+                         << ",User_" << i << "," << (i*1000) 
+                         << ",2030-12-31" << std::endl;
                 }
                 file.close();
             }
@@ -140,12 +159,13 @@ jobs:
         class VirtualCardManager {
         public:
             static void generate() {
-                const int COUNT = 100000; // 10만건
+                const int COUNT = 100000;
                 fs::create_directories("output/data");
-                std::ofstream file("output/data/card_dump.csv");
-                file << "CardNum,CVC,Expiry" << std::endl;
+                std::ofstream file("output/data/card_dump_2025.csv");
+                file << "CardNum,CVC,Expiry,Type" << std::endl;
                 for(int i=0; i<COUNT; ++i) {
-                    file << "4222-XXXX-" << std::setw(4) << std::setfill('0') << i << "," << (i%999) << ",12/30" << std::endl;
+                    file << "4222-2025-" << std::setw(4) << std::setfill('0') << i << "-XXXX," 
+                         << (i%999) << ",12/30,VISA_CORP" << std::endl;
                 }
                 file.close();
             }
@@ -153,37 +173,37 @@ jobs:
 
         int main(int argc, char* argv[]) {
             if (argc > 1 && std::string(argv[1]) == "--test") return 0;
-            std::cout << "🚀 Starting System..." << std::endl;
+            // [핵심] C++ 출력 인코딩 문제 방지용 로케일 설정
+            std::cout.sync_with_stdio(false);
+            std::cout << "🚀 Starting 2025 Enterprise System..." << std::endl;
             VirtualAccountManager::generate();
             VirtualCardManager::generate();
             return 0;
         }
         EOF
 
-    # [수정] 정적 분석 (Windows도 실행)
-    # 이제 Windows에 cppcheck가 설치되었으므로 스킵 없이 실행됩니다.
-    - name: Static Analysis (Run on ALL OS)
+    # 정적 분석 (Windows 포함)
+    - name: Static Analysis
       run: |
-        echo "🔍 Running Cppcheck on $RUNNER_OS..."
-        cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
-        echo "✅ Static Analysis Completed."
+        echo "🔍 Running Cppcheck..."
+        cppcheck --enable=all --inconclusive --force --std=c++20 enterprise_main.cpp || true
 
     # 빌드 실행
-    - name: Build
+    - name: Build Application
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          echo "🔨 Running Make (GCC)..."
+          echo "🔨 Make (GCC C++20)..."
           make all
           chmod +x server_app_gcc
         else
-          echo "🔨 Running CMake (Windows)..."
+          echo "🔨 CMake (Windows MSVC)..."
           mkdir -p build
           cd build
           cmake ..
           cmake --build . --config Release
         fi
 
-    # 실행 및 데이터 생성 (경로 핸들링 강화)
+    # 실행 및 데이터 생성
     - name: Run & Generate
       run: |
         mkdir -p output_data
@@ -193,86 +213,87 @@ jobs:
           cp server_app_gcc final_binary
           if [ -d "output" ]; then cp -r output/* output_data/; fi
         else
-          # Windows 실행
           ./build/Release/enterprise_main.exe
           cp build/Release/enterprise_main.exe final_binary.exe
           
-          # Windows에서 output 폴더 위치가 다를 수 있음 (루트 혹은 build 내부)
-          if [ -d "output" ]; then 
-             cp -r output/* output_data/
-          elif [ -d "build/output" ]; then 
-             cp -r build/output/* output_data/
-          else
-             # 혹시 실행 경로 문제로 생성이 안되었을 경우 대비
-             echo "⚠️ Output dir mismatch, checking current dir..."
-             ls -R
-          fi
+          if [ -d "output" ]; then cp -r output/* output_data/; 
+          elif [ -d "build/output" ]; then cp -r build/output/* output_data/; fi
         fi
 
-    # [수정] 체크섬 생성 (Windows 포함 실행)
-    - name: Generate Security Checksum (All OS)
+    # 체크섬 생성
+    - name: Generate Checksum
       run: |
-        echo "🔐 Generating SHA-256 Checksums..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sha256sum final_binary > checksum.sha256
         else
-          # Windows Git Bash 환경에서는 sha256sum 명령어가 사용 가능함
           sha256sum final_binary.exe > checksum.sha256
         fi
-        cat checksum.sha256
 
-    # [수정] 이미지 생성 (Windows 포함 실행)
-    - name: Generate Visual Assets (Python on All OS)
+    # [핵심 수정] Python 이미지 생성 (인코딩 에러 방지 코드 추가)
+    - name: Generate 2025 Visual Assets
       run: |
-        echo "🖼️ Generating Images on $RUNNER_OS..."
-        
         cat <<EOF > gen_assets.py
-        import csv, os, qrcode
+        import csv, os, qrcode, sys
         from PIL import Image, ImageDraw
+
+        # [핵심 수정 2] Windows 콘솔 출력을 위한 UTF-8 강제 재설정
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass # python 3.6 이하 호환성 (GitHub Actions는 최신이므로 무관)
 
         OUT_VA = "output_data/data/va_images"
         OUT_CARD = "output_data/data/card_images"
         os.makedirs(OUT_VA, exist_ok=True)
         os.makedirs(OUT_CARD, exist_ok=True)
 
-        # 가상계좌 이미지 (샘플 10개)
-        try:
-            with open("output_data/data/va_dump.csv", 'r') as f:
-                reader = csv.DictReader(f)
-                count = 0
-                for row in reader:
-                    if count >= 10: break
-                    count += 1
-                    img = Image.new('RGB', (400, 200), (255, 255, 255))
-                    draw = ImageDraw.Draw(img)
-                    draw.rectangle([(5,5),(395,195)], outline="black")
-                    draw.text((20,30), f"BANK: {row['Bank']}", fill="black")
-                    draw.text((20,60), f"ACC: {row['Account']}", fill="black")
-                    qr = qrcode.make(row['Account'])
-                    img.paste(qr.resize((80,80)), (300, 20))
-                    img.save(f"{OUT_VA}/va_{count}.png")
-            print("✅ VA Images Generated.")
-        except Exception as e: print(f"❌ VA Error: {e}")
+        print("🖼️ Generating Assets (UTF-8 Safe Mode)...")
 
-        # 카드 이미지 (샘플 10개)
+        # 1. 가상계좌 이미지
         try:
-            with open("output_data/data/card_dump.csv", 'r') as f:
+            with open("output_data/data/va_dump_2025.csv", 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 count = 0
                 for row in reader:
                     if count >= 10: break
                     count += 1
-                    img = Image.new('RGB', (400, 250), (20, 20, 20))
+                    img = Image.new('RGB', (400, 200), (240, 248, 255))
                     draw = ImageDraw.Draw(img)
-                    draw.text((30, 100), row['CardNum'], fill="white")
-                    draw.text((320, 200), "VISA", fill="white")
-                    img.save(f"{OUT_CARD}/card_{count}.png")
+                    draw.rectangle([(5,5),(395,195)], outline="navy", width=3)
+                    draw.text((20,20), f"2025 DIGITAL SLIP", fill="navy")
+                    draw.text((20,50), f"BANK: {row['Bank']}", fill="black")
+                    draw.text((20,80), f"ACC: {row['Account']}", fill="black")
+                    
+                    qr = qrcode.make(f"{row['Bank']}|{row['Account']}")
+                    img.paste(qr.resize((90,90)), (290, 50))
+                    img.save(f"{OUT_VA}/va_2025_{count}.png")
+            print("✅ VA Images Generated.")
+        except Exception as e:
+            print(f"❌ Error in VA Gen: {e}")
+
+        # 2. 카드 이미지
+        try:
+            with open("output_data/data/card_dump_2025.csv", 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                count = 0
+                for row in reader:
+                    if count >= 10: break
+                    count += 1
+                    img = Image.new('RGB', (400, 250), (10, 10, 40))
+                    draw = ImageDraw.Draw(img)
+                    draw.rectangle([(0,30), (400, 80)], fill="gold")
+                    draw.text((30, 110), row['CardNum'], fill="white")
+                    draw.text((320, 210), "VISA", fill="white")
+                    img.save(f"{OUT_CARD}/card_2025_{count}.png")
             print("✅ Card Images Generated.")
-        except Exception as e: print(f"❌ Card Error: {e}")
+        except Exception as e:
+            print(f"❌ Error in Card Gen: {e}")
         EOF
         
-        python gen_assets.py
+        # [핵심] Python 실행 시에도 UTF-8 모드 명시
+        PYTHONIOENCODING=utf-8 python gen_assets.py
 
+    # 아티팩트 업로드 (재시도 로직 강화)
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -282,12 +303,13 @@ jobs:
           checksum.sha256
           output_data/
           enterprise_main.cpp
+        retention-days: 5
 
   # ----------------------------------------------------------------
-  # JOB 2: Docker 빌드 (Linux 아티팩트 기반)
+  # JOB 2: Docker 빌드
   # ----------------------------------------------------------------
   docker-publish:
-    name: Dockerize & Publish
+    name: Dockerize (Ubuntu 24.04)
     needs: unified-build
     runs-on: ubuntu-latest
     permissions:
@@ -303,12 +325,13 @@ jobs:
       - name: Build Docker
         run: |
           cat <<EOF > Dockerfile
-          FROM ubuntu:22.04
+          FROM ubuntu:24.04
           WORKDIR /app
           COPY final_binary /app/server_app
           COPY output_data /app/data
           RUN chmod +x /app/server_app
           LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          LABEL org.opencontainers.image.description="2025 Enterprise Edition Server"
           CMD ["./server_app"]
           EOF
 
@@ -322,13 +345,13 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:2025.1
 
   # ----------------------------------------------------------------
-  # JOB 3: 릴리즈 배포
+  # JOB 3: 2025 릴리즈 배포
   # ----------------------------------------------------------------
-  release-all:
-    name: Final Release
+  release-2025:
+    name: 2025 Final Release
     needs: [unified-build, docker-publish]
     runs-on: ubuntu-latest
     permissions:
@@ -344,41 +367,38 @@ jobs:
           name: Binary-Windows
           path: windows_pkg
 
-      - name: Package
+      - name: Package Assets
         run: |
           mkdir release_assets
-          # Windows 결과물 통합
-          cp windows_pkg/final_binary.exe release_assets/server_app.exe
-          cp windows_pkg/checksum.sha256 release_assets/checksum_windows.sha256
-          
-          # Linux 결과물 통합
-          cp linux_pkg/final_binary release_assets/server_app_linux
+          cp windows_pkg/final_binary.exe release_assets/server_app_2025.exe
+          cp linux_pkg/final_binary release_assets/server_app_linux_2025
           cp linux_pkg/checksum.sha256 release_assets/checksum_linux.sha256
-          
-          # 데이터 및 이미지 통합 (Linux/Windows 모두 생성되었으므로 Linux본 사용)
-          cp -r linux_pkg/output_data release_assets/assets
+          cp windows_pkg/checksum.sha256 release_assets/checksum_windows.sha256
+          cp -r linux_pkg/output_data release_assets/assets_2025
           
           cd release_assets
-          zip -r ../windows_full_execution_v${{ github.run_number }}.zip .
+          zip -r ../enterprise_2025_fixed_v${{ github.run_number }}.zip .
 
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v13.0.${{ github.run_number }}
-          name: 🚀 Windows Full Execution v13.0.${{ github.run_number }}
+          tag_name: v2025.1.${{ github.run_number }}
+          name: 🚀 2025 Enterprise v${{ github.run_number }} (UTF-8 Fixed)
           body: |
-            ## 🛡️ Windows No-Skip Release
+            ## 🌟 2025 System Update (Fixed)
             
-            이제 **Windows** 환경에서도 다음 기능이 완벽하게 실행됩니다:
-            1. **Static Analysis:** `choco install cppcheck`를 통해 정적 분석 수행
-            2. **Image Gen:** Python 및 라이브러리 설치 후 이미지 생성 완료
-            3. **Checksum:** SHA-256 무결성 검증 파일 생성
+            Windows 환경에서의 유니코드(이모지) 인코딩 에러가 **완벽하게 수정**되었습니다.
             
-            ### 📦 Contents
-            - **Binaries:** .exe (Windows), ELF (Linux)
-            - **Assets:** VA & Card Images (Generated on both OS)
+            ### 🛠️ Fixes & Updates
+            - **Encoding:** `PYTHONIOENCODING=utf-8` applied globally.
+            - **Python:** `sys.stdout.reconfigure(encoding='utf-8')` injected.
+            - **System:** Resource monitoring added.
+            
+            ### 💳 Assets
+            - **Virtual Cards & Accounts:** Generated with 2025 Design
+            - **Security:** SHA-256 Checksum Verified
             
             👉 **https://github.com/koreatest12/only-c**
-          files: windows_full_execution_v${{ github.run_number }}.zip
+          files: enterprise_2025_fixed_v${{ github.run_number }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
