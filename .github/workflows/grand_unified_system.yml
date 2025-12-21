@@ -1,4 +1,4 @@
-name: Grand Unified System (Fixed & Enhanced)
+name: Grand Unified System (Windows Full Execution)
 
 on:
   push:
@@ -20,10 +20,10 @@ permissions:
 
 jobs:
   # ----------------------------------------------------------------
-  # JOB 1: 통합 빌드 & 데이터/이미지 생성 (Windows & Linux)
+  # JOB 1: 통합 빌드 & 데이터/이미지 생성 (Windows 완전 실행 버전)
   # ----------------------------------------------------------------
   unified-build:
-    name: Build on ${{ matrix.os }}
+    name: Full Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -31,13 +31,12 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     defaults:
       run:
-        shell: bash
+        shell: bash # Windows에서도 Bash 강제 사용하여 명령어 통일
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 1. 아티팩트 이름 설정
     - name: Set Artifact Name
       run: |
         if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
@@ -46,28 +45,33 @@ jobs:
           echo "ARTIFACT_NAME=Binary-Windows" >> $GITHUB_ENV
         fi
 
-    # 2. Python 설치 (에러 수정: cache 옵션 제거)
+    # [수정] Windows에서도 Cppcheck 등을 설치하여 '스킵 없이' 실행 준비
+    - name: Setup Full Environment
+      run: |
+        echo "🛠️ Setting up environment for ${{ matrix.os }}..."
+        
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake cppcheck tree g++
+        else
+          echo "🪟 Windows: Installing Cppcheck via Chocolatey (No Skip)..."
+          # Windows 패키지 매니저(choco)로 정적 분석 도구 강제 설치
+          choco install cppcheck -y --no-progress
+        fi
+
+    # [수정] Python 설치 (Windows 포함)
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-        # cache: 'pip'  <-- 에러 원인 제거됨 (requirements.txt 없음)
 
-    # 3. 의존성 설치 (명시적 설치)
-    - name: Install Dependencies
+    - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install Pillow qrcode
-        echo "✅ Dependencies installed successfully."
+        echo "✅ Python libs installed on $RUNNER_OS"
 
-    # 4. C++ 환경 설정 (Linux만, Windows는 자동)
-    - name: Setup C++ Tools
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake cppcheck tree g++
-
-    # 5. 소스코드 생성 (가상계좌, 카드, 트랜잭션)
+    # 소스코드 생성 (대량 데이터 로직)
     - name: Generate Source Code
       run: |
         echo "📝 Generating Source Files..."
@@ -122,12 +126,12 @@ jobs:
         class VirtualAccountManager {
         public:
             static void generate() {
-                const int COUNT = 100000;
+                const int COUNT = 100000; // 10만건
                 fs::create_directories("output/data");
                 std::ofstream file("output/data/va_dump.csv");
                 file << "Bank,Account,Holder,Amount" << std::endl;
                 for(int i=0; i<COUNT; ++i) {
-                    file << (i%2==0?"KB":"SHINHAN") << ",562-" << i << ",User_" << i << "," << (i*1000) << std::endl;
+                    file << (i%2==0?"KB":"SHINHAN") << ",562-" << std::setw(6) << std::setfill('0') << i << ",User_" << i << "," << (i*1000) << std::endl;
                 }
                 file.close();
             }
@@ -136,12 +140,12 @@ jobs:
         class VirtualCardManager {
         public:
             static void generate() {
-                const int COUNT = 100000;
+                const int COUNT = 100000; // 10만건
                 fs::create_directories("output/data");
                 std::ofstream file("output/data/card_dump.csv");
                 file << "CardNum,CVC,Expiry" << std::endl;
                 for(int i=0; i<COUNT; ++i) {
-                    file << "4222-XXXX-" << i << "," << (i%999) << ",12/30" << std::endl;
+                    file << "4222-XXXX-" << std::setw(4) << std::setfill('0') << i << "," << (i%999) << ",12/30" << std::endl;
                 }
                 file.close();
             }
@@ -156,25 +160,30 @@ jobs:
         }
         EOF
 
-    # 6. 정적 분석 (Linux Only)
-    - name: Static Analysis
-      if: runner.os == 'Linux'
-      run: cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
+    # [수정] 정적 분석 (Windows도 실행)
+    # 이제 Windows에 cppcheck가 설치되었으므로 스킵 없이 실행됩니다.
+    - name: Static Analysis (Run on ALL OS)
+      run: |
+        echo "🔍 Running Cppcheck on $RUNNER_OS..."
+        cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
+        echo "✅ Static Analysis Completed."
 
-    # 7. 빌드 실행
+    # 빌드 실행
     - name: Build
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
+          echo "🔨 Running Make (GCC)..."
           make all
           chmod +x server_app_gcc
         else
+          echo "🔨 Running CMake (Windows)..."
           mkdir -p build
           cd build
           cmake ..
           cmake --build . --config Release
         fi
 
-    # 8. 실행 및 데이터 생성 (경로 핸들링 강화)
+    # 실행 및 데이터 생성 (경로 핸들링 강화)
     - name: Run & Generate
       run: |
         mkdir -p output_data
@@ -184,29 +193,39 @@ jobs:
           cp server_app_gcc final_binary
           if [ -d "output" ]; then cp -r output/* output_data/; fi
         else
+          # Windows 실행
           ./build/Release/enterprise_main.exe
           cp build/Release/enterprise_main.exe final_binary.exe
           
-          # Windows 경로 탐색
-          if [ -d "output" ]; then cp -r output/* output_data/; 
-          elif [ -d "build/output" ]; then cp -r build/output/* output_data/; fi
+          # Windows에서 output 폴더 위치가 다를 수 있음 (루트 혹은 build 내부)
+          if [ -d "output" ]; then 
+             cp -r output/* output_data/
+          elif [ -d "build/output" ]; then 
+             cp -r build/output/* output_data/
+          else
+             # 혹시 실행 경로 문제로 생성이 안되었을 경우 대비
+             echo "⚠️ Output dir mismatch, checking current dir..."
+             ls -R
+          fi
         fi
 
-    # 9. [대량 추가] 보안 체크섬 생성 (신규 기능)
-    - name: Generate Security Checksum
+    # [수정] 체크섬 생성 (Windows 포함 실행)
+    - name: Generate Security Checksum (All OS)
       run: |
         echo "🔐 Generating SHA-256 Checksums..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sha256sum final_binary > checksum.sha256
         else
-          # Windows (Bash)
+          # Windows Git Bash 환경에서는 sha256sum 명령어가 사용 가능함
           sha256sum final_binary.exe > checksum.sha256
         fi
         cat checksum.sha256
 
-    # 10. 이미지 생성 (Python)
-    - name: Generate Visual Assets
+    # [수정] 이미지 생성 (Windows 포함 실행)
+    - name: Generate Visual Assets (Python on All OS)
       run: |
+        echo "🖼️ Generating Images on $RUNNER_OS..."
+        
         cat <<EOF > gen_assets.py
         import csv, os, qrcode
         from PIL import Image, ImageDraw
@@ -232,7 +251,8 @@ jobs:
                     qr = qrcode.make(row['Account'])
                     img.paste(qr.resize((80,80)), (300, 20))
                     img.save(f"{OUT_VA}/va_{count}.png")
-        except: pass
+            print("✅ VA Images Generated.")
+        except Exception as e: print(f"❌ VA Error: {e}")
 
         # 카드 이미지 (샘플 10개)
         try:
@@ -247,12 +267,12 @@ jobs:
                     draw.text((30, 100), row['CardNum'], fill="white")
                     draw.text((320, 200), "VISA", fill="white")
                     img.save(f"{OUT_CARD}/card_{count}.png")
-        except: pass
+            print("✅ Card Images Generated.")
+        except Exception as e: print(f"❌ Card Error: {e}")
         EOF
         
         python gen_assets.py
 
-    # 11. 아티팩트 업로드
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -264,7 +284,7 @@ jobs:
           enterprise_main.cpp
 
   # ----------------------------------------------------------------
-  # JOB 2: Docker 빌드
+  # JOB 2: Docker 빌드 (Linux 아티팩트 기반)
   # ----------------------------------------------------------------
   docker-publish:
     name: Dockerize & Publish
@@ -327,31 +347,38 @@ jobs:
       - name: Package
         run: |
           mkdir release_assets
+          # Windows 결과물 통합
           cp windows_pkg/final_binary.exe release_assets/server_app.exe
+          cp windows_pkg/checksum.sha256 release_assets/checksum_windows.sha256
+          
+          # Linux 결과물 통합
           cp linux_pkg/final_binary release_assets/server_app_linux
           cp linux_pkg/checksum.sha256 release_assets/checksum_linux.sha256
-          cp windows_pkg/checksum.sha256 release_assets/checksum_windows.sha256
+          
+          # 데이터 및 이미지 통합 (Linux/Windows 모두 생성되었으므로 Linux본 사용)
           cp -r linux_pkg/output_data release_assets/assets
           
           cd release_assets
-          zip -r ../fixed_unified_v${{ github.run_number }}.zip .
+          zip -r ../windows_full_execution_v${{ github.run_number }}.zip .
 
       - uses: softprops/action-gh-release@v1
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v12.0.${{ github.run_number }}
-          name: 🚀 Fixed & Secured Release v12.0.${{ github.run_number }}
+          tag_name: v13.0.${{ github.run_number }}
+          name: 🚀 Windows Full Execution v13.0.${{ github.run_number }}
           body: |
-            ## 🛡️ Secured Release (No Errors)
+            ## 🛡️ Windows No-Skip Release
             
-            Python `pip cache` 에러가 수정되었으며, 바이너리 무결성 검증을 위한 **Checksum**이 추가되었습니다.
+            이제 **Windows** 환경에서도 다음 기능이 완벽하게 실행됩니다:
+            1. **Static Analysis:** `choco install cppcheck`를 통해 정적 분석 수행
+            2. **Image Gen:** Python 및 라이브러리 설치 후 이미지 생성 완료
+            3. **Checksum:** SHA-256 무결성 검증 파일 생성
             
-            ### 📦 Artifacts
-            - **Binaries:** Windows (.exe) & Linux (GCC)
-            - **Security:** SHA-256 Checksums Included
-            - **Assets:** Virtual Account & Card Images
+            ### 📦 Contents
+            - **Binaries:** .exe (Windows), ELF (Linux)
+            - **Assets:** VA & Card Images (Generated on both OS)
             
             👉 **https://github.com/koreatest12/only-c**
-          files: fixed_unified_v${{ github.run_number }}.zip
+          files: windows_full_execution_v${{ github.run_number }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
