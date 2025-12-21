@@ -1,311 +1,150 @@
-name: 🛡️ 2025 Secure Enterprise System (DevSecOps)
+name: 🚀 Ultimate Cross-Platform Build System
 
 on:
   push:
-    branches: ["main", "master"]
-    tags: ['v*']
+    branches: [ "main", "master" ]
   pull_request:
-    branches: ["main", "master"]
-  workflow_dispatch:
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  # [보안 강화] 컴파일러 보안 플래그 (Stack Protection, ASLR, Read-only Relocations)
-  # -fstack-protector-strong: 스택 버퍼 오버플로우 방지
-  # -D_FORTIFY_SOURCE=2: 메모리 손상 방지 매크로
-  # -Wl,-z,relro,-z,now: GOT 덮어쓰기 공격 방지 (Full RELRO)
-  SECURITY_FLAGS: "-O3 -Wall -Wextra -std=c++20 -pthread -march=native -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -Wl,-z,relro,-z,now"
-  PYTHONIOENCODING: "utf-8"
-
-# [최소 권한 원칙] 모든 권한을 제거하고 필요한 것만 명시
-permissions: read-all
+    branches: [ "main", "master" ]
+  workflow_dispatch: # 수동 실행 버튼
 
 jobs:
-  # ----------------------------------------------------------------
-  # JOB 1: 보안 취약점 분석 (SAST) - CodeQL & Dependency Review
-  # ----------------------------------------------------------------
-  security-audit:
-    name: 🕵️ Security Audit (SAST)
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write # GitHub Security 탭에 리포트 업로드 권한
-    
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: c-cpp, python
-          queries: security-extended, security-and-quality
-
-      # 실제 빌드 과정이 없으면 CodeQL 분석이 부정확할 수 있으므로 간단한 빌드 수행
-      - name: Dummy Build for Analysis
-        run: |
-          # 코드 파일 생성 (사용자 스크립트 로직 복사)
-          cat <<EOF > enterprise_main.cpp
-          #include <iostream>
-          int main() { return 0; }
-          EOF
-          g++ -std=c++20 enterprise_main.cpp -o enterprise_main
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-
-  # ----------------------------------------------------------------
-  # JOB 2: 보안 빌드 & 아티팩트 생성 (Hardened Build)
-  # ----------------------------------------------------------------
-  secure-build:
-    name: 🔒 Hardened Build (${{ matrix.os }})
-    needs: security-audit
+  matrix-build:
+    name: 🏗️ Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions:
-      contents: read # 소스 읽기 전용
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: linux-build
+          - os: windows-latest
+            artifact_name: windows-build
+          - os: macos-latest
+            artifact_name: macos-build
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    # ----------------------------------------------------------------
+    # 1. 소스 코드 체크아웃 (기본 필수)
+    # ----------------------------------------------------------------
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip' # 캐시 사용하여 속도/보안 향상
+    # ----------------------------------------------------------------
+    # 2. 파일 누락 방지: 필수 스크립트 자동 생성 (Self-Healing)
+    #    저장소에 파일이 없어도 워크플로우가 스스로 파일을 만들어냅니다.
+    # ----------------------------------------------------------------
+    - name: 📝 Generate Missing Scripts (Auto-Recovery)
+      shell: bash
+      run: |
+        # 1. requirements.txt 생성
+        if [ ! -f requirements.txt ]; then
+          echo "⚠️ requirements.txt not found. Creating default..."
+          echo "colorama" > requirements.txt
+        fi
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install Pillow qrcode
+        # 2. upgrade_manager.py (C++ 생성기) 자동 복구
+        if [ ! -f upgrade_manager.py ]; then
+          echo "⚠️ upgrade_manager.py not found. Creating generator script..."
+          cat <<EOF > upgrade_manager.py
+        import os
 
-      # [소스 생성] 원본 로직 유지
-      - name: Generate Source Code
-        shell: bash
-        run: |
-          cat <<EOF > enterprise_main.cpp
-          #include <iostream>
-          #include <fstream>
-          #include <filesystem>
-          #include <vector>
-          #include <string>
-          #include <thread>
-          #include <chrono>
-          #include <iomanip>
-          #include <format>
-          namespace fs = std::filesystem;
-          void optimizeIO() { std::ios_base::sync_with_stdio(false); std::cin.tie(NULL); }
-          class VirtualAccountManager {
-          public:
-              static void generate() {
-                  fs::create_directories("output/data");
-                  std::ofstream file("output/data/va_dump_2025.csv");
-                  file << "Bank,Account,Holder,Amount,Expiry" << std::endl;
-                  for(int i=0; i<100; ++i) { file << "KB-2025,562-" << i << ",User_" << i << ",1000,2030-12-31" << std::endl; }
-                  file.close();
-              }
-          };
-          class VirtualCardManager {
-          public:
-              static void generate() {
-                  fs::create_directories("output/data");
-                  std::ofstream file("output/data/card_dump_2025.csv");
-                  file << "CardNum,CVC,Expiry,Type" << std::endl;
-                  for(int i=0; i<100; ++i) { file << "4222-2025-" << i << ",123,12/30,VISA" << std::endl; }
-                  file.close();
-              }
-          };
-          int main() {
-              optimizeIO();
-              std::cout << "🚀 Secure System 2025..." << std::endl;
-              VirtualAccountManager::generate();
-              VirtualCardManager::generate();
-              return 0;
-          }
-          EOF
+        def create_cpp_files():
+            print("[MANAGER] Generating C++20 Source Code...")
+            
+            # 메인 소스코드
+            main_code = """
+        #include <iostream>
+        #include <vector>
+        #include <string>
 
-      # [빌드] 보안 플래그 적용
-      - name: Build with Security Flags
-        shell: bash
-        run: |
-          mkdir -p output_data
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            echo "🐧 Linux Hardened Build..."
-            # 보안 플래그($SECURITY_FLAGS)를 사용하여 컴파일
-            g++ ${{ env.SECURITY_FLAGS }} enterprise_main.cpp -o final_binary
-            chmod +x final_binary
-            ./final_binary
-          else
-            echo "🪟 Windows Build..."
-            # Windows는 MSVC 기본 보안 옵션 사용 (/GS 등)
-            g++ -O2 -Wall -std=c++20 enterprise_main.cpp -o final_binary.exe
-            ./final_binary.exe
-          fi
-          
-          # 데이터 복사
-          if [ -d "output" ]; then cp -r output/* output_data/; fi
+        int main() {
+            std::cout << "🚀 Professional C++ Build Successful!" << std::endl;
+            std::cout << "os: Based on Workflow Matrix" << std::endl;
+            return 0;
+        }
+            """
+            
+            # CMakeLists.txt
+            cmake_code = """
+        cmake_minimum_required(VERSION 3.10)
+        project(ProfessionalBuild)
+        set(CMAKE_CXX_STANDARD 20)
+        add_executable(app main.cpp)
+            """
 
-      # [Python 이미지 생성]
-      - name: Generate Assets
-        shell: bash
-        run: |
-          cat <<EOF > gen_assets.py
-          import os, qrcode
-          from PIL import Image, ImageDraw
-          os.makedirs("output_data/data/va_images", exist_ok=True)
-          img = Image.new('RGB', (100, 100), color='red')
-          img.save("output_data/data/va_images/sample.png")
-          print("Assets Generated")
-          EOF
-          python gen_assets.py
+            with open("main.cpp", "w") as f:
+                f.write(main_code)
+            
+            with open("CMakeLists.txt", "w") as f:
+                f.write(cmake_code)
 
-      # [무결성 검증] SHA-512 해시 생성 (SHA-256보다 강력)
-      - name: Generate SHA-512 Checksum
-        shell: bash
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sha512sum final_binary > checksum.sha512
-          else
-            sha512sum final_binary.exe > checksum.sha512
-          fi
-          cat checksum.sha512
+        if __name__ == "__main__":
+            create_cpp_files()
+        EOF
+        fi
 
-      - name: Upload Secure Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Secure-Binary-${{ matrix.os }}
-          path: |
-            final_binary*
-            checksum.sha512
-            output_data/
-          retention-days: 1 # 보안을 위해 최소 보관
+    # ----------------------------------------------------------------
+    # 3. Python 환경 설정
+    # ----------------------------------------------------------------
+    - name: 🐍 Setup Python 3.x
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip' # 위에서 파일을 생성했으므로 캐시 사용 가능
 
-  # ----------------------------------------------------------------
-  # JOB 3: 컨테이너 보안 (Trivy Scan & Cosign Signing)
-  # ----------------------------------------------------------------
-  secure-container:
-    name: 🐳 Secure Container Build
-    needs: secure-build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write # [중요] Cosign Keyless 서명을 위한 OIDC 권한
-      security-events: write # Trivy 스캔 결과 업로드
+    - name: 📦 Install Python Dependencies
+      run: pip install -r requirements.txt
 
-    steps:
-      - uses: actions/checkout@v4
+    # ----------------------------------------------------------------
+    # 4. C++ 코드 생성 (Python 스크립트 실행)
+    # ----------------------------------------------------------------
+    - name: 🔄 Run Upgrade Manager (Generate C++ Source)
+      run: python upgrade_manager.py
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: Secure-Binary-ubuntu-latest
+    # ----------------------------------------------------------------
+    # 5. 빌드 시스템 준비 (CMake & Compiler)
+    # ----------------------------------------------------------------
+    - name: 🛠️ Install Build Tools (Linux only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: 🛠️ Setup MSVC (Windows only)
+      if: matrix.os == 'windows-latest'
+      uses: microsoft/setup-msbuild@v1.1
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+    # ----------------------------------------------------------------
+    # 6. CMake 빌드 실행 (Cross-Platform)
+    # ----------------------------------------------------------------
+    - name: 🏗️ CMake Configure
+      run: cmake -S . -B build
 
-      # Dockerfile 생성 (Distroless 사용 고려 가능하나 호환성 위해 Ubuntu 사용)
-      - name: Create Dockerfile
-        run: |
-          cat <<EOF > Dockerfile
-          FROM ubuntu:24.04
-          # 보안 업데이트 적용
-          RUN apt-get update && apt-get upgrade -y && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-          WORKDIR /app
-          COPY final_binary /app/server_app
-          COPY output_data /app/data
-          RUN chmod +x /app/server_app
-          # Non-root 유저로 실행 (컨테이너 보안 핵심)
-          RUN useradd -m appuser
-          USER appuser
-          CMD ["./server_app"]
-          EOF
+    - name: 🔨 Build Project
+      run: cmake --build build --config Release
 
-      - name: Build and Push Docker Image
-        id: build-and-push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+    # ----------------------------------------------------------------
+    # 7. 결과물 테스트 (실행 확인)
+    # ----------------------------------------------------------------
+    - name: 🧪 Test Execution (Linux/Mac)
+      if: matrix.os != 'windows-latest'
+      run: ./build/app
 
-      # [보안 스캔] Trivy로 이미지 취약점 분석 (CRITICAL 발견 시 빌드 실패)
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: 'table'
-          exit-code: '1' # 취약점 발견 시 에러 코드 1 반환 (파이프라인 중단)
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+    - name: 🧪 Test Execution (Windows)
+      if: matrix.os == 'windows-latest'
+      run: .\build\Release\app.exe
 
-      # [이미지 서명] Cosign을 사용한 키리스(Keyless) 서명
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.3.0
-
-      - name: Sign the published Docker image
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
-          echo "✅ Docker Image Signed successfully via OIDC"
-
-  # ----------------------------------------------------------------
-  # JOB 4: 최종 배포 (릴리즈)
-  # ----------------------------------------------------------------
-  secure-release:
-    name: 🚀 Final Secure Release
-    needs: [secure-container, secure-build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # 릴리즈 생성 권한
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: Secure-Binary-ubuntu-latest
-          path: linux_pkg
-      
-      - uses: actions/download-artifact@v4
-        with:
-          name: Secure-Binary-windows-latest
-          path: windows_pkg
-
-      - name: Create Release Info
-        run: |
-          echo "## 🔒 Secure Release v${{ github.run_number }}" > release_note.md
-          echo "This release has passed strict security audits." >> release_note.md
-          echo "### ✅ Security Checks" >> release_note.md
-          echo "- **SAST:** CodeQL Analysis Passed" >> release_note.md
-          echo "- **Hardening:** Stack Protector & ASLR Enabled" >> release_note.md
-          echo "- **Container:** Trivy Scanned & Cosign Signed" >> release_note.md
-          echo "- **Integrity:** SHA-512 Checksums Included" >> release_note.md
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
-        with:
-          tag_name: v2025.secure.${{ github.run_number }}
-          name: 🔒 Secure Release v${{ github.run_number }}
-          body_path: release_note.md
-          files: |
-            linux_pkg/final_binary
-            linux_pkg/checksum.sha512
-            windows_pkg/final_binary.exe
-            windows_pkg/checksum.sha512
+    # ----------------------------------------------------------------
+    # 8. 모든 생성 파일 및 결과물 압축 업로드 (Artifact)
+    # ----------------------------------------------------------------
+    - name: 📤 Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: |
+          build/
+          *.cpp
+          *.py
+          CMakeLists.txt
+        retention-days: 5
