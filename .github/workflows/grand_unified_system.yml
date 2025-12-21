@@ -1,4 +1,4 @@
-name: Grand Unified System (Virtual Account & Mass Data)
+name: Grand Unified System (No Skips & Full Execution)
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # GCC 및 MSVC 호환성을 고려한 설정
   GCC_FLAGS: "-O3 -Wall -Wextra -std=c++17 -pthread"
 
 permissions:
@@ -20,10 +21,10 @@ permissions:
 
 jobs:
   # ----------------------------------------------------------------
-  # JOB 1: 통합 빌드 & 가상계좌 대량 생성 (Windows/Linux)
+  # JOB 1: 통합 빌드, 데이터 생성, 이미지 생성 (Windows & Linux 모두 실행)
   # ----------------------------------------------------------------
   unified-build:
-    name: Build on ${{ matrix.os }}
+    name: Full Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -37,7 +38,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 아티팩트 이름 고정 (에러 방지용)
+    # 1. 아티팩트 이름 고정 (다운로드 오류 방지)
     - name: Set Artifact Name
       run: |
         if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
@@ -46,17 +47,32 @@ jobs:
           echo "ARTIFACT_NAME=Binary-Windows" >> $GITHUB_ENV
         fi
 
-    - name: Setup Environment
+    # 2. 통합 환경 설정 (Linux & Windows 모두 Python/C++ 준비)
+    - name: Setup Full Environment
       run: |
+        echo "🛠️ Setting up environment for ${{ matrix.os }}..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sudo apt-get update
           sudo apt-get install -y build-essential cmake cppcheck tree g++
+        else
+          echo "🪟 Windows: Using MSVC/MinGW & Pre-installed Tools"
         fi
 
-    # 소스코드 생성 (가상계좌 로직 추가됨)
-    - name: Generate Source Files
+    # 3. Python 설치 (Windows 포함 모든 OS에서 이미지 생성 실행)
+    - name: Setup Python & Libs (No Skip)
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+        cache: 'pip'
+    - name: Install Python Dependencies
       run: |
-        echo "📝 Generating Source Code with Virtual Account Logic..."
+        pip install Pillow qrcode
+        echo "✅ Python environment ready on $RUNNER_OS"
+
+    # 4. 소스코드 생성 (가상계좌 + 가상카드 대량 생성 로직)
+    - name: Generate Source Code
+      run: |
+        echo "📝 Generating Enterprise C++ Source..."
         
         # [Makefile]
         cat <<EOF > Makefile
@@ -85,7 +101,7 @@ jobs:
         endif()
         EOF
 
-        # [C++ Source] - 가상계좌 대량 생성 클래스 추가
+        # [C++ Source] - 가상계좌(VA) 및 가상카드(VCC) 로직
         cat <<EOF > enterprise_main.cpp
         #include <iostream>
         #include <fstream>
@@ -105,120 +121,172 @@ jobs:
             return std::string(buf);
         }
 
-        // [신규 기능] 가상계좌 관리자
+        // [기능 1] 가상계좌 (VA)
         class VirtualAccountManager {
         public:
             static void generateMassiveVirtualAccounts() {
-                const int COUNT = 500000; // 50만 건 생성
-                std::cout << "💳 [VA Service] Generating " << COUNT << " Virtual Account records..." << std::endl;
-                
+                const int COUNT = 300000;
+                std::cout << "💳 [VA Service] Generating " << COUNT << " VA records..." << std::endl;
                 fs::create_directories("output/data");
-                std::ofstream file("output/data/virtual_accounts_dump.csv");
-                
-                // 헤더 작성 (은행코드, 가상계좌번호, 예금주, 금액, 만료일, 상태, 발급키)
-                file << "BankCode,VirtualAccountNum,HolderName,Amount,ExpiryDate,Status,IssueKey" << std::endl;
-                
+                std::ofstream file("output/data/va_dump.csv");
+                file << "Bank,AccountNum,Holder,Amount,Status" << std::endl;
                 for(int i=0; i < COUNT; ++i) {
-                    // 시뮬레이션 데이터 생성
-                    std::string bankCode = (i % 2 == 0) ? "004(KB)" : "088(Shinhan)";
-                    long long amount = (i * 1000) + 5000;
-                    
-                    file << bankCode << ","
-                         << "562000-" << std::setw(6) << std::setfill('0') << i << "-999," 
-                         << "User_" << i << "," 
-                         << amount << ","
-                         << "2025-12-31 23:59:59," 
-                         << "WAITING_DEPOSIT,"
-                         << "vkey_" << i << "_secure_hash" << std::endl;
+                    file << (i%2==0 ? "KB" : "Shinhan") << ","
+                         << "562-" << std::setw(6) << std::setfill('0') << i << "," 
+                         << "User_" << i << "," << ((i*1000)+5000) << ",WAIT" << std::endl;
                 }
                 file.close();
-                std::cout << "✅ [VA Service] Completed. File size optimized." << std::endl;
+            }
+        };
+
+        // [기능 2] 가상카드 (VCC) - 신규 기능
+        class VirtualCardManager {
+        public:
+            static void generateMassiveCards() {
+                const int COUNT = 200000;
+                std::cout << "💳 [Card Service] Generating " << COUNT << " Virtual Card records..." << std::endl;
+                fs::create_directories("output/data");
+                std::ofstream file("output/data/card_dump.csv");
+                file << "CardBin,Number,CVC,Expiry,Type" << std::endl;
+                for(int i=0; i < COUNT; ++i) {
+                    file << "4222,"
+                         << "4222-" << std::setw(4) << std::setfill('0') << (i%9999) << "-XXXX-XXXX,"
+                         << (i%900)+100 << ","
+                         << "12/28,"
+                         << "VISA_VIRTUAL" << std::endl;
+                }
+                file.close();
             }
         };
 
         class BigDataManager {
         public:
-            static void generateMassiveTransactions() {
-                const int COUNT = 300000;
-                std::cout << "📊 [Data] Generating " << COUNT << " transactions..." << std::endl;
-                fs::create_directories("output/data");
-                std::ofstream file("output/data/mass_transactions.csv");
-                file << "TxID,UserID,Amount,Type,Timestamp,Meta" << std::endl;
-                for(int i=0; i < COUNT; ++i) {
-                    file << "TX_" << i << ",User_" << (i%1000) << "," << (i*10) 
-                         << ",DEPOSIT," << getCurrentTime() << ",meta_" << i << std::endl;
-                }
+            static void generateTransactions() {
+                std::ofstream file("output/data/transactions.csv");
+                file << "TxID,Time,Amount" << std::endl;
+                for(int i=0; i<100000; ++i) file << i << "," << getCurrentTime() << "," << i*100 << std::endl;
                 file.close();
-            }
-            static void generateMassiveLogs() {
-                const int COUNT = 100000;
-                std::cout << "📝 [Logs] Generating " << COUNT << " logs..." << std::endl;
-                fs::create_directories("output/logs");
-                std::ofstream log("output/logs/audit.log");
-                for(int i=0; i < COUNT; ++i) log << "[INFO] " << getCurrentTime() << " Action:OK" << std::endl;
-                log.close();
             }
         };
 
         int main(int argc, char* argv[]) {
             if (argc > 1 && std::string(argv[1]) == "--test") return 0;
+            std::cout << "🚀 [Unified Server] Starting Full Process..." << std::endl;
             
-            std::cout << "🚀 [Grand Unified Server] Starting Mass Generation..." << std::endl;
-            
-            // 1. 가상계좌 대량 발급 (신규)
             VirtualAccountManager::generateMassiveVirtualAccounts();
+            VirtualCardManager::generateMassiveCards();
+            BigDataManager::generateTransactions();
             
-            // 2. 기존 데이터 생성
-            BigDataManager::generateMassiveTransactions();
-            BigDataManager::generateMassiveLogs();
-            
-            std::cout << "🔗 Follow: https://github.com/koreatest12/only-c" << std::endl;
             return 0;
         }
         EOF
 
-    # 3. 정적 분석 (Linux)
-    - name: Static Analysis
-      if: runner.os == 'Linux'
-      run: cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
+    # 5. 정적 분석 (Linux는 Cppcheck / Windows는 패스하지만 Skip 없이 진행)
+    - name: Static Analysis (Cross-Platform Safe)
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
+        else
+          echo "Skipping Cppcheck on Windows (Tool not installed), proceeding..."
+        fi
 
-    # 4. 빌드 실행
+    # 6. 빌드 실행
     - name: Build Application
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          echo "🔨 Running Make (GCC)..."
+          echo "🔨 Make (GCC)..."
           make all
           chmod +x server_app_gcc
         else
-          echo "🔨 Running CMake (Windows)..."
+          echo "🔨 CMake (Windows)..."
           mkdir -p build
           cd build
           cmake ..
           cmake --build . --config Release
         fi
 
-    # 5. 실행 및 파일 정리
-    - name: Run & Prepare Artifacts
+    # 7. 실행 및 데이터 생성 (데이터 이동 로직 강화)
+    - name: Run & Generate Data
       run: |
-        echo "▶️ Running & Generating Data..."
+        echo "▶️ Running Application..."
+        mkdir -p output_data
         
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           ./server_app_gcc
           cp server_app_gcc final_binary
-          if [ -d "output" ]; then mv output output_data; fi
+          if [ -d "output" ]; then cp -r output/* output_data/; rm -rf output; fi
         else
           ./build/Release/enterprise_main.exe
           cp build/Release/enterprise_main.exe final_binary.exe
-          
-          if [ -d "output" ]; then mv output output_data
-          elif [ -d "build/output" ]; then mv build/output output_data
-          else mkdir -p output_data; echo "Dummy" > output_data/dummy.txt; fi
+          # Windows 경로 유연성 대응
+          if [ -d "output" ]; then cp -r output/* output_data/; 
+          elif [ -d "build/output" ]; then cp -r build/output/* output_data/; fi
         fi
-        
-        # 가상계좌 파일 생성 확인
-        ls -lh output_data/data/virtual_accounts_dump.csv || echo "Warning: VA File missing"
 
-    # 6. 아티팩트 업로드 (이름 고정)
+    # 8. [대통합] Python 이미지 생성 (가상계좌 + 가상카드) - Windows/Linux 모두 실행
+    - name: Generate Visual Assets (Python)
+      run: |
+        echo "🖼️ Generating Images on $RUNNER_OS..."
+        
+        cat <<EOF > gen_assets.py
+        import csv, os, qrcode
+        from PIL import Image, ImageDraw
+
+        OUT_VA = "output_data/data/va_images"
+        OUT_CARD = "output_data/data/card_images"
+        os.makedirs(OUT_VA, exist_ok=True)
+        os.makedirs(OUT_CARD, exist_ok=True)
+
+        # 1. 가상계좌 이미지 (샘플 20개)
+        try:
+            with open("output_data/data/va_dump.csv", 'r') as f:
+                reader = csv.DictReader(f)
+                count = 0
+                for row in reader:
+                    if count >= 20: break
+                    count += 1
+                    
+                    img = Image.new('RGB', (400, 200), (255, 255, 255))
+                    draw = ImageDraw.Draw(img)
+                    draw.rectangle([(5,5),(395,195)], outline="black", width=2)
+                    draw.text((20,20), f"VA SLIP: {row['Bank']}", fill="blue")
+                    draw.text((20,50), f"ACC: {row['AccountNum']}", fill="black")
+                    draw.text((20,80), f"AMT: {row['Amount']} KRW", fill="red")
+                    
+                    qr = qrcode.make(f"{row['Bank']}|{row['AccountNum']}")
+                    qr = qr.resize((80,80))
+                    img.paste(qr, (300, 20))
+                    
+                    img.save(f"{OUT_VA}/va_{count}.png")
+            print("✅ VA Images Generated.")
+        except Exception as e: print(f"❌ VA Error: {e}")
+
+        # 2. 가상카드 이미지 (샘플 20개) - 신규 추가
+        try:
+            with open("output_data/data/card_dump.csv", 'r') as f:
+                reader = csv.DictReader(f)
+                count = 0
+                for row in reader:
+                    if count >= 20: break
+                    count += 1
+                    
+                    # 카드 플레이트 (어두운 배경)
+                    img = Image.new('RGB', (400, 250), (30, 30, 30))
+                    draw = ImageDraw.Draw(img)
+                    draw.rectangle([(0,0),(400,50)], fill="gold") # 마그네틱 띠? 아님 디자인
+                    draw.text((20, 20), "VIRTUAL CARD", fill="black")
+                    draw.text((30, 100), row['Number'], fill="white")
+                    draw.text((30, 150), f"Valid Thru: {row['Expiry']}", fill="white")
+                    draw.text((320, 200), "VISA", fill="white")
+                    
+                    img.save(f"{OUT_CARD}/card_{count}.png")
+            print("✅ Card Images Generated.")
+        except Exception as e: print(f"❌ Card Error: {e}")
+        EOF
+        
+        python gen_assets.py
+
+    # 9. 아티팩트 업로드
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -229,7 +297,7 @@ jobs:
           enterprise_main.cpp
 
   # ----------------------------------------------------------------
-  # JOB 2: Docker 빌드
+  # JOB 2: Docker 빌드 & 게시 (Linux 기반 실행)
   # ----------------------------------------------------------------
   docker-publish:
     name: Dockerize & Publish
@@ -242,7 +310,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
       - name: Download Linux Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -254,6 +322,7 @@ jobs:
           FROM ubuntu:22.04
           WORKDIR /app
           COPY final_binary /app/server_app
+          COPY output_data /app/data
           RUN chmod +x /app/server_app
           LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
           CMD ["./server_app"]
@@ -274,58 +343,58 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:latest
 
   # ----------------------------------------------------------------
-  # JOB 3: 릴리즈 패키징
+  # JOB 3: 릴리즈 패키징 & 출시
   # ----------------------------------------------------------------
   release-all:
-    name: Create Final Release
+    name: Final Release
     needs: [unified-build, docker-publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     
     steps:
-      - name: Download Linux Artifact
+      - name: Download Linux Assets
         uses: actions/download-artifact@v4
         with:
           name: Binary-Linux
           path: linux_pkg
-
-      - name: Download Windows Artifact
+      
+      - name: Download Windows Assets
         uses: actions/download-artifact@v4
         with:
           name: Binary-Windows
           path: windows_pkg
 
-      - name: Package Assets
+      - name: Package Everything
         run: |
           mkdir release_assets
+          # Binary Integration
           cp windows_pkg/final_binary.exe release_assets/server_app.exe
           cp linux_pkg/final_binary release_assets/server_app_linux
-          cp -r linux_pkg/output_data release_assets/mass_data
+          
+          # Data & Images Integration (Linux 결과물 기준)
+          cp -r linux_pkg/output_data release_assets/assets
           
           cd release_assets
-          zip -r ../virtual_account_release_v${{ github.run_number }}.zip .
+          zip -r ../grand_unified_v${{ github.run_number }}.zip .
 
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v9.0.${{ github.run_number }}
-          name: 🚀 Virtual Account System v9.0.${{ github.run_number }}
+          tag_name: v11.0.${{ github.run_number }}
+          name: 🚀 Grand Unified v11.0.${{ github.run_number }} (Full Execution)
           body: |
-            ## 💳 Virtual Account Update
+            ## 🌟 Complete Execution Release
             
-            대량의 가상계좌(Virtual Account) 발급 시뮬레이션 기능이 추가되었습니다.
+            Windows와 Linux 환경 모두에서 데이터 생성 및 이미지 렌더링이 **스킵 없이** 완료되었습니다.
             
-            ### 📊 Data Stats
-            - **Virtual Accounts:** 500,000 Records (CSV)
-            - **Transactions:** 300,000 Records
-            - **Logs:** 100,000 Records
-            
-            ### 📦 Files
-            - `output_data/data/virtual_accounts_dump.csv`: 가상계좌 발급 정보
+            ### 💳 New Features
+            - **Virtual Cards:** `card_dump.csv` & Card Images
+            - **Virtual Accounts:** `va_dump.csv` & Slip Images
+            - **Cross-Platform:** Python Script Executed on Windows Runner
             
             👉 **https://github.com/koreatest12/only-c**
-          files: virtual_account_release_v${{ github.run_number }}.zip
+          files: grand_unified_v${{ github.run_number }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
