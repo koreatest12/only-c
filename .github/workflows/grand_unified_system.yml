@@ -1,4 +1,4 @@
-name: 🚀 TOTAL FORCE EXECUTION SYSTEM
+name: 🚀 ULTIMATE CROSS-PLATFORM BUILD (No Skip)
 
 on:
   push:
@@ -7,15 +7,15 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-# [중요] 윈도우/리눅스/맥 모든 환경에서 한글 및 이모지 깨짐 방지
+# [글로벌 설정] 인코딩 강제 설정 (Windows 이모지 에러 방지)
 env:
   PYTHONIOENCODING: utf-8
   PYTHONUTF8: 1
   LC_ALL: en_US.UTF-8
 
 jobs:
-  full-force-build:
-    name: 🛡️ Execute All on ${{ matrix.os }}
+  all-process-execution:
+    name: 🔥 Run All on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -23,81 +23,75 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-full-pack
+            artifact_name: linux-artifacts
           - os: windows-latest
-            artifact_name: windows-full-pack
+            artifact_name: windows-artifacts
           - os: macos-latest
-            artifact_name: macos-full-pack
+            artifact_name: macos-artifacts
 
     steps:
-    # ----------------------------------------------------------------
-    # 1. 체크아웃
-    # ----------------------------------------------------------------
-    - name: 📥 Checkout Repository
+    # 1. 저장소 체크아웃
+    - name: 📥 [Step 1] Checkout Repository
       uses: actions/checkout@v4
 
-    # ----------------------------------------------------------------
-    # 2. 시스템 사양 및 환경 정보 출력 (전문가급 로깅 추가)
-    # ----------------------------------------------------------------
-    - name: 🖥️ Display System Information
+    # 2. 시스템 환경 정밀 진단 (대량 정보 출력)
+    - name: 🖥️ [Step 2] System Diagnostic
       shell: bash
       run: |
         echo "=========================================="
-        echo "🚀 SYSTEM INFORMATION REPORT"
+        echo "🔍 HOST SYSTEM INFORMATION"
         echo "=========================================="
-        echo "OS: ${{ matrix.os }}"
-        python --version
-        cmake --version
+        echo "OS Details: $(uname -a)" 2>/dev/null || echo "Windows Detected"
+        echo "Python Version check..."
+        python --version || echo "Python not found yet"
+        echo "CMake Version check..."
+        cmake --version || echo "CMake not found yet"
         echo "=========================================="
 
-    # ----------------------------------------------------------------
-    # 3. Python 3.10 설정
-    # ----------------------------------------------------------------
-    - name: 🐍 Setup Python 3.10
+    # 3. Python 3.10 설치
+    - name: 🐍 [Step 3] Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+        cache: 'pip'
 
-    # ----------------------------------------------------------------
-    # 4. [강제 실행] 스크립트 파일 무조건 재생성 (NO SKIP)
-    #    UTF-8 인코딩 문제를 해결한 Python 코드를 강제로 씁니다.
-    # ----------------------------------------------------------------
-    - name: 📝 FORCE GENERATE:upgrade_manager.py
+    # 4. [핵심] 모든 필수 파일 강제 재생성 (조건문 없음, 무조건 덮어쓰기)
+    - name: 📝 [Step 4] Force Generate Scripts (UTF-8 Safe)
       shell: bash
       run: |
-        echo "🔥 Force creating requirements.txt..."
+        echo "🔥 Force regenerating requirements.txt..."
         echo "colorama" > requirements.txt
 
-        echo "🔥 Force creating upgrade_manager.py (UTF-8 Safe)..."
-        # 아래 Python 코드는 Windows 환경에서도 안전하게 파일을 생성합니다.
+        echo "🔥 Force regenerating upgrade_manager.py..."
+        # Windows 인코딩 문제를 완벽 해결한 Python 스크립트 작성
         cat <<EOF > upgrade_manager.py
         import os
         import sys
         import platform
 
-        # 표준 출력 인코딩 강제 설정
+        # 1. 표준 출력(Console) UTF-8 강제 설정
         sys.stdout.reconfigure(encoding='utf-8')
 
         def create_cpp_files():
-            print(f"[MANAGER] 🚀 System: {platform.system()} detected.")
-            print("[MANAGER] 🚀 Generating C++20 Source Code...")
+            print(f"[MANAGER] 🚀 Current OS: {platform.system()}")
+            print("[MANAGER] 🔄 Generating C++20 Source Files...")
             
-            # C++ Main Source
+            # C++ Source Code (이모지 포함)
             main_code = """
         #include <iostream>
         #include <vector>
         #include <string>
 
         int main() {
-            // Windows Console Encoding Fix
+            // Windows Console Code Page Fix
             #ifdef _WIN32
             system("chcp 65001 > nul");
             #endif
 
             std::cout << "========================================" << std::endl;
-            std::cout << "🚀 FINAL BUILD SUCCESSFUL!" << std::endl;
+            std::cout << "🚀 PROFESSIONAL BUILD SUCCESSFUL" << std::endl;
             std::cout << "========================================" << std::endl;
-            std::cout << "Target: Multi-Platform (Win/Lin/Mac)" << std::endl;
+            std::cout << "Target OS: All Platforms (Win/Lin/Mac)" << std::endl;
             return 0;
         }
             """
@@ -110,7 +104,7 @@ jobs:
         add_executable(app main.cpp)
             """
 
-            # [FIX] encoding='utf-8'을 사용하여 Windows CP1252 에러 원천 차단
+            # 2. 파일 쓰기 시 UTF-8 인코딩 명시 (Windows 에러 해결 핵심)
             try:
                 print("[MANAGER] Writing main.cpp...")
                 with open("main.cpp", "w", encoding="utf-8") as f:
@@ -120,73 +114,71 @@ jobs:
                 with open("CMakeLists.txt", "w", encoding="utf-8") as f:
                     f.write(cmake_code)
                     
-                print("[MANAGER] ✅ All files generated successfully without errors.")
+                print("[MANAGER] ✅ Files generated successfully.")
             except Exception as e:
-                print(f"[ERROR] Failed to write files: {e}")
+                print(f"[ERROR] File write failed: {e}")
                 exit(1)
 
         if __name__ == "__main__":
             create_cpp_files()
         EOF
 
-    # ----------------------------------------------------------------
-    # 5. 의존성 설치 및 생성기 실행 (조건 없음)
-    # ----------------------------------------------------------------
-    - name: 📦 Install Dependencies & Run Generator
+    # 5. 생성기 실행 (소스 코드 생성)
+    - name: 🚀 [Step 5] Install Deps & Run Generator
       shell: bash
       run: |
         pip install -r requirements.txt
         python upgrade_manager.py
 
-    # ----------------------------------------------------------------
-    # 6. 생성된 파일 확인 (디버깅)
-    # ----------------------------------------------------------------
-    - name: 🔍 Verify Generated Files
+    # 6. 생성된 소스 확인 (검증)
+    - name: 🔍 [Step 6] Verify Source Code
       shell: bash
-      run: ls -R
-
-    # ----------------------------------------------------------------
-    # 7. 빌드 환경 구성 (OS별 분기이나 스킵은 아님, 필수 설치)
-    # ----------------------------------------------------------------
-    - name: 🛠️ Setup Linux Build Tools
-      if: matrix.os == 'ubuntu-latest'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
+        echo "📂 Current Directory Structure:"
+        ls -R
+        echo "📄 Checking main.cpp content head:"
+        head -n 5 main.cpp
 
-    - name: 🛠️ Setup Windows MSVC
-      if: matrix.os == 'windows-latest'
+    # 7. 빌드 도구 준비 (OS별 설정)
+    - name: 🛠️ [Step 7] Setup Build Tools
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo apt-get update && sudo apt-get install -y build-essential cmake
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          echo "Windows uses pre-installed MSVC/CMake."
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          echo "macOS uses pre-installed Clang/CMake."
+        fi
+
+    - name: 🛠️ Setup MSVC (Windows Specific)
+      if: runner.os == 'Windows'
       uses: microsoft/setup-msbuild@v1.1
 
-    # ----------------------------------------------------------------
-    # 8. CMake 빌드 실행 (강력 모드)
-    # ----------------------------------------------------------------
-    - name: 🏗️ CMake Configure
+    # 8. CMake 설정 (Configure)
+    - name: 🏗️ [Step 8] CMake Configure
       shell: bash
       run: cmake -S . -B build
 
-    - name: 🔨 Build Project (Release)
+    # 9. 빌드 실행 (Build)
+    - name: 🔨 [Step 9] Build Project (Release)
       shell: bash
       run: cmake --build build --config Release
 
-    # ----------------------------------------------------------------
-    # 9. 빌드 결과 실행 테스트 (OS별 경로 처리)
-    # ----------------------------------------------------------------
-    - name: 🧪 Run Application (Linux/Mac)
-      if: runner.os != 'Windows'
+    # 10. 빌드된 프로그램 실행 (Run)
+    - name: 🧪 [Step 10] Execute Application
+      shell: bash
       run: |
-        chmod +x ./build/app
-        ./build/app
+        echo "🚀 Executing the built binary..."
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./build/Release/app.exe
+        else
+          chmod +x ./build/app
+          ./build/app
+        fi
 
-    - name: 🧪 Run Application (Windows)
-      if: runner.os == 'Windows'
-      shell: cmd
-      run: build\Release\app.exe
-
-    # ----------------------------------------------------------------
-    # 10. 모든 결과물 압축 업로드 (대량 추가 반영)
-    # ----------------------------------------------------------------
-    - name: 📤 Upload ALL Artifacts
+    # 11. 모든 결과물 아티팩트 업로드
+    - name: 📤 [Step 11] Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
@@ -195,5 +187,4 @@ jobs:
           *.cpp
           *.txt
           *.py
-          *.md
         retention-days: 1
