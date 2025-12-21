@@ -1,4 +1,4 @@
-name: 2025 Managed Upgrade System
+name: 2025 Managed Upgrade System (Script Fixed)
 
 on:
   push:
@@ -11,7 +11,8 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  PYTHONIOENCODING: "utf-8" # Windows 콘솔 인코딩 해결
+  # Windows 콘솔 인코딩 에러 방지
+  PYTHONIOENCODING: "utf-8"
 
 permissions:
   contents: write
@@ -19,9 +20,6 @@ permissions:
   actions: write
 
 jobs:
-  # ----------------------------------------------------------------
-  # JOB 1: 관리 스크립트 기반 빌드 및 생성
-  # ----------------------------------------------------------------
   managed-build:
     name: Managed Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -45,22 +43,19 @@ jobs:
           echo "ARTIFACT_NAME=Binary-Windows" >> $GITHUB_ENV
         fi
 
-    # 1. 환경 구성 (Windows Cppcheck 포함)
+    # 1. 환경 구성
     - name: Setup System Environment
       run: |
         echo "🛠️ Initializing Environment..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sudo apt-get update
           sudo apt-get install -y build-essential cmake cppcheck tree g++
-          # 디스크 정리
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
         else
           echo "🪟 Windows: Installing Cppcheck..."
           choco install cppcheck -y --no-progress
         fi
 
-    # 2. Python 설정 (관리 스크립트 실행용)
+    # 2. Python 설정
     - name: Setup Python 3.12
       uses: actions/setup-python@v5
       with:
@@ -73,26 +68,31 @@ jobs:
         echo "✅ Python Ready."
 
     # ----------------------------------------------------------------
-    # [핵심] Upgrade Manager 스크립트 생성
-    # 이 스크립트가 C++, CMake, Makefile, ImageGen 등 모든 것을 관리합니다.
+    # [핵심 수정] Upgrade Manager 스크립트 생성
+    # <<'EOF'를 사용하여 쉘 변수 확장($)을 방지함 -> 에러 해결
     # ----------------------------------------------------------------
     - name: Generate Upgrade Manager Script
       run: |
-        cat <<EOF > upgrade_manager.py
+        cat <<'EOF' > upgrade_manager.py
         import os
         import sys
         import platform
-
-        # [설정] 버전 및 컴파일 옵션
-        SYSTEM_VERSION = "2025.3.0"
+        
+        # 버전 및 컴파일 설정
+        SYSTEM_VERSION = "2025.3.2"
+        # 쉘 변수가 아닌 Python 변수로 직접 정의
         GCC_FLAGS = "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
 
         def log(msg):
-            print(f"[\u2699\ufe0f MANAGER] {msg}")
+            # 이모지 출력 안전하게 처리
+            try:
+                print(f"[⚙️ MANAGER] {msg}")
+            except:
+                print(f"[MANAGER] {msg}")
 
         def generate_cpp_source():
             log(f"Generating C++20 Source Code (v{SYSTEM_VERSION})...")
-            content = f"""
+            content = """
         #include <iostream>
         #include <fstream>
         #include <filesystem>
@@ -105,72 +105,79 @@ jobs:
         
         namespace fs = std::filesystem;
         
-        void optimizeIO() {{
+        void optimizeIO() {
             std::ios_base::sync_with_stdio(false);
             std::cin.tie(NULL);
-        }}
+        }
 
-        class VirtualAccountManager {{
+        class VirtualAccountManager {
         public:
-            static void generate() {{
+            static void generate() {
                 const int COUNT = 100000;
                 fs::create_directories("output/data");
                 std::ofstream file("output/data/va_dump_2025.csv");
                 file << "Bank,Account,Holder,Amount,Expiry" << std::endl;
-                for(int i=0; i<COUNT; ++i) {{
+                for(int i=0; i<COUNT; ++i) {
                     file << (i%2==0?"KB-2025":"SHINHAN-2025") << ",562-" 
                          << std::setw(6) << std::setfill('0') << i 
                          << ",User_" << i << "," << (i*1000) 
                          << ",2030-12-31" << std::endl;
-                }}
+                }
                 file.close();
-            }}
-        }};
+            }
+        };
 
-        class VirtualCardManager {{
+        class VirtualCardManager {
         public:
-            static void generate() {{
+            static void generate() {
                 const int COUNT = 100000;
                 fs::create_directories("output/data");
                 std::ofstream file("output/data/card_dump_2025.csv");
                 file << "CardNum,CVC,Expiry,Type" << std::endl;
-                for(int i=0; i<COUNT; ++i) {{
+                for(int i=0; i<COUNT; ++i) {
                     file << "4222-2025-" << std::setw(4) << std::setfill('0') << i << "-XXXX," 
                          << (i%999) << ",12/30,VISA_CORP" << std::endl;
-                }}
+                }
                 file.close();
-            }}
-        }};
+            }
+        };
 
-        int main(int argc, char* argv[]) {{
+        int main(int argc, char* argv[]) {
             optimizeIO();
             if (argc > 1 && std::string(argv[1]) == "--test") return 0;
             std::cout << "🚀 Starting Managed System v{SYSTEM_VERSION}..." << std::endl;
             VirtualAccountManager::generate();
             VirtualCardManager::generate();
             return 0;
-        }}
+        }
         """
+            # Python f-string 포맷팅 적용 (.format 사용)
+            final_content = content.replace("{SYSTEM_VERSION}", SYSTEM_VERSION)
+            
             with open("enterprise_main.cpp", "w", encoding="utf-8") as f:
-                f.write(content.strip())
+                f.write(final_content.strip())
 
         def generate_build_files():
             log("Generating CMakeLists.txt & Makefile...")
             
-            # Makefile
-            makefile = f"""
+            # [핵심 수정] Makefile 생성 시 변수($)가 쉘에 의해 해석되지 않도록 처리됨
+            # Python 내에서 문자열로 정확히 처리
+            makefile_content = f"""
         CXX = g++
         CXXFLAGS = {GCC_FLAGS}
         TARGET = server_app_gcc
         SRCS = enterprise_main.cpp
+
         all: $(TARGET)
+
         $(TARGET): $(SRCS)
         \t$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
+
         clean:
         \trm -f $(TARGET)
         """
             with open("Makefile", "w", encoding="utf-8") as f:
-                f.write(makefile.strip())
+                f.write(makefile_content.strip())
 
             # CMakeLists.txt
             cmake = """
@@ -189,37 +196,39 @@ jobs:
             with open("CMakeLists.txt", "w", encoding="utf-8") as f:
                 f.write(cmake.strip())
 
-        def run_upgrade():
-            log(f"Starting System Upgrade on {platform.system()}...")
+        if __name__ == "__main__":
+            # Windows 출력 인코딩 강제 설정 (안전장치)
+            if sys.platform == "win32":
+                try: sys.stdout.reconfigure(encoding='utf-8')
+                except: pass
+            
             generate_cpp_source()
             generate_build_files()
             log("✅ Upgrade Complete. Files are ready for build.")
-
-        if __name__ == "__main__":
-            # Windows 출력 인코딩 설정
-            if sys.platform == "win32":
-                sys.stdout.reconfigure(encoding='utf-8')
-            run_upgrade()
         EOF
 
-    # 3. [실행] 업그레이드 매니저 실행 (소스코드 생성)
+    # 4. 업그레이드 매니저 실행
     - name: Execute Upgrade Manager
       run: |
         echo "🔄 Running Upgrade Manager..."
         python upgrade_manager.py
+        # 생성 내용 확인 (디버깅)
+        echo "--- Makefile Content ---"
+        cat Makefile
 
-    # 4. 정적 분석 (생성된 코드 검증)
+    # 5. 정적 분석
     - name: Static Analysis
       run: |
-        echo "🔍 Verifying Generated Code..."
         cppcheck --enable=all --inconclusive --force --std=c++20 enterprise_main.cpp || true
 
-    # 5. 빌드 수행
+    # 6. 빌드 수행 (Fallback 로직 포함)
     - name: Build System
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          echo "🔨 Building with Make (Parallel)..."
-          make -j$(nproc) all
+          echo "🔨 Building with Make..."
+          make clean
+          # Makefile 실행 실패 시 직접 컴파일 명령 실행 (2중 안전장치)
+          make -j$(nproc) all || g++ -O3 -Wall -Wextra -std=c++20 -pthread -march=native enterprise_main.cpp -o server_app_gcc
           chmod +x server_app_gcc
         else
           echo "🔨 Building with CMake (Windows)..."
@@ -229,7 +238,7 @@ jobs:
           cmake --build . --config Release
         fi
 
-    # 6. 실행 및 데이터 생성
+    # 7. 실행 및 데이터 생성
     - name: Run Application
       run: |
         mkdir -p output_data
@@ -246,15 +255,14 @@ jobs:
           elif [ -d "build/output" ]; then cp -r build/output/* output_data/; fi
         fi
 
-    # 7. 이미지 생성 스크립트 (Python Asset Generator)
+    # 8. 이미지 생성 (Python Asset Generator)
     - name: Generate Visual Assets
       run: |
-        cat <<EOF > gen_assets.py
+        cat <<'EOF' > gen_assets.py
         import csv, os, qrcode, sys
         from PIL import Image, ImageDraw
 
-        try:
-            sys.stdout.reconfigure(encoding='utf-8')
+        try: sys.stdout.reconfigure(encoding='utf-8')
         except: pass
 
         OUT_VA = "output_data/data/va_images"
@@ -264,7 +272,6 @@ jobs:
 
         print("🖼️ Asset Generator Started...")
 
-        # VA Images
         try:
             with open("output_data/data/va_dump_2025.csv", 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -281,9 +288,9 @@ jobs:
                     qr = qrcode.make(f"{row['Bank']}|{row['Account']}")
                     img.paste(qr.resize((90,90)), (290, 50))
                     img.save(f"{OUT_VA}/va_{count}.png")
+            print("✅ VA Images OK.")
         except Exception as e: print(f"❌ VA Error: {e}")
 
-        # Card Images
         try:
             with open("output_data/data/card_dump_2025.csv", 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -296,12 +303,13 @@ jobs:
                     draw.text((30, 110), row['CardNum'], fill="white")
                     draw.text((320, 210), "VISA", fill="white")
                     img.save(f"{OUT_CARD}/card_{count}.png")
+            print("✅ Card Images OK.")
         except Exception as e: print(f"❌ Card Error: {e}")
         EOF
         
         PYTHONIOENCODING=utf-8 python gen_assets.py
 
-    # 8. 체크섬 및 업로드
+    # 9. 체크섬 및 업로드
     - name: Finalize & Upload
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
@@ -321,7 +329,7 @@ jobs:
           enterprise_main.cpp
 
   # ----------------------------------------------------------------
-  # JOB 2: Docker 빌드 (2025 Ubuntu 24.04)
+  # JOB 2: Docker 빌드
   # ----------------------------------------------------------------
   docker-publish:
     name: Dockerize (Ubuntu 24.04)
@@ -346,7 +354,7 @@ jobs:
           COPY output_data /app/data
           RUN chmod +x /app/server_app
           LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          LABEL org.opencontainers.image.description="Managed Enterprise Server 2025"
+          LABEL org.opencontainers.image.description="Managed Server 2025"
           CMD ["./server_app"]
           EOF
 
@@ -390,8 +398,6 @@ jobs:
           cp linux_pkg/checksum.sha256 release_assets/checksum_linux.sha256
           cp windows_pkg/checksum.sha256 release_assets/checksum_windows.sha256
           cp -r linux_pkg/output_data release_assets/assets_2025
-          
-          # 관리 스크립트도 포함 (사용자가 로컬에서 실행 가능하도록)
           cp linux_pkg/upgrade_manager.py release_assets/
           
           cd release_assets
@@ -400,23 +406,18 @@ jobs:
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2025.3.${{ github.run_number }}
-          name: 🚀 Managed System v${{ github.run_number }} (Script Based)
+          tag_name: v2025.3.2.${{ github.run_number }}
+          name: 🚀 Managed System v${{ github.run_number }} (Script Fixed)
           body: |
-            ## 🛠️ Script Managed Upgrade System
+            ## 🛠️ Script Syntax Fixed
             
-            이 릴리즈는 `upgrade_manager.py` 스크립트에 의해 자동으로 생성되고 빌드되었습니다.
+            `cat <<EOF` 변수 확장 문제로 인한 `command not found` 에러가 수정되었습니다.
+            이제 `upgrade_manager.py`가 정상적으로 `Makefile`과 소스코드를 생성합니다.
             
-            ### 📜 How to use Upgrade Script
-            로컬 환경에서 최신 소스를 생성하려면 포함된 파이썬 스크립트를 실행하세요:
-            \`\`\`bash
-            python upgrade_manager.py
-            \`\`\`
-            
-            ### 📦 Components
-            - **Core:** C++20 Enterprise Server
-            - **Manager:** `upgrade_manager.py` (Included)
-            - **Assets:** 2025 Design Cards & Accounts
+            ### 📜 Changes
+            - **Script:** Used `cat <<'EOF'` to prevent shell variable expansion.
+            - **Makefile:** Correctly generated via Python string injection.
+            - **Build:** Fallback compilation logic added.
             
             👉 **https://github.com/koreatest12/only-c**
           files: managed_system_v${{ github.run_number }}.zip
