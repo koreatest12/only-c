@@ -5,16 +5,15 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 수동 실행 버튼 추가
+  workflow_dispatch:
 
 permissions:
-  contents: write  # 릴리즈 생성을 위해 쓰기 권한 필수
-  packages: write
+  contents: write  # 릴리즈 및 태그 생성을 위한 권한
+  packages: write  # 패키지 업로드 권한
 
 jobs:
-  # 스크린샷의 "서버 운영" 이름 반영
-  server-operation:
-    name: 서버 운영 
+  server-operation-db-patch:
+    name: 서버 운영 및 DB 패치
     runs-on: ubuntu-latest
 
     steps:
@@ -27,10 +26,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential make g++ tree zip
 
-    # 2. C++ 소스코드 자동 생성 (홍보 링크 기능 포함)
-    - name: Generate Source with Follow Link
+    # 2. C++ 소스코드 생성 (DB 패치 모듈 추가됨)
+    - name: Generate Source with DB Patch
       run: |
-        echo "📝 Generating C++ Source..."
+        echo "📝 Generating C++ Source with DB Patch Logic..."
         
         cat <<EOF > server_main.cpp
         #include <iostream>
@@ -50,22 +49,52 @@ jobs:
             return std::string(buf);
         }
 
+        // [신규 기능] DB 패치 매니저
+        class DBPatchManager {
+        public:
+            void runPatch(std::string version) {
+                std::cout << "\n🗄️ [Database] Starting Database Patch (Target: " << version << ")..." << std::endl;
+                
+                fs::create_directories("output/db_backup");
+                fs::create_directories("output/db_logs");
+
+                // 1. DB 백업 시뮬레이션
+                std::cout << "💾 [DB-Step 1] Creating snapshot backup..." << std::endl;
+                std::ofstream backup("output/db_backup/full_backup.sql");
+                backup << "-- Full Database Backup Timestamp: " << getCurrentTime() << std::endl;
+                backup << "INSERT INTO users VALUES (1, 'admin');" << std::endl;
+                backup.close();
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+                // 2. 스키마 변경(패치) 시뮬레이션
+                std::cout << "⚡ [DB-Step 2] Applying Schema Migrations..." << std::endl;
+                std::ofstream migration("output/db_logs/migration_v2.log");
+                migration << "[INFO] " << getCurrentTime() << " ALTER TABLE transactions ADD COLUMN status VARCHAR(20);" << std::endl;
+                migration << "[INFO] " << getCurrentTime() << " CREATE INDEX idx_user_id ON users(id);" << std::endl;
+                migration.close();
+
+                std::cout << "✅ [DB-Success] Database patched successfully to " << version << "!" << std::endl;
+            }
+        };
+
         int main() {
-            std::cout << "🚀 [Server] Initializing operation..." << std::endl;
+            std::cout << "🚀 [Server] Initializing System..." << std::endl;
             
-            // 데이터 생성
+            // 1. 일반 데이터 생성
             fs::create_directories("output/data");
             std::ofstream file("output/data/transaction_log.csv");
             file << "ID,Status,Time" << std::endl;
-            for(int i=0; i<500; ++i) file << i << ",OK," << getCurrentTime() << std::endl;
+            for(int i=0; i<100; ++i) file << i << ",Confirmed," << getCurrentTime() << std::endl;
             file.close();
 
-            // 서버 업그레이드 시뮬레이션
-            std::cout << "🔄 [System] Performing automated upgrade..." << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            std::cout << "✅ [Success] Upgrade Complete." << std::endl;
+            // 2. DB 패치 수행 (신규 기능)
+            DBPatchManager db;
+            db.runPatch("v2.5.0_Hotfix");
 
-            // [요청 사항] 외부 링크 팔로우 홍보 메시지 출력
+            // 3. 서버 업그레이드 완료 메시지
+            std::cout << "\n🔄 [System] Server logic execution completed." << std::endl;
+
+            // 4. 홍보 링크 출력
             std::cout << "\n=============================================" << std::endl;
             std::cout << "📢 [Notice] Official Repository & Community" << std::endl;
             std::cout << "🔗 Follow us at: https://github.com/koreatest12/only-c" << std::endl;
@@ -87,46 +116,54 @@ jobs:
         make all
         chmod +x server_app
 
-    # 4. 서버 실행 (로그에 링크 출력됨)
-    - name: Run Server
+    # 4. 서버 실행 (DB 패치 로그 출력)
+    - name: Run Server & DB Patch
       run: ./server_app
 
-    # 5. [스크린샷 요청] 아티팩트 업로드 (이름: 서버 업그레이드 결과)
+    # 5. [결과물] 아티팩트 업로드 (DB 로그 포함)
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: 서버 업그레이드 결과
+        name: 서버_및_DB패치_결과
         path: |
           output/
           server_app
           server_main.cpp
 
-    # 6. [추가 요청] 릴리즈 패키징 (Zip 압축)
-    - name: Package Release
+    # 6. [패키지] 배포용 패키지(Zip) 생성
+    - name: Create Deploy Package
       run: |
-        mkdir -p release_package
-        cp server_app release_package/
-        cp server_main.cpp release_package/
-        zip -r server_package.zip release_package/
+        echo "📦 Packaging binaries and database scripts..."
+        mkdir -p deploy_package
+        cp server_app deploy_package/
+        cp server_main.cpp deploy_package/
+        cp -r output/db_logs deploy_package/
+        
+        # 날짜 기반의 유니크한 패키지명 생성
+        zip -r release_package.zip deploy_package/
 
-    # 7. [추가 요청] GitHub Release 자동 출시 및 링크 홍보
-    - name: Create GitHub Release
+    # 7. [게시] GitHub Release 및 패키지 출시
+    - name: Publish Release & Package
       uses: softprops/action-gh-release@v1
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       with:
-        tag_name: v1.0.${{ github.run_number }} # 실행할 때마다 버전 번호 증가 (예: v1.0.1, v1.0.2)
-        name: 🚀 정기 서버 업데이트 v1.0.${{ github.run_number }}
+        tag_name: v2.5.${{ github.run_number }}
+        name: 🚀 서버 패키지 및 DB 패치 v2.5.${{ github.run_number }}
         body: |
-          ## 📦 서버 업그레이드 패키지
-          자동화된 빌드 시스템에 의해 생성된 릴리즈입니다.
+          ## 📦 정기 배포 (Server & Database Patch)
           
-          ### 📢 커뮤니티 및 팔로우
-          최신 소식은 아래 링크를 확인해주세요:
+          이 릴리즈는 자동화 시스템에 의해 **패키징 및 게시(Publish)** 되었습니다.
+          
+          ### 🛠️ 변경 사항 (Changelog)
+          - **DB Patch Applied:** `v2.5.0_Hotfix` (Schema Migration included)
+          - **Server Binary Updated**
+          
+          ### 📢 커뮤니티
+          개발 관련 소식은 아래 링크를 참고하세요:
           👉 **https://github.com/koreatest12/only-c**
           
-          ### 📋 포함된 파일
-          - Server Binary (server_app)
-          - Source Code (server_main.cpp)
-        files: server_package.zip
+          ---
+          *Generated by GitHub Actions Workflow*
+        files: release_package.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
