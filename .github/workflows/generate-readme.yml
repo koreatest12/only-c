@@ -1,17 +1,17 @@
-name: Generate Professional README
+name: Generate Professional README & File Report
 
 on:
   push:
-    branches: [ "main", "master" ] # main 또는 master 브랜치에 푸시될 때 실행
+    branches: [ "main", "master" ]
   schedule:
-    - cron: '0 0 * * *' # 매일 자정(UTC 기준)에 자동 실행 (선택 사항)
-  workflow_dispatch: # 수동 실행 버튼 제공
+    - cron: '0 0 * * *' # 매일 자정 업데이트
+  workflow_dispatch:
 
 permissions:
-  contents: write # 리포지토리 파일 쓰기 권한 필요
+  contents: write
 
 jobs:
-  generate-readme:
+  update-readme:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -22,33 +22,110 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Generate README content dynamically
+      - name: Analyze Repo and Generate README
         run: |
-          # Python 스크립트를 사용하여 전문적인 Markdown 콘텐츠 생성
-          # 이 스크립트는 현재 날짜를 동적으로 포함하고, 
-          # C++ 및 Docker 전문 블로그라는 정체성을 강조하는 내용을 담고 있습니다.
-          
+          # ---------------------------------------------------------
+          # Python 스크립트: 리포지토리 분석 및 README 생성
+          # ---------------------------------------------------------
           cat <<EOF > readme_generator.py
+          import os
           import datetime
+          import math
 
-          # 현재 날짜 가져오기 (동적 요소 예시)
+          # 1. 설정: 리포지토리 URL 및 제외할 폴더
+          REPO_URL = "https://github.com/koreatest12/only-c"
+          IGNORE_DIRS = {'.git', '.github', '__pycache__', 'build', 'output', 'release_pkg'}
+          IGNORE_FILES = {'readme_generator.py', '.gitignore', '.DS_Store'}
+
+          # 2. 유틸리티: 파일 크기 포맷팅 (Byte -> KB, MB)
+          def convert_size(size_bytes):
+              if size_bytes == 0:
+                  return "0 B"
+              size_name = ("B", "KB", "MB", "GB", "TB")
+              i = int(math.floor(math.log(size_bytes, 1024)))
+              p = math.pow(1024, i)
+              s = round(size_bytes / p, 2)
+              return f"{s} {size_name[i]}"
+
+          # 3. 유틸리티: 파일 확장자별 자동 설명 매핑
+          def get_description(filename):
+              name_lower = filename.lower()
+              if name_lower == 'dockerfile': return "🐳 Container Definition"
+              if name_lower == 'cmakelists.txt': return "🔨 CMake Build Config"
+              if name_lower == 'makefile': return "⚙️ Make Build Script"
+              if name_lower.endswith('.cpp'): return "⚡ C++ Source Code"
+              if name_lower.endswith('.h') or name_lower.endswith('.hpp'): return "📚 C++ Header File"
+              if name_lower.endswith('.py'): return "🐍 Python Script"
+              if name_lower.endswith('.yml') or name_lower.endswith('.yaml'): return "🤖 CI/CD Workflow"
+              if name_lower.endswith('.json'): return "🔧 Config/Data File"
+              if name_lower.endswith('.md'): return "📝 Documentation"
+              if name_lower.endswith('.csv'): return "📊 Data Set"
+              if name_lower.endswith('.exe'): return "🪟 Windows Binary"
+              if name_lower == 'license': return "⚖️ License File"
+              return "📄 File Resource"
+
+          # 4. 리포지토리 파일 구조 분석 (표 생성)
+          def generate_file_tree():
+              table_rows = []
+              total_size = 0
+              file_count = 0
+
+              # 현재 디렉토리 순회
+              for root, dirs, files in os.walk("."):
+                  # 제외할 디렉토리 필터링
+                  dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+                  
+                  for file in files:
+                      if file in IGNORE_FILES or file == "README.md":
+                          continue
+                          
+                      file_path = os.path.join(root, file)
+                      try:
+                          # 파일 정보 추출
+                          size = os.path.getsize(file_path)
+                          total_size += size
+                          file_count += 1
+                          
+                          # 상대 경로 (./src/main.cpp -> src/main.cpp)
+                          rel_path = os.path.relpath(file_path, ".")
+                          
+                          # 설명 생성
+                          desc = get_description(file)
+                          
+                          # GitHub 링크 생성
+                          link = f"[{rel_path}]({REPO_URL}/blob/main/{rel_path})"
+                          
+                          table_rows.append(f"| {link} | {desc} | {convert_size(size)} |")
+                      except Exception as e:
+                          print(f"Skipping {file}: {e}")
+
+              # 헤더 작성
+              md_table = "\n### 📂 Repository File Structure & Capacity Report\n\n"
+              md_table += f"**Total Files:** {file_count} | **Total Size:** {convert_size(total_size)}\n\n"
+              md_table += "| File / Directory 📁 | Description 📝 | Size 💾 |\n"
+              md_table += "| :--- | :--- | :---: |\n"
+              
+              # 행 추가 (이름순 정렬)
+              md_table += "\n".join(sorted(table_rows))
+              return md_table
+
+          # 5. 최종 Markdown 콘텐츠 조립
           current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+          file_report = generate_file_tree()
 
-          # README 마크다운 콘텐츠 정의
           markdown_content = f"""
           # 🚀 Welcome to My Tech Stack Journey
 
           ### Aspiring Systems Architect | Passionate about C++ & Docker Technology
 
           Welcome to my technical blog repository! 🌱
-
-          This space is dedicated to documenting my path towards becoming a world-class programmer, with a laser focus on high-performance systems and containerized infrastructure. Here I share insights, code snippets, and project updates reflecting my deep dive into the core technologies that power modern software.
+          
+          This repository is a live implementation of high-performance system architecture.
+          Documenting the journey of mastering **C++**, **Docker**, and **DevOps Automation**.
 
           ---
 
           ## 🛠️ Core Technical Focus
-
-          My engineering philosophy revolves around building robust, efficient, and scalable solutions.
 
           <div align="center">
             <img src="https://img.shields.io/badge/Modern%20C%2B%2B-17%2F20-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white" alt="C++" />
@@ -58,51 +135,47 @@ jobs:
 
           ---
 
-          ## 🎯 Blog Mission & Area of Expertise
-
-          As an aspiring programmer committed to continuous learning, this repository serves as a living portfolio exploring advanced topics:
+          ## 🎯 Expertise & Features
 
           ### 🐳 Docker & Containerization
-          Going beyond basic usage to master container internals.
-          - Efficient Dockerfile best practices & multi-stage builds.
-          - Container orchestration concepts and networking.
-          - Building reproducible Development Environments.
+          - **Auto-Publish:** Docker images pushed to GHCR automatically.
+          - **Optimization:** Multi-stage builds for minimal image size.
 
-          ### ⚡ Modern C++ & Systems Programming
-          Leveraging the power of C++ for performance-critical applications.
-          - Modern C++ features (C++17/20 and beyond).
-          - Memory management, concurrency, and optimization techniques.
-          - Low-level system interactions and design patterns.
+          ### ⚡ Modern C++ System
+          - **Massive Data Gen:** Creating 20MB+ data for stress testing.
+          - **Cross-Platform:** Builds on Windows & Linux simultaneously.
+          - **GCC Optimization:** Leveraging \`-O3\` for max performance.
+
+          ---
+
+          {file_report}
 
           ---
           <p align="center">
-            <em>Last Updated via GitHub Actions: {current_date}</em>
+            <em>Automatically Analyzed & Updated via GitHub Actions: {current_date}</em>
           </p>
           """
 
-          # README.md 파일 쓰기
+          # README.md 저장
           with open("README.md", "w", encoding="utf-8") as f:
               f.write(markdown_content)
           
-          print("✅ README.md has been successfully generated.")
+          print("✅ Professional README with File Report generated.")
           EOF
-          
-          # 생성한 파이썬 스크립트 실행
+
+          # 스크립트 실행
           python readme_generator.py
 
       - name: Commit and Push changes
         run: |
-          # Git 설정
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 변경 사항 확인
           if git diff --quiet README.md; then
-            echo "No changes to commit in README.md"
+            echo "No changes to commit."
           else
-            # 변경 사항이 있을 경우 커밋 및 푸시
             git add README.md
-            git commit -m "docs: update professional README.md via workflow [skip ci]"
+            git commit -m "docs: auto-update README with latest file structure [skip ci]"
             git push
-            echo "🎉 README.md updated and pushed successfully."
+            echo "🎉 README updated with new file stats."
           fi
