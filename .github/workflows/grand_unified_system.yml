@@ -1,4 +1,4 @@
-name: 2025 Enterprise System (UTF-8 Fixed & Robust)
+name: 2025 Grand Unified System (Fixed & Optimized)
 
 on:
   push:
@@ -11,8 +11,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  # [핵심 수정 1] Windows 환경에서 이모지/한글 출력을 위한 UTF-8 강제 설정
+  # [UTF-8 강제] Windows 콘솔 출력 에러 방지
   PYTHONIOENCODING: "utf-8"
+  # [빌드 최적화] 네이티브 아키텍처 사용
   GCC_FLAGS: "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
 
 permissions:
@@ -22,18 +23,19 @@ permissions:
 
 jobs:
   # ----------------------------------------------------------------
-  # JOB 1: 통합 빌드 & 데이터 생성 (Windows/Linux UTF-8 지원)
+  # JOB 1: 통합 빌드 & 데이터 생성 (Windows/Linux)
   # ----------------------------------------------------------------
   unified-build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60 # [대량 추가] 대용량 처리 시 타임아웃 방지
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     defaults:
       run:
-        shell: bash # Windows에서도 Bash 사용 강제
+        shell: bash
 
     steps:
     - name: Checkout Repository
@@ -47,20 +49,39 @@ jobs:
           echo "ARTIFACT_NAME=Binary-Windows" >> $GITHUB_ENV
         fi
 
-    # [신규 기능] 시스템 리소스 모니터링 (대량 생성 전 상태 점검)
+    # [수정] 시스템 리소스 체크 (wmic 제거 -> 안전한 명령어로 대체)
     - name: System Resource Check
       run: |
         echo "🖥️ Checking System Resources on $RUNNER_OS..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
+          echo "--- Linux CPU Info ---"
           lscpu | grep "Model name"
+          echo "--- Memory Info ---"
           free -h
+          echo "--- Disk Info ---"
           df -h
         else
-          systeminfo | grep "Total Physical Memory"
-          wmic cpu get name
+          echo "--- Windows System Info ---"
+          # wmic 대신 환경변수와 systeminfo 사용
+          echo "CPU: $PROCESSOR_IDENTIFIER"
+          echo "Architecture: $PROCESSOR_ARCHITECTURE"
+          echo "Cores: $NUMBER_OF_PROCESSORS"
+          
+          # systeminfo는 출력이 길므로 메모리만 필터링
+          systeminfo | grep "Total Physical Memory" || echo "Memory check skipped"
         fi
 
-    # 환경 설정 (Windows Cppcheck 설치 포함)
+    # [대량 추가] 디스크 공간 확보 (Runner 용량 최적화)
+    - name: Free Disk Space (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        echo "🧹 Cleaning up disk space..."
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo apt-get clean
+
+    # 환경 설정
     - name: Setup Environment
       run: |
         echo "🛠️ Setting up environment..."
@@ -84,7 +105,7 @@ jobs:
         pip install Pillow qrcode
         echo "✅ Python Environment Ready."
 
-    # 소스코드 생성 (C++20 & 2030년 만료일)
+    # 소스코드 생성 (C++20)
     - name: Generate Source Code
       run: |
         echo "📝 Generating Source Files..."
@@ -131,6 +152,12 @@ jobs:
         
         namespace fs = std::filesystem;
         
+        // [수정] Windows 콘솔 출력 버퍼 최적화
+        void optimizeIO() {
+            std::ios_base::sync_with_stdio(false);
+            std::cin.tie(NULL);
+        }
+
         std::string getCurrentTime() {
             auto now = std::chrono::system_clock::now();
             auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -172,9 +199,9 @@ jobs:
         };
 
         int main(int argc, char* argv[]) {
+            optimizeIO();
             if (argc > 1 && std::string(argv[1]) == "--test") return 0;
-            // [핵심] C++ 출력 인코딩 문제 방지용 로케일 설정
-            std::cout.sync_with_stdio(false);
+            
             std::cout << "🚀 Starting 2025 Enterprise System..." << std::endl;
             VirtualAccountManager::generate();
             VirtualCardManager::generate();
@@ -182,18 +209,19 @@ jobs:
         }
         EOF
 
-    # 정적 분석 (Windows 포함)
+    # 정적 분석
     - name: Static Analysis
       run: |
         echo "🔍 Running Cppcheck..."
         cppcheck --enable=all --inconclusive --force --std=c++20 enterprise_main.cpp || true
 
-    # 빌드 실행
+    # [수정] 빌드 실행 (병렬 빌드 적용 -j)
     - name: Build Application
       run: |
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          echo "🔨 Make (GCC C++20)..."
-          make all
+          echo "🔨 Make (GCC C++20) - Parallel Build..."
+          # CPU 코어 수만큼 병렬 빌드하여 속도 향상
+          make -j$(nproc) all
           chmod +x server_app_gcc
         else
           echo "🔨 CMake (Windows MSVC)..."
@@ -229,25 +257,23 @@ jobs:
           sha256sum final_binary.exe > checksum.sha256
         fi
 
-    # [핵심 수정] Python 이미지 생성 (인코딩 에러 방지 코드 추가)
+    # 이미지 생성 (UTF-8 인코딩 에러 방지)
     - name: Generate 2025 Visual Assets
       run: |
         cat <<EOF > gen_assets.py
         import csv, os, qrcode, sys
         from PIL import Image, ImageDraw
 
-        # [핵심 수정 2] Windows 콘솔 출력을 위한 UTF-8 강제 재설정
         try:
             sys.stdout.reconfigure(encoding='utf-8')
-        except AttributeError:
-            pass # python 3.6 이하 호환성 (GitHub Actions는 최신이므로 무관)
+        except: pass
 
         OUT_VA = "output_data/data/va_images"
         OUT_CARD = "output_data/data/card_images"
         os.makedirs(OUT_VA, exist_ok=True)
         os.makedirs(OUT_CARD, exist_ok=True)
 
-        print("🖼️ Generating Assets (UTF-8 Safe Mode)...")
+        print("🖼️ Generating Assets (Safe Mode)...")
 
         # 1. 가상계좌 이미지
         try:
@@ -269,7 +295,7 @@ jobs:
                     img.save(f"{OUT_VA}/va_2025_{count}.png")
             print("✅ VA Images Generated.")
         except Exception as e:
-            print(f"❌ Error in VA Gen: {e}")
+            print(f"❌ VA Error: {e}")
 
         # 2. 카드 이미지
         try:
@@ -287,13 +313,12 @@ jobs:
                     img.save(f"{OUT_CARD}/card_2025_{count}.png")
             print("✅ Card Images Generated.")
         except Exception as e:
-            print(f"❌ Error in Card Gen: {e}")
+            print(f"❌ Card Error: {e}")
         EOF
         
-        # [핵심] Python 실행 시에도 UTF-8 모드 명시
         PYTHONIOENCODING=utf-8 python gen_assets.py
 
-    # 아티팩트 업로드 (재시도 로직 강화)
+    # 아티팩트 업로드
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -331,7 +356,7 @@ jobs:
           COPY output_data /app/data
           RUN chmod +x /app/server_app
           LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          LABEL org.opencontainers.image.description="2025 Enterprise Edition Server"
+          LABEL org.opencontainers.image.description="2025 Enterprise Edition"
           CMD ["./server_app"]
           EOF
 
@@ -345,7 +370,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:2025.1
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:2025.2
 
   # ----------------------------------------------------------------
   # JOB 3: 2025 릴리즈 배포
@@ -377,28 +402,28 @@ jobs:
           cp -r linux_pkg/output_data release_assets/assets_2025
           
           cd release_assets
-          zip -r ../enterprise_2025_fixed_v${{ github.run_number }}.zip .
+          zip -r ../enterprise_2025_complete_v${{ github.run_number }}.zip .
 
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2025.1.${{ github.run_number }}
-          name: 🚀 2025 Enterprise v${{ github.run_number }} (UTF-8 Fixed)
+          tag_name: v2025.2.${{ github.run_number }}
+          name: 🚀 2025 Complete System v${{ github.run_number }}
           body: |
-            ## 🌟 2025 System Update (Fixed)
+            ## 🌟 2025 System Release (WMIC Fixed)
             
-            Windows 환경에서의 유니코드(이모지) 인코딩 에러가 **완벽하게 수정**되었습니다.
+            Windows 시스템 체크 에러(`wmic`)가 수정되었으며, 빌드 속도 및 디스크 용량이 최적화되었습니다.
             
-            ### 🛠️ Fixes & Updates
-            - **Encoding:** `PYTHONIOENCODING=utf-8` applied globally.
-            - **Python:** `sys.stdout.reconfigure(encoding='utf-8')` injected.
-            - **System:** Resource monitoring added.
+            ### 🛠️ Optimization
+            - **System Check:** Replaced `wmic` with standard env vars.
+            - **Build:** Parallel Compilation (`make -j`) enabled.
+            - **Disk:** Auto-cleanup enabled for Linux Runner.
             
-            ### 💳 Assets
-            - **Virtual Cards & Accounts:** Generated with 2025 Design
-            - **Security:** SHA-256 Checksum Verified
+            ### 📦 Assets
+            - **Binaries:** C++20 Optimized
+            - **Data:** 2025 Virtual Account/Card Data & Images
             
             👉 **https://github.com/koreatest12/only-c**
-          files: enterprise_2025_fixed_v${{ github.run_number }}.zip
+          files: enterprise_2025_complete_v${{ github.run_number }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
