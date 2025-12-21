@@ -1,4 +1,4 @@
-name: Auto Generate Resources (Guaranteed)
+name: Server Upgrade Simulation & Makefile Build
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  force-generate:
+  server-ops:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -21,25 +21,25 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential g++ tree
+        sudo apt-get install -y build-essential make g++ tree
 
-    # 2. [핵심] C++ 소스코드 강제 생성 (파일이 없어도 여기서 만듦)
-    # 이 단계가 "No .cpp files found" 에러를 완벽하게 차단합니다.
-    - name: Inject C++ Generator Code
+    # 2. [기능 1] C++ 소스코드 생성 (서버 업그레이드 기능 추가됨)
+    - name: Generate C++ Source Code
       run: |
-        echo "📂 Injecting C++ source code..."
+        echo "📝 Creating C++ Source with Server Upgrade Logic..."
         
-        cat <<EOF > resource_generator.cpp
+        cat <<EOF > server_main.cpp
         #include <iostream>
         #include <fstream>
         #include <filesystem>
         #include <vector>
         #include <string>
-        #include <ctime>
+        #include <thread>
+        #include <chrono>
 
         namespace fs = std::filesystem;
 
-        // 현재 시간 문자열 반환 함수
+        // 유틸리티: 현재 시간 가져오기
         std::string getCurrentTime() {
             time_t now = time(0);
             char buf[80];
@@ -47,69 +47,111 @@ jobs:
             return std::string(buf);
         }
 
-        int main() {
-            std::cout << "🚀 Starting Resource Generation Process..." << std::endl;
-
-            // 1. 디렉토리 구조 생성
-            std::vector<std::string> dirs = {"output_resources/data", "output_resources/logs", "output_resources/config"};
-            for (const auto& dir : dirs) {
-                if (fs::create_directories(dir)) {
-                    std::cout << "✅ Created directory: " << dir << std::endl;
+        // [기능 1] 대량 리소스 생성 클래스
+        class ResourceManager {
+        public:
+            void generateData() {
+                std::cout << "[Resource] Generating mass data files..." << std::endl;
+                fs::create_directories("output/data");
+                
+                std::ofstream file("output/data/user_transactions.csv");
+                file << "UserID,Action,Timestamp,Status" << std::endl;
+                for(int i=0; i<2000; ++i) {
+                    file << "User_" << i << ",Login," << getCurrentTime() << ",Success" << std::endl;
                 }
+                file.close();
             }
+        };
 
-            // 2. 대량 데이터(CSV) 파일 생성 시뮬레이션
-            std::ofstream csvFile("output_resources/data/mass_data.csv");
-            csvFile << "ID,Type,Value,Timestamp,Status" << std::endl;
-            for (int i = 1; i <= 1000; ++i) {
-                csvFile << i << ",Transaction," << (i * 100) << "," << getCurrentTime() << ",Confirmed" << std::endl;
+        // [기능 2] 서버 업그레이드 시뮬레이션 클래스
+        class ServerManager {
+        public:
+            void performUpgrade(std::string version) {
+                std::cout << "\n🚀 [System] Starting Server Upgrade to v" << version << "..." << std::endl;
+                fs::create_directories("output/logs");
+                fs::create_directories("output/backup");
+
+                std::ofstream log("output/logs/upgrade_history.log", std::ios::app);
+                log << "[" << getCurrentTime() << "] Upgrade process initiated (Target: " << version << ")" << std::endl;
+
+                // 1단계: 백업
+                std::cout << "📦 [Step 1] Backing up current configuration..." << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500)); // 작업 지연 시뮬레이션
+                std::ofstream backup("output/backup/config_backup.bak");
+                backup << "Backup_Data_Hex_Stream_Example..." << std::endl;
+                backup.close();
+                log << "[" << getCurrentTime() << "] Backup completed successfully." << std::endl;
+
+                // 2단계: 패치 적용
+                std::cout << "🛠️ [Step 2] Applying security patches..." << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                log << "[" << getCurrentTime() << "] Patch set KB-2024-X applied." << std::endl;
+
+                // 3단계: 시스템 재시작 및 완료
+                std::cout << "🔄 [Step 3] Restarting services..." << std::endl;
+                std::cout << "✅ [Success] Server upgraded to version " << version << "!" << std::endl;
+                log << "[" << getCurrentTime() << "] Upgrade finished. System Stable." << std::endl;
+                log.close();
             }
-            csvFile.close();
-            std::cout << "✅ Generated CSV with 1000 records." << std::endl;
+        };
 
-            // 3. 설정(JSON) 파일 생성
-            std::ofstream jsonFile("output_resources/config/settings.json");
-            jsonFile << "{\n  \"system_status\": \"active\",\n  \"encryption\": true,\n  \"max_users\": 5000\n}" << std::endl;
-            jsonFile.close();
-            std::cout << "✅ Generated JSON configuration." << std::endl;
+        int main() {
+            ResourceManager resources;
+            resources.generateData();
 
-            // 4. 로그 파일 생성
-            std::ofstream logFile("output_resources/logs/system.log");
-            logFile << "[INFO] " << getCurrentTime() << " System initialized." << std::endl;
-            logFile << "[INFO] " << getCurrentTime() << " Batch processing started." << std::endl;
-            logFile << "[WARN] " << getCurrentTime() << " Storage check passed." << std::endl;
-            logFile.close();
-            std::cout << "✅ Generated System Logs." << std::endl;
+            ServerManager server;
+            server.performUpgrade("2.5.0_stable");
 
-            std::cout << "🎉 All resources generated successfully!" << std::endl;
             return 0;
         }
         EOF
 
-    # 3. 컴파일 (C++17 표준 사용)
-    - name: Compile Generator Program
+    # 3. [기능 2] Makefile 자동 생성
+    # make 명령어 사용을 위해 탭(Tab) 문자가 중요하지만, 
+    # 여기서는 안전하게 공백으로 처리 후 sed로 탭으로 변환하여 생성합니다.
+    - name: Generate Makefile
       run: |
-        echo "🔨 Compiling C++ code..."
-        g++ -std=c++17 resource_generator.cpp -o run_generator
-        chmod +x run_generator
+        echo "🛠️ Creating Makefile..."
+        
+        # Makefile 내용 작성 (탭 문자 대신 \t 사용 불가하므로 임시 문자 사용 후 치환)
+        cat <<EOF > Makefile
+        CC = g++
+        CFLAGS = -std=c++17 -Wall
+        TARGET = server_app
+        SRCS = server_main.cpp
 
-    # 4. 프로그램 실행 (실제로 파일들이 생성됨)
-    - name: Execute Generator
+        all: \$(TARGET)
+
+        \$(TARGET): \$(SRCS)
+        	\$(CC) \$(CFLAGS) \$(SRCS) -o \$(TARGET)
+
+        clean:
+        	rm -f \$(TARGET) output/
+        EOF
+        
+        # 중요: Makefile의 들여쓰기는 반드시 Tab이어야 합니다. 
+        # 위에서 작성된 공백을 탭으로 변환하는 과정입니다.
+        sed -i 's/^        /\t/' Makefile
+
+    # 4. 빌드 (Make 사용)
+    - name: Build with Make
       run: |
-        echo "▶️ Running Generator..."
-        ./run_generator
+        echo "🔨 Building project using Make..."
+        make all
 
-    # 5. 생성된 파일 확인 (디버깅)
-    - name: Verify Output
+    # 5. 실행
+    - name: Run Server Application
       run: |
-        echo "🔎 Checking generated structure:"
-        tree output_resources
+        echo "▶️ Running Server Application..."
+        ./server_app
 
-    # 6. 결과물 다운로드 (Artifact)
-    # 워크플로우가 끝나도 'generated-files'를 다운로드하면 파일들이 들어있습니다.
-    - name: Upload Results
+    # 6. 결과 확인 및 업로드
+    - name: Verify & Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: generated-resources
-        path: output_resources/
+        name: server-upgrade-results
+        path: |
+          output/
+          server_main.cpp
+          Makefile
         retention-days: 5
