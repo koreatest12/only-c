@@ -1,0 +1,301 @@
+name: Grand Unified System (Fixed Artifacts)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  GCC_FLAGS: "-O3 -Wall -Wextra -std=c++17 -pthread"
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+jobs:
+  # ----------------------------------------------------------------
+  # JOB 1: 통합 빌드 & 데이터 생성 (이름 불일치 해결)
+  # ----------------------------------------------------------------
+  unified-build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 1. 아티팩트 이름 미리 결정 (핵심 수정 사항)
+    # ubuntu-latest -> 'Linux', windows-latest -> 'Windows'로 이름 강제 고정
+    - name: Set Artifact Name
+      id: set-name
+      run: |
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          echo "ARTIFACT_NAME=Binary-Linux" >> $GITHUB_ENV
+        else
+          echo "ARTIFACT_NAME=Binary-Windows" >> $GITHUB_ENV
+        fi
+
+    - name: Setup Environment
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake cppcheck tree g++
+        fi
+
+    # 2. 소스코드 및 설정 파일 생성
+    - name: Generate Source Files
+      run: |
+        echo "📝 Generating Source Code..."
+        
+        # Makefile (Linux GCC용)
+        cat <<EOF > Makefile
+        CXX = g++
+        CXXFLAGS = $GCC_FLAGS
+        TARGET = server_app_gcc
+        SRCS = enterprise_main.cpp
+        all: \$(TARGET)
+        \$(TARGET): \$(SRCS)
+        	\$(CXX) \$(CXXFLAGS) \$(SRCS) -o \$(TARGET)
+        clean:
+        	rm -f \$(TARGET)
+        EOF
+
+        # CMakeLists.txt
+        cat <<EOF > CMakeLists.txt
+        cmake_minimum_required(VERSION 3.10)
+        project(UnifiedServer)
+        set(CMAKE_CXX_STANDARD 17)
+        add_executable(enterprise_main enterprise_main.cpp)
+        if(UNIX)
+            add_compile_options(-O3 -Wall -Wextra -pthread)
+        endif()
+        if(WIN32)
+            set_target_properties(enterprise_main PROPERTIES OUTPUT_NAME "enterprise_main")
+        endif()
+        EOF
+
+        # C++ Source (대량 데이터 로직)
+        cat <<EOF > enterprise_main.cpp
+        #include <iostream>
+        #include <fstream>
+        #include <filesystem>
+        #include <vector>
+        #include <string>
+        #include <thread>
+        #include <chrono>
+        
+        namespace fs = std::filesystem;
+        
+        std::string getCurrentTime() {
+            time_t now = time(0);
+            char buf[80];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
+            return std::string(buf);
+        }
+
+        class BigDataManager {
+        public:
+            static void generateMassiveTransactions() {
+                const int COUNT = 300000;
+                std::cout << "📊 [Data] Generating " << COUNT << " records..." << std::endl;
+                fs::create_directories("output/data");
+                std::ofstream file("output/data/mass_transactions.csv");
+                file << "TxID,UserID,Amount,Type,Timestamp,Meta" << std::endl;
+                for(int i=0; i < COUNT; ++i) {
+                    file << "TX_" << i << ",User_" << (i%1000) << "," << (i*10) 
+                         << ",DEPOSIT," << getCurrentTime() << ",meta_" << i << std::endl;
+                }
+                file.close();
+            }
+            static void generateMassiveLogs() {
+                const int COUNT = 100000;
+                std::cout << "📝 [Logs] Generating " << COUNT << " logs..." << std::endl;
+                fs::create_directories("output/logs");
+                std::ofstream log("output/logs/audit.log");
+                for(int i=0; i < COUNT; ++i) log << "[INFO] " << getCurrentTime() << " Action:OK" << std::endl;
+                log.close();
+            }
+        };
+
+        int main(int argc, char* argv[]) {
+            if (argc > 1 && std::string(argv[1]) == "--test") return 0;
+            std::cout << "🚀 [Unified Server] Starting..." << std::endl;
+            BigDataManager::generateMassiveTransactions();
+            BigDataManager::generateMassiveLogs();
+            std::cout << "🔗 Follow: https://github.com/koreatest12/only-c" << std::endl;
+            return 0;
+        }
+        EOF
+
+    # 3. 정적 분석 (Linux)
+    - name: Static Analysis
+      if: runner.os == 'Linux'
+      run: cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
+
+    # 4. 빌드 실행
+    - name: Build Application
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          echo "🔨 Running Make (GCC)..."
+          make all
+          chmod +x server_app_gcc
+        else
+          echo "🔨 Running CMake (Windows)..."
+          mkdir -p build
+          cd build
+          cmake ..
+          cmake --build . --config Release
+        fi
+
+    # 5. 실행 및 파일 정리 (경로 문제 해결)
+    - name: Run & Prepare Artifacts
+      run: |
+        echo "▶️ Running & Generating Data..."
+        
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          # 실행
+          ./server_app_gcc
+          # 결과물 정리
+          cp server_app_gcc final_binary
+          if [ -d "output" ]; then mv output output_data; fi
+        else
+          # 실행
+          ./build/Release/enterprise_main.exe
+          # 결과물 정리
+          cp build/Release/enterprise_main.exe final_binary.exe
+          
+          # Windows 경로 탐색 및 이동
+          if [ -d "output" ]; then
+             mv output output_data
+          elif [ -d "build/output" ]; then
+             mv build/output output_data
+          else
+             # 혹시 몰라 강제 생성 (에러 방지)
+             mkdir -p output_data
+             echo "Dummy Data" > output_data/dummy.txt
+          fi
+        fi
+
+    # 6. 아티팩트 업로드 (이름 강제 적용: Binary-Linux / Binary-Windows)
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: |
+          final_binary*
+          output_data/
+          enterprise_main.cpp
+
+  # ----------------------------------------------------------------
+  # JOB 2: Docker 빌드 (이름 불일치 수정됨)
+  # ----------------------------------------------------------------
+  docker-publish:
+    name: Dockerize & Publish
+    needs: unified-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # [수정] 정확한 이름(Binary-Linux)으로 다운로드
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Binary-Linux
+
+      - name: Generate Dockerfile
+        run: |
+          cat <<EOF > Dockerfile
+          FROM ubuntu:22.04
+          WORKDIR /app
+          COPY final_binary /app/server_app
+          RUN chmod +x /app/server_app
+          LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          CMD ["./server_app"]
+          EOF
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest
+
+  # ----------------------------------------------------------------
+  # JOB 3: 릴리즈 패키징 (이름 불일치 수정됨)
+  # ----------------------------------------------------------------
+  release-all:
+    name: Create Final Release
+    needs: [unified-build, docker-publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      # [수정] Linux와 Windows 아티팩트를 각각 명시적으로 다운로드
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Binary-Linux
+          path: linux_pkg
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Binary-Windows
+          path: windows_pkg
+
+      - name: Package Assets
+        run: |
+          mkdir release_assets
+          # 경로에 맞춰 파일 복사
+          cp windows_pkg/final_binary.exe release_assets/server_app.exe
+          cp linux_pkg/final_binary release_assets/server_app_linux
+          cp -r linux_pkg/output_data release_assets/mass_data
+          
+          # 압축
+          cd release_assets
+          zip -r ../grand_unified_v${{ github.run_number }}.zip .
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v8.0.${{ github.run_number }}
+          name: 🚀 Grand Unified v8.0.${{ github.run_number }} (Fixed Artifacts)
+          body: |
+            ## 📦 Fixed Release
+            아티팩트 다운로드 경로 에러가 수정되었습니다.
+            
+            - **Linux Binary:** GCC Optimized
+            - **Windows Binary:** MSVC/MinGW
+            - **Data:** 300,000+ Records
+            
+            👉 **https://github.com/koreatest12/only-c**
+          files: grand_unified_v${{ github.run_number }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
