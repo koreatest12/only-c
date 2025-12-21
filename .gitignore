@@ -1,41 +1,90 @@
-# Prerequisites
-*.d
+# ----------------------------------------------------------
+# 1. Build & Compilation Artifacts (빌드 및 컴파일 결과물)
+# ----------------------------------------------------------
+# CMake 빌드 디렉토리
+build/
+cmake-build-debug/
+cmake-build-release/
 
-# Compiled Object files
-*.slo
-*.lo
+# Make 관련 파일
+Makefile
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.cmake
+
+# Object 파일 및 라이브러리
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
+*.lib
+*.a
+*.dll
 *.so
 *.dylib
-*.dll
 
-# Fortran module files
-*.mod
-*.smod
+# ----------------------------------------------------------
+# 2. Generated Binaries (생성된 실행 파일들)
+# ----------------------------------------------------------
+# Linux/Unix 실행 파일
+server_app
+server_app_linux
+enterprise_main
+generator_program
+run_generator
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
+# Windows 실행 파일
 *.exe
-*.out
-*.app
+server_app.exe
+enterprise_main.exe
 
-# debug information files
-*.dwo
+# ----------------------------------------------------------
+# 3. Dynamic Source & Config Files (자동 생성되는 소스 및 설정)
+# ----------------------------------------------------------
+# 워크플로우가 매번 새로 생성하는 파일들은 커밋하지 않음
+enterprise_main.cpp
+server_main.cpp
+resource_generator.cpp
+CMakeLists.txt
+Dockerfile
+
+# ----------------------------------------------------------
+# 4. Generated Data & Logs (대량 생성 데이터 및 로그)
+# ----------------------------------------------------------
+# 출력 폴더 전체 무시
+output/
+output_data/
+output_resources/
+output_db/
+output_backup/
+deploy_package/
+
+# 개별 데이터 파일 형식 무시
+*.csv
+*.log
+*.sql
+*.json
+*.xml
+*.bak
+
+# ----------------------------------------------------------
+# 5. Packaging & Releases (배포용 패키지)
+# ----------------------------------------------------------
+# 압축 작업을 위한 임시 폴더
+release_pkg/
+release_package/
+
+# 최종 압축 파일
+*.zip
+*.tar.gz
+*.7z
+
+# ----------------------------------------------------------
+# 6. IDE & OS System Files (개발 도구 및 운영체제 파일)
+# ----------------------------------------------------------
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
