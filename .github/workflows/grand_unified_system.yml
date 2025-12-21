@@ -1,4 +1,4 @@
-name: 🚀 Full-Force Cross-Platform Build System
+name: 🚀 TOTAL FORCE EXECUTION SYSTEM
 
 on:
   push:
@@ -7,14 +7,15 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-# 전역 환경 변수 설정 (인코딩 문제 원천 차단)
+# [중요] 윈도우/리눅스/맥 모든 환경에서 한글 및 이모지 깨짐 방지
 env:
   PYTHONIOENCODING: utf-8
   PYTHONUTF8: 1
+  LC_ALL: en_US.UTF-8
 
 jobs:
-  build-and-execute:
-    name: 🔥 Build on ${{ matrix.os }}
+  full-force-build:
+    name: 🛡️ Execute All on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,21 +23,35 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-artifacts
+            artifact_name: linux-full-pack
           - os: windows-latest
-            artifact_name: windows-artifacts
+            artifact_name: windows-full-pack
           - os: macos-latest
-            artifact_name: macos-artifacts
+            artifact_name: macos-full-pack
 
     steps:
     # ----------------------------------------------------------------
-    # 1. 소스 코드 체크아웃
+    # 1. 체크아웃
     # ----------------------------------------------------------------
     - name: 📥 Checkout Repository
       uses: actions/checkout@v4
 
     # ----------------------------------------------------------------
-    # 2. Python 셋업
+    # 2. 시스템 사양 및 환경 정보 출력 (전문가급 로깅 추가)
+    # ----------------------------------------------------------------
+    - name: 🖥️ Display System Information
+      shell: bash
+      run: |
+        echo "=========================================="
+        echo "🚀 SYSTEM INFORMATION REPORT"
+        echo "=========================================="
+        echo "OS: ${{ matrix.os }}"
+        python --version
+        cmake --version
+        echo "=========================================="
+
+    # ----------------------------------------------------------------
+    # 3. Python 3.10 설정
     # ----------------------------------------------------------------
     - name: 🐍 Setup Python 3.10
       uses: actions/setup-python@v5
@@ -44,40 +59,45 @@ jobs:
         python-version: '3.10'
 
     # ----------------------------------------------------------------
-    # 3. [핵심] 모든 스크립트 무조건 강제 생성 (Skip 없음)
-    #    Windows 호환성을 위해 encoding='utf-8' 명시
+    # 4. [강제 실행] 스크립트 파일 무조건 재생성 (NO SKIP)
+    #    UTF-8 인코딩 문제를 해결한 Python 코드를 강제로 씁니다.
     # ----------------------------------------------------------------
-    - name: 📝 Force Generate All Scripts (No Skip)
+    - name: 📝 FORCE GENERATE: upgrade_manager.py
       shell: bash
       run: |
         echo "🔥 Force creating requirements.txt..."
         echo "colorama" > requirements.txt
 
-        echo "🔥 Force creating upgrade_manager.py with UTF-8 support..."
+        echo "🔥 Force creating upgrade_manager.py (UTF-8 Safe)..."
+        # 아래 Python 코드는 Windows 환경에서도 안전하게 파일을 생성합니다.
         cat <<EOF > upgrade_manager.py
         import os
         import sys
+        import platform
 
-        # 인코딩 문제 방지용 UTF-8 설정
+        # 표준 출력 인코딩 강제 설정
         sys.stdout.reconfigure(encoding='utf-8')
 
         def create_cpp_files():
+            print(f"[MANAGER] 🚀 System: {platform.system()} detected.")
             print("[MANAGER] 🚀 Generating C++20 Source Code...")
             
-            # 메인 소스코드 (이모지 포함)
+            # C++ Main Source
             main_code = """
         #include <iostream>
         #include <vector>
         #include <string>
 
         int main() {
-            // Windows 콘솔 출력을 위한 코드 페이지 설정 (선택적)
+            // Windows Console Encoding Fix
             #ifdef _WIN32
-            system("chcp 65001");
+            system("chcp 65001 > nul");
             #endif
 
-            std::cout << "🚀 Professional C++ Build Successful!" << std::endl;
-            std::cout << "os: Processed by GitHub Actions Matrix" << std::endl;
+            std::cout << "========================================" << std::endl;
+            std::cout << "🚀 FINAL BUILD SUCCESSFUL!" << std::endl;
+            std::cout << "========================================" << std::endl;
+            std::cout << "Target: Multi-Platform (Win/Lin/Mac)" << std::endl;
             return 0;
         }
             """
@@ -90,57 +110,73 @@ jobs:
         add_executable(app main.cpp)
             """
 
-            # [FIX] encoding='utf-8' 추가하여 Windows 에러 해결
-            print("[MANAGER] Writing main.cpp...")
-            with open("main.cpp", "w", encoding="utf-8") as f:
-                f.write(main_code)
-            
-            print("[MANAGER] Writing CMakeLists.txt...")
-            with open("CMakeLists.txt", "w", encoding="utf-8") as f:
-                f.write(cmake_code)
+            # [FIX] encoding='utf-8'을 사용하여 Windows CP1252 에러 원천 차단
+            try:
+                print("[MANAGER] Writing main.cpp...")
+                with open("main.cpp", "w", encoding="utf-8") as f:
+                    f.write(main_code)
                 
-            print("[MANAGER] ✅ All files generated successfully.")
+                print("[MANAGER] Writing CMakeLists.txt...")
+                with open("CMakeLists.txt", "w", encoding="utf-8") as f:
+                    f.write(cmake_code)
+                    
+                print("[MANAGER] ✅ All files generated successfully without errors.")
+            except Exception as e:
+                print(f"[ERROR] Failed to write files: {e}")
+                exit(1)
 
         if __name__ == "__main__":
             create_cpp_files()
         EOF
 
     # ----------------------------------------------------------------
-    # 4. 의존성 설치 및 Python 스크립트 실행
+    # 5. 의존성 설치 및 생성기 실행 (조건 없음)
     # ----------------------------------------------------------------
-    - name: 📦 Install & Run Generator
+    - name: 📦 Install Dependencies & Run Generator
       shell: bash
       run: |
         pip install -r requirements.txt
         python upgrade_manager.py
 
     # ----------------------------------------------------------------
-    # 5. C++ 빌드 도구 설정
+    # 6. 생성된 파일 확인 (디버깅)
     # ----------------------------------------------------------------
-    - name: 🛠️ Setup Build Environment (Linux)
+    - name: 🔍 Verify Generated Files
+      shell: bash
+      run: ls -R
+
+    # ----------------------------------------------------------------
+    # 7. 빌드 환경 구성 (OS별 분기이나 스킵은 아님, 필수 설치)
+    # ----------------------------------------------------------------
+    - name: 🛠️ Setup Linux Build Tools
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
 
-    - name: 🛠️ Setup Build Environment (Windows)
+    - name: 🛠️ Setup Windows MSVC
       if: matrix.os == 'windows-latest'
       uses: microsoft/setup-msbuild@v1.1
 
     # ----------------------------------------------------------------
-    # 6. CMake 빌드 및 실행 (모두 실행)
+    # 8. CMake 빌드 실행 (강력 모드)
     # ----------------------------------------------------------------
     - name: 🏗️ CMake Configure
       shell: bash
       run: cmake -S . -B build
 
-    - name: 🔨 Build Project
+    - name: 🔨 Build Project (Release)
       shell: bash
       run: cmake --build build --config Release
 
+    # ----------------------------------------------------------------
+    # 9. 빌드 결과 실행 테스트 (OS별 경로 처리)
+    # ----------------------------------------------------------------
     - name: 🧪 Run Application (Linux/Mac)
       if: runner.os != 'Windows'
-      run: ./build/app
+      run: |
+        chmod +x ./build/app
+        ./build/app
 
     - name: 🧪 Run Application (Windows)
       if: runner.os == 'Windows'
@@ -148,9 +184,9 @@ jobs:
       run: build\Release\app.exe
 
     # ----------------------------------------------------------------
-    # 7. 모든 결과물 아티팩트 저장
+    # 10. 모든 결과물 압축 업로드 (대량 추가 반영)
     # ----------------------------------------------------------------
-    - name: 📤 Upload All Artifacts
+    - name: 📤 Upload ALL Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
@@ -159,4 +195,5 @@ jobs:
           *.cpp
           *.txt
           *.py
+          *.md
         retention-days: 1
