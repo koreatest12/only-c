@@ -1,0 +1,62 @@
+name: Secure Source Code Archiving (Anti-Leak)
+
+# 수동으로 실행하거나, 특정 태그가 푸시될 때 실행 (필요에 따라 조정 가능)
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  encrypt-and-protect:
+    name: 🛡️ Encrypt Source Code
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      # 1. 소스 코드 체크아웃
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. 강력한 랜덤 비밀번호 생성 (32바이트, Base64 인코딩)
+      - name: Generate Strong Password
+        id: keygen
+        run: |
+          # openssl을 사용하여 강력한 난수 비밀번호 생성
+          GENERATED_PASS=$(openssl rand -base64 32)
+          echo "::add-mask::$GENERATED_PASS" # 로그에서 비밀번호 마스킹 처리 (보안)
+          echo "SECURE_PASS=$GENERATED_PASS" >> $GITHUB_OUTPUT
+
+      # 3. 7-Zip을 사용한 AES-256 암호화 압축
+      - name: Archive with AES-256 Encryption
+        run: |
+          # .git 폴더 제외하고 모든 파일을 암호화 압축
+          # -p: 비밀번호 설정
+          # -mhe=on: 헤더 암호화 (파일 이름도 숨김)
+          # -t7z: 7z 형식 사용 (압축률 및 보안 우수)
+          
+          7z a -t7z -mhe=on -p"${{ steps.keygen.outputs.SECURE_PASS }}" \
+          secure_source_code.7z . -xr!.git
+
+      # 4. 암호화된 파일 업로드 (비밀번호 없이는 절대 열 수 없음)
+      - name: Upload Encrypted Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-code-bundle
+          path: secure_source_code.7z
+          retention-days: 3 # 보안을 위해 보관 기간 짧게 설정
+
+      # 5. 작업 요약에 비밀번호 출력 (실행자만 확인 가능하도록)
+      - name: Display Decryption Key (Action Summary)
+        if: always()
+        run: |
+          echo "## 🔐 Security Archive Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Files have been encrypted with AES-256." >> $GITHUB_STEP_SUMMARY
+          echo "### 🔑 Decryption Password" >> $GITHUB_STEP_SUMMARY
+          echo "Copy the password below to extract the files:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.keygen.outputs.SECURE_PASS }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Warning**: This password is valid only for this artifact." >> $GITHUB_STEP_SUMMARY
