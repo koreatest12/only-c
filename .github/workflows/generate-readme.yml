@@ -1,0 +1,108 @@
+name: Generate Professional README
+
+on:
+  push:
+    branches: [ "main", "master" ] # main 또는 master 브랜치에 푸시될 때 실행
+  schedule:
+    - cron: '0 0 * * *' # 매일 자정(UTC 기준)에 자동 실행 (선택 사항)
+  workflow_dispatch: # 수동 실행 버튼 제공
+
+permissions:
+  contents: write # 리포지토리 파일 쓰기 권한 필요
+
+jobs:
+  generate-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate README content dynamically
+        run: |
+          # Python 스크립트를 사용하여 전문적인 Markdown 콘텐츠 생성
+          # 이 스크립트는 현재 날짜를 동적으로 포함하고, 
+          # C++ 및 Docker 전문 블로그라는 정체성을 강조하는 내용을 담고 있습니다.
+          
+          cat <<EOF > readme_generator.py
+          import datetime
+
+          # 현재 날짜 가져오기 (동적 요소 예시)
+          current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+          # README 마크다운 콘텐츠 정의
+          markdown_content = f"""
+          # 🚀 Welcome to My Tech Stack Journey
+
+          ### Aspiring Systems Architect | Passionate about C++ & Docker Technology
+
+          Welcome to my technical blog repository! 🌱
+
+          This space is dedicated to documenting my path towards becoming a world-class programmer, with a laser focus on high-performance systems and containerized infrastructure. Here I share insights, code snippets, and project updates reflecting my deep dive into the core technologies that power modern software.
+
+          ---
+
+          ## 🛠️ Core Technical Focus
+
+          My engineering philosophy revolves around building robust, efficient, and scalable solutions.
+
+          <div align="center">
+            <img src="https://img.shields.io/badge/Modern%20C%2B%2B-17%2F20-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white" alt="C++" />
+            <img src="https://img.shields.io/badge/Docker-Containerization-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+            <img src="https://img.shields.io/badge/Linux-Systems-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux" />
+          </div>
+
+          ---
+
+          ## 🎯 Blog Mission & Area of Expertise
+
+          As an aspiring programmer committed to continuous learning, this repository serves as a living portfolio exploring advanced topics:
+
+          ### 🐳 Docker & Containerization
+          Going beyond basic usage to master container internals.
+          - Efficient Dockerfile best practices & multi-stage builds.
+          - Container orchestration concepts and networking.
+          - Building reproducible Development Environments.
+
+          ### ⚡ Modern C++ & Systems Programming
+          Leveraging the power of C++ for performance-critical applications.
+          - Modern C++ features (C++17/20 and beyond).
+          - Memory management, concurrency, and optimization techniques.
+          - Low-level system interactions and design patterns.
+
+          ---
+          <p align="center">
+            <em>Last Updated via GitHub Actions: {current_date}</em>
+          </p>
+          """
+
+          # README.md 파일 쓰기
+          with open("README.md", "w", encoding="utf-8") as f:
+              f.write(markdown_content)
+          
+          print("✅ README.md has been successfully generated.")
+          EOF
+          
+          # 생성한 파이썬 스크립트 실행
+          python readme_generator.py
+
+      - name: Commit and Push changes
+        run: |
+          # Git 설정
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 변경 사항 확인
+          if git diff --quiet README.md; then
+            echo "No changes to commit in README.md"
+          else
+            # 변경 사항이 있을 경우 커밋 및 푸시
+            git add README.md
+            git commit -m "docs: update professional README.md via workflow [skip ci]"
+            git push
+            echo "🎉 README.md updated and pushed successfully."
+          fi
