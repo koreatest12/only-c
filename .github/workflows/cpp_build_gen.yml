@@ -1,32 +1,36 @@
-name: Server Upgrade Simulation & Makefile Build
+name: Server Operation & Release System
 
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch: # 수동 실행 버튼 추가
+
+permissions:
+  contents: write  # 릴리즈 생성을 위해 쓰기 권한 필수
+  packages: write
 
 jobs:
-  server-ops:
+  # 스크린샷의 "서버 운영" 이름 반영
+  server-operation:
+    name: 서버 운영 
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
 
     steps:
-    # 1. 기본 환경 설정
+    # 1. 소스 코드 및 환경 설정
     - name: Checkout Repository
       uses: actions/checkout@v4
 
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential make g++ tree
+        sudo apt-get install -y build-essential make g++ tree zip
 
-    # 2. [기능 1] C++ 소스코드 생성 (서버 업그레이드 기능 추가됨)
-    - name: Generate C++ Source Code
+    # 2. C++ 소스코드 자동 생성 (홍보 링크 기능 포함)
+    - name: Generate Source with Follow Link
       run: |
-        echo "📝 Creating C++ Source with Server Upgrade Logic..."
+        echo "📝 Generating C++ Source..."
         
         cat <<EOF > server_main.cpp
         #include <iostream>
@@ -39,7 +43,6 @@ jobs:
 
         namespace fs = std::filesystem;
 
-        // 유틸리티: 현재 시간 가져오기
         std::string getCurrentTime() {
             time_t now = time(0);
             char buf[80];
@@ -47,111 +50,83 @@ jobs:
             return std::string(buf);
         }
 
-        // [기능 1] 대량 리소스 생성 클래스
-        class ResourceManager {
-        public:
-            void generateData() {
-                std::cout << "[Resource] Generating mass data files..." << std::endl;
-                fs::create_directories("output/data");
-                
-                std::ofstream file("output/data/user_transactions.csv");
-                file << "UserID,Action,Timestamp,Status" << std::endl;
-                for(int i=0; i<2000; ++i) {
-                    file << "User_" << i << ",Login," << getCurrentTime() << ",Success" << std::endl;
-                }
-                file.close();
-            }
-        };
-
-        // [기능 2] 서버 업그레이드 시뮬레이션 클래스
-        class ServerManager {
-        public:
-            void performUpgrade(std::string version) {
-                std::cout << "\n🚀 [System] Starting Server Upgrade to v" << version << "..." << std::endl;
-                fs::create_directories("output/logs");
-                fs::create_directories("output/backup");
-
-                std::ofstream log("output/logs/upgrade_history.log", std::ios::app);
-                log << "[" << getCurrentTime() << "] Upgrade process initiated (Target: " << version << ")" << std::endl;
-
-                // 1단계: 백업
-                std::cout << "📦 [Step 1] Backing up current configuration..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(500)); // 작업 지연 시뮬레이션
-                std::ofstream backup("output/backup/config_backup.bak");
-                backup << "Backup_Data_Hex_Stream_Example..." << std::endl;
-                backup.close();
-                log << "[" << getCurrentTime() << "] Backup completed successfully." << std::endl;
-
-                // 2단계: 패치 적용
-                std::cout << "🛠️ [Step 2] Applying security patches..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                log << "[" << getCurrentTime() << "] Patch set KB-2024-X applied." << std::endl;
-
-                // 3단계: 시스템 재시작 및 완료
-                std::cout << "🔄 [Step 3] Restarting services..." << std::endl;
-                std::cout << "✅ [Success] Server upgraded to version " << version << "!" << std::endl;
-                log << "[" << getCurrentTime() << "] Upgrade finished. System Stable." << std::endl;
-                log.close();
-            }
-        };
-
         int main() {
-            ResourceManager resources;
-            resources.generateData();
+            std::cout << "🚀 [Server] Initializing operation..." << std::endl;
+            
+            // 데이터 생성
+            fs::create_directories("output/data");
+            std::ofstream file("output/data/transaction_log.csv");
+            file << "ID,Status,Time" << std::endl;
+            for(int i=0; i<500; ++i) file << i << ",OK," << getCurrentTime() << std::endl;
+            file.close();
 
-            ServerManager server;
-            server.performUpgrade("2.5.0_stable");
+            // 서버 업그레이드 시뮬레이션
+            std::cout << "🔄 [System] Performing automated upgrade..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            std::cout << "✅ [Success] Upgrade Complete." << std::endl;
+
+            // [요청 사항] 외부 링크 팔로우 홍보 메시지 출력
+            std::cout << "\n=============================================" << std::endl;
+            std::cout << "📢 [Notice] Official Repository & Community" << std::endl;
+            std::cout << "🔗 Follow us at: https://github.com/koreatest12/only-c" << std::endl;
+            std::cout << "=============================================\n" << std::endl;
 
             return 0;
         }
         EOF
 
-    # 3. [기능 2] Makefile 자동 생성
-    # make 명령어 사용을 위해 탭(Tab) 문자가 중요하지만, 
-    # 여기서는 안전하게 공백으로 처리 후 sed로 탭으로 변환하여 생성합니다.
-    - name: Generate Makefile
+    # 3. Makefile 생성 및 빌드
+    - name: Generate Makefile & Build
       run: |
-        echo "🛠️ Creating Makefile..."
+        echo "CC = g++" > Makefile
+        echo "CFLAGS = -std=c++17 -Wall" >> Makefile
+        echo "TARGET = server_app" >> Makefile
+        echo -e "all: \$(TARGET)\n" >> Makefile
+        echo -e "\$(TARGET): server_main.cpp\n\t\$(CC) \$(CFLAGS) server_main.cpp -o \$(TARGET)" >> Makefile
         
-        # Makefile 내용 작성 (탭 문자 대신 \t 사용 불가하므로 임시 문자 사용 후 치환)
-        cat <<EOF > Makefile
-        CC = g++
-        CFLAGS = -std=c++17 -Wall
-        TARGET = server_app
-        SRCS = server_main.cpp
-
-        all: \$(TARGET)
-
-        \$(TARGET): \$(SRCS)
-        	\$(CC) \$(CFLAGS) \$(SRCS) -o \$(TARGET)
-
-        clean:
-        	rm -f \$(TARGET) output/
-        EOF
-        
-        # 중요: Makefile의 들여쓰기는 반드시 Tab이어야 합니다. 
-        # 위에서 작성된 공백을 탭으로 변환하는 과정입니다.
-        sed -i 's/^        /\t/' Makefile
-
-    # 4. 빌드 (Make 사용)
-    - name: Build with Make
-      run: |
-        echo "🔨 Building project using Make..."
         make all
+        chmod +x server_app
 
-    # 5. 실행
-    - name: Run Server Application
-      run: |
-        echo "▶️ Running Server Application..."
-        ./server_app
+    # 4. 서버 실행 (로그에 링크 출력됨)
+    - name: Run Server
+      run: ./server_app
 
-    # 6. 결과 확인 및 업로드
-    - name: Verify & Upload Artifacts
+    # 5. [스크린샷 요청] 아티팩트 업로드 (이름: 서버 업그레이드 결과)
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: server-upgrade-results
+        name: 서버 업그레이드 결과
         path: |
           output/
+          server_app
           server_main.cpp
-          Makefile
-        retention-days: 5
+
+    # 6. [추가 요청] 릴리즈 패키징 (Zip 압축)
+    - name: Package Release
+      run: |
+        mkdir -p release_package
+        cp server_app release_package/
+        cp server_main.cpp release_package/
+        zip -r server_package.zip release_package/
+
+    # 7. [추가 요청] GitHub Release 자동 출시 및 링크 홍보
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      with:
+        tag_name: v1.0.${{ github.run_number }} # 실행할 때마다 버전 번호 증가 (예: v1.0.1, v1.0.2)
+        name: 🚀 정기 서버 업데이트 v1.0.${{ github.run_number }}
+        body: |
+          ## 📦 서버 업그레이드 패키지
+          자동화된 빌드 시스템에 의해 생성된 릴리즈입니다.
+          
+          ### 📢 커뮤니티 및 팔로우
+          최신 소식은 아래 링크를 확인해주세요:
+          👉 **https://github.com/koreatest12/only-c**
+          
+          ### 📋 포함된 파일
+          - Server Binary (server_app)
+          - Source Code (server_main.cpp)
+        files: server_package.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
