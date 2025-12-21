@@ -11,12 +11,11 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  # GCC 컴파일러 설정 (최적화 및 경고 옵션)
   GCC_FLAGS: "-O3 -Wall -Wextra -std=c++17 -pthread"
 
 permissions:
   contents: write
-  packages: write #
+  packages: write
   actions: write
 
 jobs:
@@ -44,7 +43,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake cppcheck tree g++
-        # GCC 버전 확인
         g++ --version
 
     # 2. 대규모 엔터프라이즈 소스코드 및 빌드 파일 생성
@@ -52,7 +50,7 @@ jobs:
       run: |
         echo "📝 Generating High-Performance Source Code..."
         
-        # [GCC Makefile 생성] - make 명령어로 빌드 가능하도록 설정
+        # [Makefile]
         cat <<EOF > Makefile
         CXX = g++
         CXXFLAGS = $GCC_FLAGS
@@ -68,24 +66,21 @@ jobs:
         	rm -f \$(TARGET)
         EOF
 
-        # [CMakeLists.txt 생성] - 크로스 플랫폼 빌드용
+        # [CMakeLists.txt]
         cat <<EOF > CMakeLists.txt
         cmake_minimum_required(VERSION 3.10)
         project(EnterpriseServer)
         set(CMAKE_CXX_STANDARD 17)
         add_executable(enterprise_main enterprise_main.cpp)
-        
-        # GCC 컴파일러 옵션 적용 (Linux)
         if(UNIX)
             add_compile_options(-O3 -Wall -Wextra -pthread)
         endif()
-        
         if(WIN32)
             set_target_properties(enterprise_main PROPERTIES OUTPUT_NAME "enterprise_main")
         endif()
         EOF
 
-        # [C++ 소스코드: 30만건 대량 데이터 처리 로직]
+        # [C++ Source]
         cat <<EOF > enterprise_main.cpp
         #include <iostream>
         #include <fstream>
@@ -106,21 +101,18 @@ jobs:
 
         class BigDataManager {
         public:
-            // 대량 트랜잭션 데이터 생성 (GCC 최적화 테스트용)
             static void generateMassiveTransactions() {
                 const int COUNT = 300000;
                 std::cout << "📊 [Data Service] Generating " << COUNT << " records (Target > 20MB)..." << std::endl;
                 fs::create_directories("output/data");
                 std::ofstream file("output/data/mass_transactions.csv");
                 file << "TxID,UserID,Amount,Type,Timestamp,Hash_Signature" << std::endl;
-                
                 for(int i=0; i < COUNT; ++i) {
                     file << "TX_" << i << ",User_" << (i%5000) << "," << (i*10.5) 
                          << ",DEPOSIT," << getCurrentTime() << ",sig_xc_" << i << std::endl;
                 }
                 file.close();
             }
-            // 시스템 감사 로그 생성
             static void generateMassiveLogs() {
                 const int LOG_COUNT = 100000;
                 std::cout << "📝 [Log Service] Generating " << LOG_COUNT << " system logs..." << std::endl;
@@ -135,15 +127,8 @@ jobs:
         };
 
         int main(int argc, char* argv[]) {
-            // 테스트 모드
-            if (argc > 1 && std::string(argv[1]) == "--test") {
-                std::cout << "🧪 Unit Test Passed." << std::endl; 
-                return 0;
-            }
-
+            if (argc > 1 && std::string(argv[1]) == "--test") return 0;
             std::cout << "🚀 [GCC Enterprise Server] Starting High-Performance Workflow..." << std::endl;
-            
-            // 성능 측정 시작
             auto start = std::chrono::high_resolution_clock::now();
             
             BigDataManager::generateMassiveTransactions();
@@ -152,27 +137,25 @@ jobs:
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = end - start;
             std::cout << "⏱️ Execution Time: " << elapsed.count() << "s" << std::endl;
-
             std::cout << "🔗 Follow us at: https://github.com/koreatest12/only-c" << std::endl;
             return 0;
         }
         EOF
 
-    # 3. 정적 분석 (GCC 코드 품질 검사)
+    # 3. 정적 분석
     - name: GCC Static Analysis (Cppcheck)
       if: runner.os == 'Linux'
       run: cppcheck --enable=all --inconclusive --force enterprise_main.cpp || true
 
-    # 4-A. [GCC 기능 1] 직접 빌드 (g++ 사용) - Linux 전용
+    # 4-A. 빌드 (Linux: Direct GCC)
     - name: Build with Direct GCC (g++)
       if: runner.os == 'Linux'
       run: |
         echo "🔨 Compiling with GCC (make)..."
         make all
-        # 실행 권한 부여
         chmod +x server_app_gcc
 
-    # 4-B. [GCC 기능 2] CMake 빌드 (크로스 플랫폼)
+    # 4-B. 빌드 (CMake)
     - name: Build with CMake
       run: |
         echo "🔨 Building with CMake..."
@@ -181,25 +164,44 @@ jobs:
         cmake ..
         cmake --build . --config Release
 
-    # 5. 테스트 및 실행 (대량 데이터 생성)
-    - name: Run & Generate Artifacts
+    # 5. 실행 및 아티팩트 정리 (경로 에러 수정됨)
+    - name: Run & Generate Artifacts (Fixed)
       run: |
         echo "▶️ Running Application..."
         
-        # Linux에서는 GCC로 빌드된 바이너리 우선 사용
         if [[ "$RUNNER_OS" == "Linux" ]]; then
+          # [Linux] Root 경로에서 실행
           ./server_app_gcc
-          cp ./server_app_gcc ../final_binary
+          
+          # 파일 확인 및 이동 (Root의 output -> output_data로 변경)
+          if [ -d "output" ]; then
+             echo "✅ Output directory found. Moving to output_data..."
+             mv output output_data
+          else
+             echo "❌ Error: 'output' directory not found!"
+             exit 1
+          fi
+          
+          # 실행 파일 복사
+          cp server_app_gcc final_binary
+          
         else
-          # Windows
+          # [Windows] build 폴더 내에서 실행
           cd build
           ./Release/enterprise_main.exe
-          cp ./Release/enterprise_main.exe ../final_binary.exe
+          
+          # 파일 확인 및 이동 (build/output -> Root/output_data로 이동)
+          if [ -d "output" ]; then
+             echo "✅ Output directory found (Windows). Moving to ../output_data..."
+             mv output ../output_data
+          else
+             echo "❌ Error: 'output' directory not found!"
+             exit 1
+          fi
+          
           cd ..
+          cp build/Release/enterprise_main.exe final_binary.exe
         fi
-        
-        # 데이터 이동
-        cp -r output ../output_data
 
     # 6. 아티팩트 업로드
     - name: Upload Build Artifacts
@@ -213,7 +215,7 @@ jobs:
           Makefile
 
   # ----------------------------------------------------------------
-  # JOB 2: Docker 빌드 및 GHCR 게시 (Package Registry)
+  # JOB 2: Docker 빌드 및 GHCR 게시
   # ----------------------------------------------------------------
   docker-publish:
     name: Dockerize & Publish
@@ -221,7 +223,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write #
+      packages: write
     
     steps:
       - name: Checkout Repository
@@ -232,23 +234,16 @@ jobs:
         with:
           name: gcc-build-Linux
 
-      # Dockerfile 동적 생성 (GCC 기반 이미지 명시)
       - name: Create Dockerfile
         run: |
           echo "🐳 Generating Dockerfile..."
           cat <<EOF > Dockerfile
-          # 가볍고 안전한 Ubuntu 기반
           FROM ubuntu:22.04
           WORKDIR /app
-          
-          # 빌드된 바이너리 복사
           COPY final_binary /app/server_app
           RUN chmod +x /app/server_app
-          
-          # 리포지토리 연결 메타데이터
           LABEL org.opencontainers.image.source=https://github.com/${{ github.repository }}
           LABEL org.opencontainers.image.description="GCC Optimized Enterprise Server"
-          
           CMD ["./server_app"]
           EOF
 
@@ -278,7 +273,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   # ----------------------------------------------------------------
-  # JOB 3: 릴리즈 배포 (최종 산출물)
+  # JOB 3: 릴리즈 배포
   # ----------------------------------------------------------------
   release-distribute:
     name: Create Release
@@ -304,17 +299,16 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v6.0.${{ github.run_number }}
-          name: 🚀 GCC Enterprise v6.0.${{ github.run_number }}
+          tag_name: v6.1.${{ github.run_number }}
+          name: 🚀 GCC Enterprise v6.1.${{ github.run_number }} (Fixed)
           body: |
-            ## 🛠️ GCC Optimized Build Release
-            이 릴리즈는 **GCC 컴파일러의 최적화(-O3)**를 사용하여 빌드되었습니다.
+            ## 🛠️ GCC Build Fix
+            경로 에러가 수정되어 대량 데이터 생성 파일이 정상적으로 포함된 릴리즈입니다.
             
             ### 📊 Features
-            - **Compiler:** GCC (g++) with `-O3 -Wall -Wextra`
-            - **Build System:** Makefile & CMake
-            - **Docker:** GHCR Published
+            - **Compiler:** GCC (g++) with `-O3`
             - **Data:** 300,000 Rows Massive Data Generated
+            - **Docker:** GHCR Published
             
             👉 **https://github.com/koreatest12/only-c**
           files: gcc_enterprise_v${{ github.run_number }}.zip
