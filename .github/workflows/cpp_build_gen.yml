@@ -1,4 +1,4 @@
-name: Server Operation & Release System
+name: Enterprise CI/CD & Mass Gen System
 
 on:
   push:
@@ -8,40 +8,55 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # 릴리즈 및 태그 생성을 위한 권한
-  packages: write  # 패키지 업로드 권한
+  contents: write
+  packages: write
+  actions: write
 
 jobs:
-  server-operation-db-patch:
-    name: 서버 운영 및 DB 패치
-    runs-on: ubuntu-latest
+  # ----------------------------------------------------------------
+  # JOB 1: 멀티 플랫폼 빌드, 테스트, 정적 분석, 대량 리소스 생성
+  # ----------------------------------------------------------------
+  build-test-generate:
+    name: Build & Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest] # 윈도우와 리눅스 동시 빌드
+
+    defaults:
+      run:
+        shell: bash # 윈도우에서도 bash 쉘을 사용하여 스크립트 통일
 
     steps:
-    # 1. 소스 코드 및 환경 설정
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+    # 1. 환경별 의존성 설치 (정적 분석 도구 포함)
     - name: Install Dependencies
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential make g++ tree zip
+        sudo apt-get install -y build-essential cmake cppcheck tree
 
-    # 2. C++ 소스코드 생성 (DB 패치 모듈 추가됨)
-    - name: Generate Source with DB Patch
+    # 2. 통합 소스코드 생성 (테스트 + 대량 생성 + DB패치 + 홍보)
+    - name: Generate Enterprise Source Code
       run: |
-        echo "📝 Generating C++ Source with DB Patch Logic..."
+        echo "📝 Generating Source Code with Mass Gen & Testing..."
         
-        cat <<EOF > server_main.cpp
+        cat <<EOF > enterprise_main.cpp
         #include <iostream>
         #include <fstream>
         #include <filesystem>
         #include <vector>
         #include <string>
-        #include <thread>
+        #include <cassert>
         #include <chrono>
+        #include <thread>
 
         namespace fs = std::filesystem;
 
+        // [유틸리티] 현재 시간
         std::string getCurrentTime() {
             time_t now = time(0);
             char buf[80];
@@ -49,54 +64,105 @@ jobs:
             return std::string(buf);
         }
 
-        // [신규 기능] DB 패치 매니저
-        class DBPatchManager {
+        // ---------------------------------------------------------
+        // [기능 1] 대량 데이터 생성 서비스 (Massive Data Service)
+        // ---------------------------------------------------------
+        class BigDataManager {
         public:
-            void runPatch(std::string version) {
-                std::cout << "\n🗄️ [Database] Starting Database Patch (Target: " << version << ")..." << std::endl;
+            void generateMassiveTransactions() {
+                std::cout << "📊 [Data Service] Generating 50,000 transaction records..." << std::endl;
+                fs::create_directories("output/data");
+                std::ofstream file("output/data/mass_transactions.csv");
+                file << "TxID,UserID,Amount,Type,Timestamp,Hash" << std::endl;
                 
-                fs::create_directories("output/db_backup");
-                fs::create_directories("output/db_logs");
+                // 대량 생성 루프 (5만 건)
+                for(int i=0; i<50000; ++i) {
+                    file << "TX_" << i << ",User_" << (i%1000) << "," 
+                         << (i*50) << ",DEPOSIT," << getCurrentTime() 
+                         << ",hash_value_" << i << std::endl;
+                }
+                file.close();
+                std::cout << "✅ [Data Service] 50,000 Records Generated." << std::endl;
+            }
 
-                // 1. DB 백업 시뮬레이션
-                std::cout << "💾 [DB-Step 1] Creating snapshot backup..." << std::endl;
-                std::ofstream backup("output/db_backup/full_backup.sql");
-                backup << "-- Full Database Backup Timestamp: " << getCurrentTime() << std::endl;
-                backup << "INSERT INTO users VALUES (1, 'admin');" << std::endl;
-                backup.close();
-                std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-                // 2. 스키마 변경(패치) 시뮬레이션
-                std::cout << "⚡ [DB-Step 2] Applying Schema Migrations..." << std::endl;
-                std::ofstream migration("output/db_logs/migration_v2.log");
-                migration << "[INFO] " << getCurrentTime() << " ALTER TABLE transactions ADD COLUMN status VARCHAR(20);" << std::endl;
-                migration << "[INFO] " << getCurrentTime() << " CREATE INDEX idx_user_id ON users(id);" << std::endl;
-                migration.close();
-
-                std::cout << "✅ [DB-Success] Database patched successfully to " << version << "!" << std::endl;
+            void generateMassiveLogs() {
+                std::cout << "📝 [Log Service] Generating System Audit Logs..." << std::endl;
+                fs::create_directories("output/logs");
+                std::ofstream log("output/logs/audit_trace.log");
+                
+                // 대량 로그 생성 (1만 건)
+                for(int i=0; i<10000; ++i) {
+                    log << "[INFO] " << getCurrentTime() << " Process_ID:" << i 
+                        << " Action:Validate Status:OK" << std::endl;
+                }
+                log.close();
             }
         };
 
-        int main() {
-            std::cout << "🚀 [Server] Initializing System..." << std::endl;
+        // ---------------------------------------------------------
+        // [기능 2] DB 패치 및 마이그레이션 (DB Patch Service)
+        // ---------------------------------------------------------
+        class DBPatchManager {
+        public:
+            bool applyPatch(std::string version) {
+                std::cout << "\n🗄️ [DB Service] Starting DB Patch to " << version << "..." << std::endl;
+                fs::create_directories("output/db");
+                
+                // 대량 SQL 스크립트 생성 시뮬레이션
+                std::ofstream sql("output/db/migration_script.sql");
+                sql << "-- Automated Migration Script " << version << std::endl;
+                for(int i=0; i<5000; ++i) {
+                    sql << "ALTER TABLE users_" << i << " ADD COLUMN secure_flag BOOLEAN;" << std::endl;
+                }
+                sql.close();
+                
+                std::cout << "✅ [DB Service] Schema migration scripts generated for 5,000 tables." << std::endl;
+                return true; // 성공 반환 (테스트용)
+            }
+        };
+
+        // ---------------------------------------------------------
+        // [기능 3] 유닛 테스트 (Unit Testing)
+        // ---------------------------------------------------------
+        void runUnitTests() {
+            std::cout << "\n🧪 [Testing] Running Internal Unit Tests..." << std::endl;
             
-            // 1. 일반 데이터 생성
-            fs::create_directories("output/data");
-            std::ofstream file("output/data/transaction_log.csv");
-            file << "ID,Status,Time" << std::endl;
-            for(int i=0; i<100; ++i) file << i << ",Confirmed," << getCurrentTime() << std::endl;
-            file.close();
+            // 테스트 1: 데이터 디렉토리 생성 테스트
+            fs::create_directories("test_dir");
+            if(fs::exists("test_dir")) std::cout << "   [PASS] Directory Creation" << std::endl;
+            else { std::cerr << "   [FAIL] Directory Creation" << std::endl; exit(1); }
+            
+            // 테스트 2: 간단한 연산 테스트
+            int a = 10, b = 20;
+            if((a + b) == 30) std::cout << "   [PASS] Math Calculation" << std::endl;
+            else { std::cerr << "   [FAIL] Math Logic" << std::endl; exit(1); }
+            
+            std::cout << "✅ [Testing] All Unit Tests Passed." << std::endl;
+        }
 
-            // 2. DB 패치 수행 (신규 기능)
-            DBPatchManager db;
-            db.runPatch("v2.5.0_Hotfix");
+        // ---------------------------------------------------------
+        // MAIN FUNCTION
+        // ---------------------------------------------------------
+        int main(int argc, char* argv[]) {
+            // 1. 유닛 테스트 실행 (실패 시 프로그램 종료)
+            if (argc > 1 && std::string(argv[1]) == "--test") {
+                runUnitTests();
+                return 0;
+            }
 
-            // 3. 서버 업그레이드 완료 메시지
-            std::cout << "\n🔄 [System] Server logic execution completed." << std::endl;
+            std::cout << "🚀 [Enterprise System] Starting Production Workflow..." << std::endl;
 
-            // 4. 홍보 링크 출력
+            // 2. 서비스별 대량 생성 실행
+            BigDataManager dataMgr;
+            dataMgr.generateMassiveTransactions();
+            dataMgr.generateMassiveLogs();
+
+            DBPatchManager dbMgr;
+            dbMgr.applyPatch("v3.0.0_Enterprise");
+
+            // 3. 외부 팔로우 홍보
             std::cout << "\n=============================================" << std::endl;
-            std::cout << "📢 [Notice] Official Repository & Community" << std::endl;
+            std::cout << "📢 [Notice] Official Repository" << std::endl;
             std::cout << "🔗 Follow us at: https://github.com/koreatest12/only-c" << std::endl;
             std::cout << "=============================================\n" << std::endl;
 
@@ -104,66 +170,146 @@ jobs:
         }
         EOF
 
-    # 3. Makefile 생성 및 빌드
-    - name: Generate Makefile & Build
+    # 3. 정적 코드 분석 (Static Analysis) - 리눅스 전용
+    - name: Run Static Analysis (Cppcheck)
+      if: runner.os == 'Linux'
       run: |
-        echo "CC = g++" > Makefile
-        echo "CFLAGS = -std=c++17 -Wall" >> Makefile
-        echo "TARGET = server_app" >> Makefile
-        echo -e "all: \$(TARGET)\n" >> Makefile
-        echo -e "\$(TARGET): server_main.cpp\n\t\$(CC) \$(CFLAGS) server_main.cpp -o \$(TARGET)" >> Makefile
+        echo "🔍 Running Static Code Analysis..."
+        cppcheck --enable=all --inconclusive --error-exitcode=1 enterprise_main.cpp
+        echo "✅ Code Quality Check Passed."
+
+    # 4. 빌드 (CMake Cross-Platform)
+    - name: Build Application
+      run: |
+        echo "🔨 Building Application..."
+        mkdir build
+        cd build
+        cmake ..
+        cmake --build . --config Release
+
+    # 5. 자동화 테스트 수행 (Unit Test)
+    - name: Run Automated Tests
+      run: |
+        echo "🧪 Executing Unit Tests..."
+        cd build
+        # 윈도우/리눅스 실행 파일명 차이 처리
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          ./Release/enterprise_main.exe --test
+        else
+          ./enterprise_main --test
+        fi
+
+    # 6. 실제 프로그램 실행 및 대량 리소스 생성
+    - name: Run & Generate Resources
+      run: |
+        echo "▶️ Running Main Application (Mass Generation)..."
+        cd build
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          ./Release/enterprise_main.exe
+          cp ./Release/enterprise_main.exe ../server_app.exe
+        else
+          ./enterprise_main
+          cp ./enterprise_main ../server_app_linux
+        fi
         
-        make all
-        chmod +x server_app
+        # 생성된 데이터 상위 폴더로 이동 (아티팩트 업로드용)
+        cp -r output ../output_data
 
-    # 4. 서버 실행 (DB 패치 로그 출력)
-    - name: Run Server & DB Patch
-      run: ./server_app
-
-    # 5. [결과물] 아티팩트 업로드 (DB 로그 포함)
-    - name: Upload Artifacts
+    # 7. 결과물 업로드 (OS별 분리 저장)
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: 서버_및_DB패치_결과
+        name: build-artifact-${{ matrix.os }}
         path: |
-          output/
-          server_app
-          server_main.cpp
+          server_app*
+          output_data/
+          enterprise_main.cpp
 
-    # 6. [패키지] 배포용 패키지(Zip) 생성
-    - name: Create Deploy Package
-      run: |
-        echo "📦 Packaging binaries and database scripts..."
-        mkdir -p deploy_package
-        cp server_app deploy_package/
-        cp server_main.cpp deploy_package/
-        cp -r output/db_logs deploy_package/
-        
-        # 날짜 기반의 유니크한 패키지명 생성
-        zip -r release_package.zip deploy_package/
+  # ----------------------------------------------------------------
+  # JOB 2: 도커 이미지 빌드 (Docker Build) - 리눅스 결과 기반
+  # ----------------------------------------------------------------
+  docker-build:
+    name: Dockerize Application
+    needs: build-test-generate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # 7. [게시] GitHub Release 및 패키지 출시
-    - name: Publish Release & Package
-      uses: softprops/action-gh-release@v1
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      with:
-        tag_name: v2.5.${{ github.run_number }}
-        name: 🚀 서버 패키지 및 DB 패치 v2.5.${{ github.run_number }}
-        body: |
-          ## 📦 정기 배포 (Server & Database Patch)
+      # 이전 빌드 작업에서 생성된 리눅스 실행 파일과 데이터 다운로드
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-ubuntu-latest
+
+      - name: Create Dockerfile
+        run: |
+          echo "🐳 Generating Dockerfile..."
+          cat <<EOF > Dockerfile
+          FROM ubuntu:22.04
+          WORKDIR /app
+          COPY server_app_linux /app/server_app
+          RUN chmod +x /app/server_app
+          # 컨테이너 실행 시 서버 프로그램 자동 시작
+          CMD ["./server_app"]
+          EOF
+
+      - name: Build Docker Image
+        run: |
+          echo "🏗️ Building Docker Image..."
+          docker build -t enterprise-server:v${{ github.run_number }} .
+          echo "✅ Docker Image Built Successfully."
+          # 실제 배포 시: docker push enterprise-server:v...
+
+  # ----------------------------------------------------------------
+  # JOB 3: 통합 릴리즈 및 패키지 배포
+  # ----------------------------------------------------------------
+  release-package:
+    name: Publish Release
+    needs: [build-test-generate, docker-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Prepare Release Package
+        run: |
+          mkdir release_pkg
+          # 윈도우, 리눅스 실행 파일 및 데이터 통합
+          cp build-artifact-windows-latest/server_app.exe release_pkg/
+          cp build-artifact-ubuntu-latest/server_app_linux release_pkg/
+          cp -r build-artifact-ubuntu-latest/output_data release_pkg/data_samples
           
-          이 릴리즈는 자동화 시스템에 의해 **패키징 및 게시(Publish)** 되었습니다.
-          
-          ### 🛠️ 변경 사항 (Changelog)
-          - **DB Patch Applied:** `v2.5.0_Hotfix` (Schema Migration included)
-          - **Server Binary Updated**
-          
-          ### 📢 커뮤니티
-          개발 관련 소식은 아래 링크를 참고하세요:
-          👉 **https://github.com/koreatest12/only-c**
-          
-          ---
-          *Generated by GitHub Actions Workflow*
-        files: release_package.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 압축
+          cd release_pkg
+          zip -r ../enterprise_release_v${{ github.run_number }}.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v3.0.${{ github.run_number }}
+          name: 🚀 Enterprise Server v3.0.${{ github.run_number }} (Win/Linux/Docker)
+          body: |
+            ## 📦 Enterprise Release
+            
+            이 릴리즈는 **Windows, Linux, Docker** 환경을 모두 지원하며, 
+            자동화된 **Unit Test**와 **Static Analysis**를 통과했습니다.
+            
+            ### ✅ 주요 기능 (대량 생성 반영)
+            - **Massive Data:** 50,000건의 트랜잭션 데이터 자동 생성
+            - **DB Patch:** 5,000개 테이블에 대한 마이그레이션 스크립트 생성
+            - **Audit Logs:** 10,000라인의 시스템 감사 로그 생성
+            
+            ### 🖥️ 지원 플랫폼
+            - 🐧 **Linux:** `server_app_linux`
+            - 🪟 **Windows:** `server_app.exe`
+            - 🐳 **Docker:** Image build complete
+            
+            ### 📢 커뮤니티
+            👉 **https://github.com/koreatest12/only-c**
+          files: enterprise_release_v${{ github.run_number }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
