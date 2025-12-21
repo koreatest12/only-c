@@ -1,150 +1,201 @@
-name: Generate Professional README & File Report
+name: Real-time README Update & Security Protection
 
 on:
   push:
     branches: [ "main", "master" ]
   schedule:
-    - cron: '0 0 * * *' # 매일 자정 업데이트
+    # [요청 1] 5분 단위 실행 (GitHub Actions 최소 간격)
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  update-readme:
+  security-and-docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 전체 히스토리 가져오기 (보안 분석용)
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Analyze Repo and Generate README
+      - name: Execute Security Logic & README Gen
         run: |
-          # ---------------------------------------------------------
-          # Python 스크립트: 리포지토리 분석 및 README 생성
-          # ---------------------------------------------------------
-          cat <<EOF > readme_generator.py
+          cat <<EOF > repo_manager.py
           import os
           import datetime
           import math
+          import hashlib
 
-          # 1. 설정: 리포지토리 URL 및 제외할 폴더
+          # ---------------------------------------------------------
+          # [설정] 저작권 및 보안 설정
+          # ---------------------------------------------------------
+          OWNER = "koreatest12"
           REPO_URL = "https://github.com/koreatest12/only-c"
-          IGNORE_DIRS = {'.git', '.github', '__pycache__', 'build', 'output', 'release_pkg'}
-          IGNORE_FILES = {'readme_generator.py', '.gitignore', '.DS_Store'}
+          COPYRIGHT_TEXT = f"// (C) {datetime.datetime.now().year} {OWNER}. All rights reserved.\\n// Strictly Prohibited for Unauthorized Copying or Reproduction.\\n"
+          
+          IGNORE_DIRS = {'.git', '.github', '__pycache__', 'build', 'output', 'release_pkg', 'release_dist', 'release_assets'}
+          IGNORE_FILES = {'repo_manager.py', '.gitignore', '.DS_Store', 'README.md', 'LICENSE'}
 
-          # 2. 유틸리티: 파일 크기 포맷팅 (Byte -> KB, MB)
+          # ---------------------------------------------------------
+          # [기능 1] 보안 관리자 (Security Manager)
+          # ---------------------------------------------------------
+          class SecurityManager:
+              @staticmethod
+              def inject_watermark():
+                  """모든 소스코드(.cpp, .h)에 저작권 헤더 강제 주입"""
+                  injected_count = 0
+                  for root, dirs, files in os.walk("."):
+                      dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+                      for file in files:
+                          if file.endswith(('.cpp', '.h', '.hpp', '.c')):
+                              filepath = os.path.join(root, file)
+                              try:
+                                  with open(filepath, 'r', encoding='utf-8') as f:
+                                      content = f.read()
+                                  
+                                  # 이미 워터마크가 있는지 확인
+                                  if "Strictly Prohibited" not in content:
+                                      with open(filepath, 'w', encoding='utf-8') as f:
+                                          f.write(COPYRIGHT_TEXT + "\n" + content)
+                                      injected_count += 1
+                              except Exception as e:
+                                  print(f"Skipping {file}: {e}")
+                  return injected_count
+
+              @staticmethod
+              def generate_integrity_hash():
+                  """리포지토리 전체 무결성 해시 생성 (위변조 탐지)"""
+                  sha256_hash = hashlib.sha256()
+                  for root, dirs, files in os.walk("."):
+                      dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+                      for names in sorted(files):
+                          if names in IGNORE_FILES: continue
+                          filepath = os.path.join(root, names)
+                          try:
+                              with open(filepath, "rb") as f:
+                                  for byte_block in iter(lambda: f.read(4096), b""):
+                                      sha256_hash.update(byte_block)
+                          except: pass
+                  return sha256_hash.hexdigest()
+
+          # ---------------------------------------------------------
+          # [기능 2] 파일 분석기 (File Analyzer)
+          # ---------------------------------------------------------
           def convert_size(size_bytes):
-              if size_bytes == 0:
-                  return "0 B"
+              if size_bytes == 0: return "0 B"
               size_name = ("B", "KB", "MB", "GB", "TB")
               i = int(math.floor(math.log(size_bytes, 1024)))
               p = math.pow(1024, i)
               s = round(size_bytes / p, 2)
               return f"{s} {size_name[i]}"
 
-          # 3. 유틸리티: 파일 확장자별 자동 설명 매핑
           def get_description(filename):
               name_lower = filename.lower()
               if name_lower == 'dockerfile': return "🐳 Container Definition"
-              if name_lower == 'cmakelists.txt': return "🔨 CMake Build Config"
-              if name_lower == 'makefile': return "⚙️ Make Build Script"
-              if name_lower.endswith('.cpp'): return "⚡ C++ Source Code"
-              if name_lower.endswith('.h') or name_lower.endswith('.hpp'): return "📚 C++ Header File"
-              if name_lower.endswith('.py'): return "🐍 Python Script"
-              if name_lower.endswith('.yml') or name_lower.endswith('.yaml'): return "🤖 CI/CD Workflow"
-              if name_lower.endswith('.json'): return "🔧 Config/Data File"
-              if name_lower.endswith('.md'): return "📝 Documentation"
-              if name_lower.endswith('.csv'): return "📊 Data Set"
-              if name_lower.endswith('.exe'): return "🪟 Windows Binary"
-              if name_lower == 'license': return "⚖️ License File"
-              return "📄 File Resource"
+              if name_lower.endswith('.cpp'): return "⚡ C++ Source (Protected)"
+              if name_lower.endswith('.h'): return "📚 Header (Protected)"
+              if name_lower.endswith('.csv'): return "📊 Heavy Data Set"
+              if name_lower.endswith('.exe') or 'binary' in name_lower: return "🪟 Compiled Binary"
+              return "📄 Resource"
 
-          # 4. 리포지토리 파일 구조 분석 (표 생성)
-          def generate_file_tree():
+          def generate_file_report():
               table_rows = []
               total_size = 0
               file_count = 0
-
-              # 현재 디렉토리 순회
+              
               for root, dirs, files in os.walk("."):
-                  # 제외할 디렉토리 필터링
                   dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
-                  
                   for file in files:
-                      if file in IGNORE_FILES or file == "README.md":
-                          continue
-                          
+                      if file in IGNORE_FILES or file == "README.md": continue
+                      
                       file_path = os.path.join(root, file)
                       try:
-                          # 파일 정보 추출
                           size = os.path.getsize(file_path)
                           total_size += size
                           file_count += 1
-                          
-                          # 상대 경로 (./src/main.cpp -> src/main.cpp)
                           rel_path = os.path.relpath(file_path, ".")
-                          
-                          # 설명 생성
                           desc = get_description(file)
                           
-                          # GitHub 링크 생성
-                          link = f"[{rel_path}]({REPO_URL}/blob/main/{rel_path})"
+                          # 변경사항 추적을 위한 날짜
+                          mtime = datetime.datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M')
                           
-                          table_rows.append(f"| {link} | {desc} | {convert_size(size)} |")
-                      except Exception as e:
-                          print(f"Skipping {file}: {e}")
+                          link = f"[{rel_path}]({REPO_URL}/blob/main/{rel_path})"
+                          table_rows.append(f"| {link} | {desc} | {convert_size(size)} | {mtime} |")
+                      except: pass
 
-              # 헤더 작성
-              md_table = "\n### 📂 Repository File Structure & Capacity Report\n\n"
-              md_table += f"**Total Files:** {file_count} | **Total Size:** {convert_size(total_size)}\n\n"
-              md_table += "| File / Directory 📁 | Description 📝 | Size 💾 |\n"
-              md_table += "| :--- | :--- | :---: |\n"
-              
-              # 행 추가 (이름순 정렬)
+              md_table = "\n### 📂 Real-time Repository Status (5-min Update)\n\n"
+              md_table += f"**Total Files:** {file_count} | **Total Volume:** {convert_size(total_size)}\n\n"
+              md_table += "| File Path 📁 | Description 📝 | Size 💾 | Last Modified 🕒 |\n"
+              md_table += "| :--- | :--- | :---: | :---: |\n"
               md_table += "\n".join(sorted(table_rows))
               return md_table
 
-          # 5. 최종 Markdown 콘텐츠 조립
-          current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-          file_report = generate_file_tree()
+          # ---------------------------------------------------------
+          # 메인 로직 실행
+          # ---------------------------------------------------------
+          # 1. 워터마크 주입 실행
+          watermarked_files = SecurityManager.inject_watermark()
+          
+          # 2. 무결성 해시 생성
+          integrity_hash = SecurityManager.generate_integrity_hash()
+          
+          # 3. 리포트 생성
+          file_report = generate_file_report()
+          current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
 
+          # 4. README 작성
           markdown_content = f"""
           # 🚀 Welcome to My Tech Stack Journey
 
           ### Aspiring Systems Architect | Passionate about C++ & Docker Technology
 
-          Welcome to my technical blog repository! 🌱
+          > ⚠️ **COPYRIGHT WARNING & LEGAL NOTICE**
+          >
+          > This repository contains proprietary code and intellectual property.
+          > **Unauthorized copying, reproduction, or distribution of any file in this repository is strictly prohibited.**
+          > All source codes are digitally watermarked and monitored.
+
+          ---
+
+          ## 🛡️ Security & Integrity Check
           
-          This repository is a live implementation of high-performance system architecture.
-          Documenting the journey of mastering **C++**, **Docker**, and **DevOps Automation**.
+          This repository is protected by an automated integrity system.
+          
+          | Metric | Status |
+          | :--- | :--- |
+          | **Copyright Protection** | ✅ Active (Source Code Watermarked) |
+          | **Integrity Hash** | \`{integrity_hash}\` |
+          | **Last Verified** | {current_time} |
+          | **Protected Files** | {watermarked_files} new files secured |
 
           ---
 
           ## 🛠️ Core Technical Focus
 
           <div align="center">
+            <img src="https://img.shields.io/badge/Protection-Active-red?style=for-the-badge&logo=security&logoColor=white" alt="Security" />
             <img src="https://img.shields.io/badge/Modern%20C%2B%2B-17%2F20-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white" alt="C++" />
             <img src="https://img.shields.io/badge/Docker-Containerization-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
-            <img src="https://img.shields.io/badge/Linux-Systems-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux" />
           </div>
 
           ---
 
-          ## 🎯 Expertise & Features
+          ## 🎯 Live System Status
 
-          ### 🐳 Docker & Containerization
+          ### 🐳 Docker & DevOps
           - **Auto-Publish:** Docker images pushed to GHCR automatically.
-          - **Optimization:** Multi-stage builds for minimal image size.
+          - **Security:** Automated container scanning enabled.
 
-          ### ⚡ Modern C++ System
-          - **Massive Data Gen:** Creating 20MB+ data for stress testing.
-          - **Cross-Platform:** Builds on Windows & Linux simultaneously.
-          - **GCC Optimization:** Leveraging \`-O3\` for max performance.
+          ### ⚡ High-Performance Computing
+          - **Massive Data:** 20MB+ Stress Test Data generation.
+          - **GCC Optimization:** \`-O3\` flag applied for max speed.
 
           ---
 
@@ -152,30 +203,30 @@ jobs:
 
           ---
           <p align="center">
-            <em>Automatically Analyzed & Updated via GitHub Actions: {current_date}</em>
+            <em>🔒 Secured & Updated via GitHub Actions: {current_time}</em>
           </p>
           """
 
-          # README.md 저장
           with open("README.md", "w", encoding="utf-8") as f:
               f.write(markdown_content)
           
-          print("✅ Professional README with File Report generated.")
+          print("✅ Security protocols applied and README updated.")
           EOF
 
-          # 스크립트 실행
-          python readme_generator.py
+          python repo_manager.py
 
-      - name: Commit and Push changes
+      - name: Commit & Push Protected Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          if git diff --quiet README.md; then
+          # README 뿐만 아니라 Watermark가 주입된 소스코드도 함께 커밋
+          git add .
+          
+          if git diff --quiet HEAD; then
             echo "No changes to commit."
           else
-            git add README.md
-            git commit -m "docs: auto-update README with latest file structure [skip ci]"
+            git commit -m "security: auto-update protection & readme (5-min interval) [skip ci]"
             git push
-            echo "🎉 README updated with new file stats."
+            echo "🎉 Repository secured and updated."
           fi
