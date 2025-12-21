@@ -1,15 +1,20 @@
-name: 🚀 Ultimate Cross-Platform Build System
+name: 🚀 Full-Force Cross-Platform Build System
 
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 수동 실행 버튼
+  workflow_dispatch:
+
+# 전역 환경 변수 설정 (인코딩 문제 원천 차단)
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: 1
 
 jobs:
-  matrix-build:
-    name: 🏗️ Build on ${{ matrix.os }}
+  build-and-execute:
+    name: 🔥 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -17,50 +22,62 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-build
+            artifact_name: linux-artifacts
           - os: windows-latest
-            artifact_name: windows-build
+            artifact_name: windows-artifacts
           - os: macos-latest
-            artifact_name: macos-build
+            artifact_name: macos-artifacts
 
     steps:
     # ----------------------------------------------------------------
-    # 1. 소스 코드 체크아웃 (기본 필수)
+    # 1. 소스 코드 체크아웃
     # ----------------------------------------------------------------
     - name: 📥 Checkout Repository
       uses: actions/checkout@v4
 
     # ----------------------------------------------------------------
-    # 2. 파일 누락 방지: 필수 스크립트 자동 생성 (Self-Healing)
-    #    저장소에 파일이 없어도 워크플로우가 스스로 파일을 만들어냅니다.
+    # 2. Python 셋업
     # ----------------------------------------------------------------
-    - name: 📝 Generate Missing Scripts (Auto-Recovery)
+    - name: 🐍 Setup Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    # ----------------------------------------------------------------
+    # 3. [핵심] 모든 스크립트 무조건 강제 생성 (Skip 없음)
+    #    Windows 호환성을 위해 encoding='utf-8' 명시
+    # ----------------------------------------------------------------
+    - name: 📝 Force Generate All Scripts (No Skip)
       shell: bash
       run: |
-        # 1. requirements.txt 생성
-        if [ ! -f requirements.txt ]; then
-          echo "⚠️ requirements.txt not found. Creating default..."
-          echo "colorama" > requirements.txt
-        fi
+        echo "🔥 Force creating requirements.txt..."
+        echo "colorama" > requirements.txt
 
-        # 2. upgrade_manager.py (C++ 생성기) 자동 복구
-        if [ ! -f upgrade_manager.py ]; then
-          echo "⚠️ upgrade_manager.py not found. Creating generator script..."
-          cat <<EOF > upgrade_manager.py
+        echo "🔥 Force creating upgrade_manager.py with UTF-8 support..."
+        cat <<EOF > upgrade_manager.py
         import os
+        import sys
+
+        # 인코딩 문제 방지용 UTF-8 설정
+        sys.stdout.reconfigure(encoding='utf-8')
 
         def create_cpp_files():
-            print("[MANAGER] Generating C++20 Source Code...")
+            print("[MANAGER] 🚀 Generating C++20 Source Code...")
             
-            # 메인 소스코드
+            # 메인 소스코드 (이모지 포함)
             main_code = """
         #include <iostream>
         #include <vector>
         #include <string>
 
         int main() {
+            // Windows 콘솔 출력을 위한 코드 페이지 설정 (선택적)
+            #ifdef _WIN32
+            system("chcp 65001");
+            #endif
+
             std::cout << "🚀 Professional C++ Build Successful!" << std::endl;
-            std::cout << "os: Based on Workflow Matrix" << std::endl;
+            std::cout << "os: Processed by GitHub Actions Matrix" << std::endl;
             return 0;
         }
             """
@@ -73,78 +90,73 @@ jobs:
         add_executable(app main.cpp)
             """
 
-            with open("main.cpp", "w") as f:
+            # [FIX] encoding='utf-8' 추가하여 Windows 에러 해결
+            print("[MANAGER] Writing main.cpp...")
+            with open("main.cpp", "w", encoding="utf-8") as f:
                 f.write(main_code)
             
-            with open("CMakeLists.txt", "w") as f:
+            print("[MANAGER] Writing CMakeLists.txt...")
+            with open("CMakeLists.txt", "w", encoding="utf-8") as f:
                 f.write(cmake_code)
+                
+            print("[MANAGER] ✅ All files generated successfully.")
 
         if __name__ == "__main__":
             create_cpp_files()
         EOF
-        fi
 
     # ----------------------------------------------------------------
-    # 3. Python 환경 설정
+    # 4. 의존성 설치 및 Python 스크립트 실행
     # ----------------------------------------------------------------
-    - name: 🐍 Setup Python 3.x
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        cache: 'pip' # 위에서 파일을 생성했으므로 캐시 사용 가능
-
-    - name: 📦 Install Python Dependencies
-      run: pip install -r requirements.txt
+    - name: 📦 Install & Run Generator
+      shell: bash
+      run: |
+        pip install -r requirements.txt
+        python upgrade_manager.py
 
     # ----------------------------------------------------------------
-    # 4. C++ 코드 생성 (Python 스크립트 실행)
+    # 5. C++ 빌드 도구 설정
     # ----------------------------------------------------------------
-    - name: 🔄 Run Upgrade Manager (Generate C++ Source)
-      run: python upgrade_manager.py
-
-    # ----------------------------------------------------------------
-    # 5. 빌드 시스템 준비 (CMake & Compiler)
-    # ----------------------------------------------------------------
-    - name: 🛠️ Install Build Tools (Linux only)
+    - name: 🛠️ Setup Build Environment (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
 
-    - name: 🛠️ Setup MSVC (Windows only)
+    - name: 🛠️ Setup Build Environment (Windows)
       if: matrix.os == 'windows-latest'
       uses: microsoft/setup-msbuild@v1.1
 
     # ----------------------------------------------------------------
-    # 6. CMake 빌드 실행 (Cross-Platform)
+    # 6. CMake 빌드 및 실행 (모두 실행)
     # ----------------------------------------------------------------
     - name: 🏗️ CMake Configure
+      shell: bash
       run: cmake -S . -B build
 
     - name: 🔨 Build Project
+      shell: bash
       run: cmake --build build --config Release
 
-    # ----------------------------------------------------------------
-    # 7. 결과물 테스트 (실행 확인)
-    # ----------------------------------------------------------------
-    - name: 🧪 Test Execution (Linux/Mac)
-      if: matrix.os != 'windows-latest'
+    - name: 🧪 Run Application (Linux/Mac)
+      if: runner.os != 'Windows'
       run: ./build/app
 
-    - name: 🧪 Test Execution (Windows)
-      if: matrix.os == 'windows-latest'
-      run: .\build\Release\app.exe
+    - name: 🧪 Run Application (Windows)
+      if: runner.os == 'Windows'
+      shell: cmd
+      run: build\Release\app.exe
 
     # ----------------------------------------------------------------
-    # 8. 모든 생성 파일 및 결과물 압축 업로드 (Artifact)
+    # 7. 모든 결과물 아티팩트 저장
     # ----------------------------------------------------------------
-    - name: 📤 Upload Build Artifacts
+    - name: 📤 Upload All Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
           build/
           *.cpp
+          *.txt
           *.py
-          CMakeLists.txt
-        retention-days: 5
+        retention-days: 1
