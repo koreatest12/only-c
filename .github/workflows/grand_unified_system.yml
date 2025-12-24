@@ -1,4 +1,4 @@
-name: 🛡️ SERVER:INSTALL, DOWNLOAD & DEPLOY
+name: 🛡️ FIXED:SERVER, DB & SECURE BUILD
 
 on:
   push:
@@ -21,8 +21,8 @@ permissions:
   security-events: write
 
 jobs:
-  deploy-ops:
-    name: 🌍 Deploy Server on ${{ matrix.os }}
+  enterprise-fix-ops:
+    name: 🏢 Fixed Ops on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,11 +30,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-deploy-pack
+            artifact_name: linux-enterprise-pack
           - os: windows-latest
-            artifact_name: windows-deploy-pack
+            artifact_name: windows-enterprise-pack
           - os: macos-latest
-            artifact_name: macos-deploy-pack
+            artifact_name: macos-enterprise-pack
 
     steps:
     # ----------------------------------------------------------------
@@ -44,15 +44,14 @@ jobs:
       uses: actions/checkout@v4
 
     # ----------------------------------------------------------------
-    # [Step 2] 의존성 파일 선행 생성 (Fix Cache Error)
+    # [Step 2] 의존성 파일 선행 생성 (Pip 에러 방지)
     # ----------------------------------------------------------------
-    - name: 📝 [2] Pre-Init Dependencies
+    - name: 📝 [2] Init Requirements
       shell: bash
       run: |
         echo "Creating requirements.txt..."
         echo "colorama" > requirements.txt
-        echo "tqdm" >> requirements.txt
-        echo "requests" >> requirements.txt 
+        echo "requests" >> requirements.txt
         echo "✅ requirements.txt created."
 
     # ----------------------------------------------------------------
@@ -65,9 +64,9 @@ jobs:
         queries: security-extended, security-and-quality
 
     # ----------------------------------------------------------------
-    # [Step 4] 시스템 정비
+    # [Step 4] 시스템 및 Python 설정
     # ----------------------------------------------------------------
-    - name: 🔄 [4] Silent System Upgrade
+    - name: 🔄 [4] System Setup
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
@@ -75,25 +74,23 @@ jobs:
             sudo apt-get install -y -qq --no-install-recommends build-essential cmake
         fi
 
-    # ----------------------------------------------------------------
-    # [Step 5] Python 설정
-    # ----------------------------------------------------------------
     - name: 🐍 [5] Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 🔄 [5-Post] Install Dependencies
+    - name: 📦 [5-Post] Install Dependencies
       shell: bash
       run: pip install -r requirements.txt
 
     # ----------------------------------------------------------------
-    # [Step 6] 통합 배포 매니저 (서버/다운로드 기능 추가)
+    # [Step 5] 통합 매니저 실행 (CMakeLists.txt 생성 보장)
     # ----------------------------------------------------------------
-    - name: 📝 [6] Generate Deploy Manager
+    - name: 📝 [6] Generate & Run Manager
       shell: bash
       run: |
+        # Python 스크립트 생성
         cat <<EOF > service_manager.py
         import os
         import sys
@@ -106,20 +103,19 @@ jobs:
         import socketserver
         import urllib.request
         import shutil
-        import hashlib
 
         sys.stdout.reconfigure(encoding='utf-8')
 
-        # --- 설정 ---
         SERVER_PORT = 8080
         RELEASE_DIR = "release_store"
 
         def log(msg):
-            print(f"[DEPLOY-MGR] {msg}")
+            print(f"[MANAGER] {msg}")
 
-        # 1. C++ 서비스 엔진 생성
-        def generate_cpp_core():
-            log("Generating C++20 Service Core...")
+        # [중요] 루트 디렉토리에 빌드 파일 생성 함수
+        def generate_build_files():
+            log("Creating 'CMakeLists.txt' and 'main.cpp' in Root Directory...")
+            
             cpp_code = """
         #include <iostream>
         #include <vector>
@@ -127,159 +123,184 @@ jobs:
         #include <thread>
         #include <mutex>
 
+        // 금융 데이터 구조체
+        struct Portfolio {
+            std::string owner;
+            double total_assets;
+            std::vector<std::string> stocks;
+        };
+
         int main() {
-            std::cout << "🚀 ENTERPRISE SERVICE RUNNING..." << std::endl;
-            std::cout << "✅ Banking/Stock/Insurance Modules Loaded." << std::endl;
+            std::cout << "🚀 ENTERPRISE CORE ENGINE STARTED." << std::endl;
+            std::cout << "✅ Banking / Stock / Insurance / Tax Modules Loaded." << std::endl;
+            
+            // 간단한 연산 시뮬레이션
+            std::vector<Portfolio> db;
+            for(int i=0; i<100; ++i) {
+                db.push_back({"User_" + std::to_string(i), (double)(i * 1000), {"AAPL", "TSLA"}});
+            }
+            std::cout << "📊 Processed " << db.size() << " High-Value Portfolios." << std::endl;
+            
             return 0;
         }
             """
             
             cmake_code = """
         cmake_minimum_required(VERSION 3.14)
-        project(EnterpriseService)
+        project(EnterpriseCore)
         set(CMAKE_CXX_STANDARD 20)
         add_executable(app main.cpp)
             """
 
             try:
-                with open("main.cpp", "w", encoding="utf-8") as f: f.write(cpp_code)
-                with open("CMakeLists.txt", "w", encoding="utf-8") as f: f.write(cmake_code)
-            except Exception as e: print(f"[ERROR] {e}")
+                # 현재 작업 디렉토리(루트)에 파일 쓰기
+                with open("main.cpp", "w", encoding="utf-8") as f:
+                    f.write(cpp_code)
+                with open("CMakeLists.txt", "w", encoding="utf-8") as f:
+                    f.write(cmake_code)
+                log("✅ Build files created successfully.")
+            except Exception as e:
+                log(f"❌ Error creating build files: {e}")
+                sys.exit(1)
 
-        # 2. 대량 데이터 DB 생성
-        def run_db_migration():
-            log("🔄 Creating Massive DB (Banking, Stock, Insurance)...")
+        def run_massive_db_migration():
+            log("🔄 Generating Massive DB Schema (5+ Sectors)...")
             try:
                 conn = sqlite3.connect("enterprise_data.db")
                 cursor = conn.cursor()
+                
+                # 1. 금융 (기본)
                 cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER, name TEXT)")
-                # 대량 더미 데이터
-                data = [(i, f"User_{i}") for i in range(100)]
-                cursor.executemany("INSERT INTO users VALUES (?, ?)", data)
+                cursor.execute("CREATE TABLE IF NOT EXISTS accounts (id INTEGER, balance REAL)")
+                
+                # 2. 주식 & 보험
+                cursor.execute("CREATE TABLE IF NOT EXISTS stocks (id INTEGER, symbol TEXT, qty REAL)")
+                cursor.execute("CREATE TABLE IF NOT EXISTS insurance (id INTEGER, policy_type TEXT)")
+                
+                # 3. [NEW] 부동산 & 세금 (공공 데이터 확장)
+                cursor.execute("CREATE TABLE IF NOT EXISTS real_estate (id INTEGER, address TEXT, price REAL)")
+                cursor.execute("CREATE TABLE IF NOT EXISTS taxes (id INTEGER, year INTEGER, amount REAL)")
+
+                # 대량 데이터 주입
+                users = [(i, f"User_{i}") for i in range(500)]
+                cursor.executemany("INSERT INTO users VALUES (?, ?)", users)
+                
                 conn.commit()
                 conn.close()
-                log("✅ DB Created.")
-            except Exception as e: print(f"[DB ERROR] {e}")
+                log("✅ Database Schema & Data Injection Complete.")
+            except Exception as e:
+                print(f"[DB ERROR] {e}")
 
-        # 3. [NEW] 배포 패키징 및 서버 가동 로직
-        def start_distribution_server():
-            # 배포 폴더 생성
+        def start_server_and_test():
             if not os.path.exists(RELEASE_DIR):
                 os.makedirs(RELEASE_DIR)
-            
-            # 서비스별 가상 패키지 생성 (Zip)
-            services = ["Banking_Service_v2.0", "Stock_Trader_v1.5", "Insurance_Sys_v3.1"]
-            for svc in services:
-                # 더미 파일 생성 후 압축
-                dummy_content = f"This is the binary content for {svc}"
-                with open(f"{svc}.bin", "w") as f: f.write(dummy_content)
                 
-                # Zip 압축
-                shutil.make_archive(f"{RELEASE_DIR}/{svc}", 'zip', root_dir=".", base_dir=f"{svc}.bin")
-                log(f"📦 Packed: {svc}.zip ready in official store.")
-
-            # 백그라운드 서버 스레드 실행
+            # 가상 배포 파일 생성
+            with open(f"{RELEASE_DIR}/banking_app_v1.zip", "w") as f: f.write("Binary Data")
+            
+            # 서버 실행 (별도 스레드)
             handler = http.server.SimpleHTTPRequestHandler
+            # 서버 루트 설정을 위해 디렉토리 이동 후 복귀 전략 대신, 
+            # 서브 디렉토리를 서빙하도록 핸들러 커스텀은 복잡하므로 
+            # 단순하게 RELEASE_DIR 내부에서 실행하는 것으로 가정 (CI환경)
             
-            # 서버 루트를 RELEASE_DIR로 설정하기 위해 디렉토리 이동
-            os.chdir(RELEASE_DIR)
+            os.chdir(RELEASE_DIR) 
+            # 주의: 여기서 디렉토리를 바꾸면 main.cpp 위치를 잃어버릴 수 있으므로
+            # 서버 테스트 후 반드시 복귀하거나, 별도 프로세스로 띄워야 함.
+            # 여기서는 간단히 파일 생성만 하고 복귀.
+            os.chdir("..") 
             
-            try:
-                httpd = socketserver.TCPServer(("", SERVER_PORT), handler)
-                log(f"🌐 [OFFICIAL SERVER] Started at http://localhost:{SERVER_PORT}")
-                server_thread = threading.Thread(target=httpd.serve_forever)
-                server_thread.daemon = True
-                server_thread.start()
-                
-                # 다시 상위 디렉토리로 복귀 (클라이언트 동작 위해)
-                os.chdir("..")
-                return True
-            except Exception as e:
-                log(f"❌ Server Start Failed: {e}")
-                os.chdir("..")
-                return False
-
-        # 4. [NEW] 공식 주소 다운로드 테스트
-        def test_download_feature():
-            log("⬇️ Testing Download from Official Server...")
-            time.sleep(2) # 서버 기동 대기
-            
-            targets = ["Banking_Service_v2.0.zip", "Stock_Trader_v1.5.zip", "Insurance_Sys_v3.1.zip"]
-            download_dir = "client_downloads"
-            
-            if not os.path.exists(download_dir):
-                os.makedirs(download_dir)
-            
-            for file_name in targets:
-                url = f"http://localhost:{SERVER_PORT}/{file_name}"
-                save_path = f"{download_dir}/{file_name}"
-                
-                try:
-                    log(f"📡 Requesting: {url}")
-                    urllib.request.urlretrieve(url, save_path)
-                    
-                    # 파일 검증
-                    if os.path.exists(save_path) and os.path.getsize(save_path) > 0:
-                        log(f"✅ Download Success: {file_name} ({os.path.getsize(save_path)} bytes)")
-                    else:
-                        log(f"❌ Download Failed: {file_name} is empty.")
-                except Exception as e:
-                    log(f"❌ Connection Error: {e}")
+            log("✅ Deployment Packages Prepared in 'release_store'.")
 
         if __name__ == "__main__":
-            log(f"🚀 System: {platform.system()} - Init Pipeline")
+            log(f"🚀 System: {platform.system()}")
             
-            generate_cpp_core()     # 1. 소스 생성
-            run_db_migration()      # 2. DB 생성
+            # 1. 빌드 파일 생성 (가장 중요)
+            generate_build_files()
             
-            if start_distribution_server(): # 3. 서버 가동
-                test_download_feature()     # 4. 다운로드 테스트
+            # 2. DB 마이그레이션
+            run_massive_db_migration()
             
-            log("✅ All Deployment Tasks Completed.")
+            # 3. 배포 준비
+            start_server_and_test()
         EOF
+        
+        # Python 스크립트 실행
+        python service_manager.py
 
     # ----------------------------------------------------------------
-    # [Step 7] 빌드 (Artifact 생성용)
+    # [Step 6] 파일 존재 여부 검증 (에러 원천 차단)
     # ----------------------------------------------------------------
-    - name: 🏗️ [7] CMake Configure & Build
+    - name: 🧐 [7] Verify Build Files
       shell: bash
       run: |
-        cmake -S . -B build
+        echo "Checking for CMakeLists.txt..."
+        if [ -f "CMakeLists.txt" ]; then
+            echo "✅ CMakeLists.txt found."
+        else
+            echo "❌ Fatal Error: CMakeLists.txt MISSING."
+            ls -R
+            exit 1
+        fi
+
+    # ----------------------------------------------------------------
+    # [Step 7] 빌드 실행 (이제 안전함)
+    # ----------------------------------------------------------------
+    - name: 🏗️ [8] CMake Configure & Build
+      shell: bash
+      run: |
+        echo "🚀 Starting Build Process..."
+        cmake -S . -B build -Wno-dev
         cmake --build build --config Release
 
     # ----------------------------------------------------------------
-    # [Step 8] 서버 설치, 패키징 및 다운로드 실행 (Main Action)
+    # [Step 8] 공식 서버 다운로드 시뮬레이션
     # ----------------------------------------------------------------
-    - name: 🌐 [8] Install Server & Execute Download
+    - name: 🌐 [9] Launch Server & Download Test
       shell: bash
       run: |
-        echo "================================================"
-        echo "🚀 LAUNCHING OFFICIAL DISTRIBUTION SERVER..."
-        echo "================================================"
-        python service_manager.py
-        echo "================================================"
-        echo "✅ Server Test & Download Verified."
+        # 서버를 백그라운드에서 실행 (release_store 폴더 서빙)
+        cd release_store
+        python3 -m http.server 8080 &
+        SERVER_PID=$!
+        cd ..
+        
+        echo "⏳ Waiting for Server..."
+        sleep 3
+        
+        echo "⬇️ Downloading Client Package..."
+        curl -f http://localhost:8080/banking_app_v1.zip -o downloaded_banking.zip
+        
+        if [ -f "downloaded_banking.zip" ]; then
+            echo "✅ Download Verified Successful."
+        else
+            echo "❌ Download Failed."
+            exit 1
+        fi
+        
+        # 서버 종료
+        kill $SERVER_PID || true
 
     # ----------------------------------------------------------------
-    # [Step 9] CodeQL v4 보안 분석
+    # [Step 9] CodeQL v4 분석
     # ----------------------------------------------------------------
-    - name: 🔍 [9] Perform CodeQL Analysis v4
+    - name: 🔍 [10] Perform CodeQL Analysis v4
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:cpp,python"
 
     # ----------------------------------------------------------------
-    # [Step 10] 검증된 파일 업로드 (서버 원본 + 다운로드본)
+    # [Step 10] 결과물 업로드
     # ----------------------------------------------------------------
-    - name: 📤 [10] Upload Deploy Artifacts
+    - name: 📤 [11] Upload Verified Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
           build/
-          release_store/    # 서버 저장소 (원본)
-          client_downloads/ # 클라이언트 다운로드 (검증본)
+          release_store/
           *.db
           *.py
+          downloaded_banking.zip
         retention-days: 1
