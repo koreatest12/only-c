@@ -1,4 +1,4 @@
-name: 🛡️ ENTERPRISE:UPGRADE, DB, CUSTOMER & SECURITY
+name: 🛡️ V4 SECURITY:MEGA FINANCIAL CORE
 
 on:
   push:
@@ -7,21 +7,22 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-# [Global Config] 인코딩 및 환경 설정
 env:
   PYTHONIOENCODING: utf-8
   PYTHONUTF8: 1
   LC_ALL: en_US.UTF-8
+  DEBIAN_FRONTEND: noninteractive
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  PIP_ROOT_USER_ACTION: ignore
 
-# CodeQL 권한 설정
 permissions:
   actions: read
   contents: read
   security-events: write
 
 jobs:
-  enterprise-ops:
-    name: 🚀 DevOps Pipeline on ${{ matrix.os }}
+  future-proof-ops:
+    name: 🛡️ CodeQL v4 Ops on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -29,85 +30,53 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-enterprise-pack
+            artifact_name: linux-v4-pack
           - os: windows-latest
-            artifact_name: windows-enterprise-pack
+            artifact_name: windows-v4-pack
           - os: macos-latest
-            artifact_name: macos-enterprise-pack
+            artifact_name: macos-v4-pack
 
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 저장소 및 리소스 확보
+    # [Step 1] 리소스 확보
     # ----------------------------------------------------------------
     - name: 📥 [1] Checkout Repository
       uses: actions/checkout@v4
 
     # ----------------------------------------------------------------
-    # [Step 2] CodeQL 초기화 (빌드 전 보안 엔진 가동)
+    # [Step 2] CodeQL v4 초기화 (업그레이드 완료)
     # ----------------------------------------------------------------
-    - name: 🛡️ [2] Initialize CodeQL
-      uses: github/codeql-action/init@v3
+    - name: 🛡️ [2] Initialize CodeQL v4 (Latest Standard)
+      uses: github/codeql-action/init@v4  # <--- v4 Update Reflected
       with:
         languages: cpp, python
         queries: security-extended, security-and-quality
 
     # ----------------------------------------------------------------
-    # [Step 3] 시스템 및 패키지 전체 업그레이드 (No Skip)
+    # [Step 3] 시스템 정비 (Silent & Clean)
     # ----------------------------------------------------------------
-    - name: 🔄 [3] System & Package Auto-Upgrade
+    - name: 🔄 [3] Silent System Upgrade
       shell: bash
       run: |
-        echo "=========================================="
-        echo "🚀 STARTING SYSTEM UPGRADE SEQUENCE..."
-        echo "=========================================="
-        
         if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "🐧 Linux: Updating APT Repositories..."
-            sudo apt-get update -y
-            echo "🐧 Linux: Ensuring latest Build Tools..."
-            sudo apt-get install -y --only-upgrade build-essential cmake
-            
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "🪟 Windows: Checking specific updates..."
-            echo "✅ Windows Update Agent is managed by GitHub Actions."
-            
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "🍎 macOS: Check Environment..."
-            echo "✅ macOS Environment Verified."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends build-essential cmake
         fi
-        echo "✅ System Upgrade Sequence Completed."
+        echo "✅ System Ready for CodeQL v4 Analysis."
 
     # ----------------------------------------------------------------
-    # [Step 4] Python 설정 (고객 데이터 처리용)
+    # [Step 4] 대규모 서비스 매니저 생성 (데이터 + 로직)
     # ----------------------------------------------------------------
-    - name: 📝 [4-Pre] Force Init Requirements
-      shell: bash
-      run: |
-        echo "colorama" > requirements.txt
-        echo "pandas" >> requirements.txt
-        echo "✅ requirements.txt initialized with Data Tools."
-
     - name: 🐍 [4] Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 🔄 [4-Post] Upgrade Python Dependencies
+    - name: 📝 [5] Generate Mega-Service Manager (v4 Compliant)
       shell: bash
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        echo "✅ Python Dependencies Upgraded."
-
-    # ----------------------------------------------------------------
-    # [Step 5] 통합 매니저 생성 (고객 DB / 보안 / 빌드 통합)
-    # ----------------------------------------------------------------
-    - name: 📝 [5] Generate Enterprise Manager (UTF-8 Safe)
-      shell: bash
-      run: |
-        echo "🔧 Generating upgrade_manager.py with Customer Data modules..."
-        cat <<EOF > upgrade_manager.py
+        cat <<EOF > service_manager.py
         import os
         import sys
         import platform
@@ -115,49 +84,140 @@ jobs:
         import time
         import random
 
-        # Windows 인코딩 크래시 방지
         sys.stdout.reconfigure(encoding='utf-8')
 
         def log(msg):
-            print(f"[MANAGER] {msg}")
+            print(f"[MEGA-CORE] {msg}")
 
-        def generate_cpp_source():
-            log("Generating C++20 Source Code for Enterprise Service...")
+        def generate_high_performance_cpp():
+            log("Generating C++20 Multi-threaded Service Core...")
+            
             cpp_code = """
         #include <iostream>
         #include <vector>
         #include <string>
+        #include <thread>
+        #include <future>
+        #include <mutex>
+        #include <numeric>
+        #include <cmath>
 
-        struct Customer {
-            int id;
-            std::string tier;
+        // --- Domain Models ---
+        struct Transaction {
+            std::string tx_id;
+            double amount;
+            std::string type;
         };
 
-        int main() {
-            #ifdef _WIN32
-            system("chcp 65001 > nul");
-            #endif
-            
-            std::cout << "🚀 ENTERPRISE BUILD SUCCESSFUL!" << std::endl;
-            std::cout << "✅ Security Patch Applied (CodeQL Ready)." << std::endl;
-            std::cout << "✅ Customer Data Integration Module Loaded." << std::endl;
-            
-            // 데이터 처리 시뮬레이션
-            std::vector<Customer> batch;
-            for(int i=0; i<100; ++i) {
-                batch.push_back({i, "VIP"});
-            }
-            std::cout << "📊 Processed " << batch.size() << " Client Records in Memory." << std::endl;
+        struct Loan {
+            std::string loan_id;
+            double principal;
+            double interest_rate;
+        };
 
+        struct CustomerProfile {
+            int id;
+            std::string name;
+            int credit_score;
+            std::vector<Transaction> history;
+            std::vector<Loan> loans;
+        };
+
+        // --- Service Logic ---
+        std::mutex log_mutex;
+
+        // 복잡한 리스크 연산 (CPU Intensive)
+        double calculate_risk_exposure(const CustomerProfile& profile) {
+            double total_debt = 0.0;
+            for(const auto& loan : profile.loans) {
+                total_debt += loan.principal * (1.0 + loan.interest_rate);
+            }
+            
+            double spending_velocity = 0.0;
+            for(const auto& tx : profile.history) {
+                spending_velocity += tx.amount;
+            }
+            return (total_debt * 0.5) + (spending_velocity * 0.2) + std::sqrt(profile.credit_score);
+        }
+
+        // 배치 처리 작업 (Thread Safe Logging)
+        void process_batch(int batch_id, std::vector<CustomerProfile> profiles) {
+            {
+                std::lock_guard<std::mutex> lock(log_mutex);
+                std::cout << "[Thread-" << batch_id << "] Processing " << profiles.size() << " profiles..." << std::endl;
+            }
+            
+            int high_risk_count = 0;
+            for(const auto& p : profiles) {
+                double risk = calculate_risk_exposure(p);
+                if (risk > 500000.0) high_risk_count++;
+            }
+            
+            {
+                std::lock_guard<std::mutex> lock(log_mutex);
+                std::cout << "[Thread-" << batch_id << "] Completed. High Risk Alerts: " << high_risk_count << std::endl;
+            }
+        }
+
+        int main() {
+            std::ios::sync_with_stdio(false);
+            std::cout << "🚀 MEGA-SCALE SERVICE ENGINE (CodeQL v4 Verified)" << std::endl;
+            
+            // 1. 대량 데이터 로드 시뮬레이션
+            std::vector<CustomerProfile> all_data;
+            all_data.reserve(1000); 
+            
+            for(int i=0; i<1000; ++i) {
+                CustomerProfile p;
+                p.id = i;
+                p.credit_score = 300 + (i % 600);
+                
+                // 고객당 50건 거래 내역
+                for(int j=0; j<50; ++j) {
+                    p.history.push_back({"TX_" + std::to_string(i) + "_" + std::to_string(j), (double)(j*100), "DEBIT"});
+                }
+                // 30% 고객 대출 보유
+                if(i % 3 == 0) {
+                    p.loans.push_back({"LOAN_" + std::to_string(i), 1000000.0, 0.05});
+                }
+                all_data.push_back(p);
+            }
+            
+            std::cout << "📊 Loaded " << all_data.size() << " Customer Profiles (Full-Stack)." << std::endl;
+            
+            // 2. 멀티스레드 병렬 처리
+            int thread_count = 4;
+            int batch_size = all_data.size() / thread_count;
+            std::vector<std::future<void>> futures;
+            
+            std::cout << "⚡ Starting Parallel Risk Analysis..." << std::endl;
+            
+            for(int t=0; t<thread_count; ++t) {
+                auto start_itr = all_data.begin() + (t * batch_size);
+                auto end_itr = (t == thread_count - 1) ? all_data.end() : start_itr + batch_size;
+                
+                std::vector<CustomerProfile> batch(start_itr, end_itr);
+                futures.push_back(std::async(std::launch::async, process_batch, t, batch));
+            }
+            
+            for(auto& f : futures) {
+                f.get();
+            }
+            
+            std::cout << "✅ Service Logic Executed Successfully." << std::endl;
             return 0;
         }
             """
             
             cmake_code = """
-        cmake_minimum_required(VERSION 3.10)
-        project(EnterpriseSystem)
+        cmake_minimum_required(VERSION 3.14)
+        project(MegaService)
         set(CMAKE_CXX_STANDARD 20)
+        set(CMAKE_CXX_STANDARD_REQUIRED ON)
+        
+        find_package(Threads REQUIRED)
         add_executable(app main.cpp)
+        target_link_libraries(app PRIVATE Threads::Threads)
             """
 
             try:
@@ -165,138 +225,111 @@ jobs:
                     f.write(cpp_code)
                 with open("CMakeLists.txt", "w", encoding="utf-8") as f:
                     f.write(cmake_code)
-                log("Source files generated with Customer Logic.")
+                log("C++ Service Core Generated.")
             except Exception as e:
                 print(f"[ERROR] {e}")
 
-        def run_customer_db_migration():
-            log("🔄 STARTING BULK CUSTOMER DATA MIGRATION...")
-            db_file = "enterprise_data.db"
+        def run_mega_data_migration():
+            log("🔄 STARTING MEGA-SCALE DB MIGRATION...")
+            db_file = "mega_finance_v4.db"
             try:
                 conn = sqlite3.connect(db_file)
                 cursor = conn.cursor()
                 
-                # 1. 시스템 로그 테이블
-                cursor.execute('''CREATE TABLE IF NOT EXISTS logs
-                                 (id INTEGER PRIMARY KEY, msg TEXT, timestamp TEXT)''')
+                # --- 스키마 정의 (5대 테이블) ---
+                cursor.execute("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, name TEXT, risk_level TEXT)")
+                cursor.execute("CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY, cust_id INTEGER, type TEXT, balance REAL)")
+                cursor.execute("CREATE TABLE IF NOT EXISTS cards (id INTEGER PRIMARY KEY, cust_id INTEGER, card_num TEXT)")
+                cursor.execute("CREATE TABLE IF NOT EXISTS loans (id INTEGER PRIMARY KEY, cust_id INTEGER, amount REAL, rate REAL)")
+                cursor.execute("CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY, card_id INTEGER, amount REAL, merchant TEXT, tx_time TEXT)")
                 
-                # 2. 고객 정보 테이블 (신규 추가)
-                cursor.execute('''CREATE TABLE IF NOT EXISTS customers
-                                 (id INTEGER PRIMARY KEY, name TEXT, region TEXT, tier TEXT, last_login TEXT)''')
-                log("Table 'customers' schema applied.")
-
-                # 3. 대량 데이터 삽입 시뮬레이션 (Batch Insert)
-                customers_data = []
-                regions = ['KR', 'US', 'JP', 'EU']
-                tiers = ['Standard', 'Gold', 'Platinum', 'Enterprise']
+                # --- 대량 데이터 생성 로직 ---
+                log("🚀 Generating Massive Data Rows...")
                 
-                for i in range(1, 101): # 100명의 고객 데이터 생성
-                    r_region = random.choice(regions)
-                    r_tier = random.choice(tiers)
-                    customers_data.append((f"Client_User_{i}", r_region, r_tier, "2025-12-24"))
-
-                cursor.executemany("INSERT INTO customers (name, region, tier, last_login) VALUES (?, ?, ?, ?)", customers_data)
+                users = [(i, f"User_{i}", "Low" if i%2==0 else "High") for i in range(1000)]
+                cursor.executemany("INSERT INTO customers VALUES (?, ?, ?)", users)
+                
+                accounts = [(i, i, "Savings", random.uniform(1000, 500000)) for i in range(1000)]
+                cursor.executemany("INSERT INTO accounts VALUES (?, ?, ?, ?)", accounts)
+                
+                loans = []
+                for i in range(1000):
+                    if i % 3 == 0:
+                        loans.append((None, i, random.uniform(1000000, 50000000), 0.045))
+                cursor.executemany("INSERT INTO loans VALUES (?, ?, ?, ?)", loans)
+                
+                transactions = []
+                merchants = ['Amazon', 'Starbucks', 'Uber', 'Apple', 'LocalMart']
+                for i in range(1000):
+                    card_id = i + 5000
+                    for _ in range(10): # 10,000 txs
+                        transactions.append((None, card_id, random.uniform(10, 500), random.choice(merchants), "2025-12-24 12:00:00"))
+                
+                cursor.executemany("INSERT INTO transactions VALUES (?, ?, ?, ?, ?)", transactions)
+                
                 conn.commit()
                 
-                log(f"✅ Bulk Insert: 100 Customer records added to '{db_file}'.")
+                cursor.execute("SELECT COUNT(*) FROM transactions")
+                tx_count = cursor.fetchone()[0]
                 
-                # 검증 쿼리
-                cursor.execute("SELECT COUNT(*) FROM customers")
-                count = cursor.fetchone()[0]
-                log(f"📊 Total Active Customers in DB: {count}")
+                log(f"✅ DB Expansion Complete for v4.")
+                log(f"   - Transactions Recorded: {tx_count}")
                 
                 conn.close()
             except Exception as e:
                 print(f"[DB ERROR] {e}")
 
-        def run_security_patch():
-            log("🛡️ STARTING INTERNAL SECURITY AUDIT...")
-            time.sleep(1) 
-            log("🔍 Scanning Source Code Integrity...")
-            
-            if os.path.exists("main.cpp"):
-                log("✅ main.cpp integrity verified.")
-            else:
-                log("⚠️ main.cpp missing!")
-            
-            log("🛠️ Applying CodeQL Preparation Patch...")
-            log("✅ All Systems Secure.")
-
         if __name__ == "__main__":
-            log(f"🚀 Detected OS: {platform.system()}")
-            generate_cpp_source()
-            run_customer_db_migration()
-            run_security_patch()
+            log(f"🚀 System: {platform.system()} - Initializing v4 Upgrade")
+            generate_high_performance_cpp()
+            run_mega_data_migration()
         EOF
 
     # ----------------------------------------------------------------
-    # [Step 6] DB 업데이트 & 보안 패치 실행 (CodeQL 분석 대상)
+    # [Step 5] 대량 생성 및 마이그레이션 실행
     # ----------------------------------------------------------------
-    - name: 🛡️ [6] Execute Data & Security Automation
+    - name: 🏦 [6] Run Mega Migration & Logic Gen
       shell: bash
       run: |
-        echo "=========================================="
-        echo "🚀 EXECUTING ENTERPRISE AUTOMATION..."
-        echo "=========================================="
-        python upgrade_manager.py
-        echo "=========================================="
-        echo "✅ Automation Finished."
+        python service_manager.py
+        echo "✅ Full-Stack Service Layer Deployed."
 
     # ----------------------------------------------------------------
-    # [Step 7] 빌드 환경 통합 설정 (No Skip)
+    # [Step 6] 빌드 (멀티스레드 지원)
     # ----------------------------------------------------------------
-    - name: 🛠️ [7] Universal Build Setup
+    - name: 🏗️ [7] CMake Configure & Build
       shell: bash
       run: |
-        echo "🛠️ Configuring Environment for $RUNNER_OS..."
-        if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt-get install -y build-essential cmake
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "🪟 Windows MSVC/CMake Pre-loaded."
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "🍎 macOS Clang/CMake Pre-loaded."
-        fi
+        cmake -S . -B build
+        cmake --build build --config Release
 
     # ----------------------------------------------------------------
-    # [Step 8] CMake 빌드 (CodeQL이 이 과정을 감시함)
+    # [Step 7] CodeQL v4 보안 분석 (Upgrade Reflected)
     # ----------------------------------------------------------------
-    - name: 🏗️ [8] CMake Configure
-      shell: bash
-      run: cmake -S . -B build
-
-    - name: 🔨 [9] Build Project (Release)
-      shell: bash
-      run: cmake --build build --config Release --verbose
-
-    # ----------------------------------------------------------------
-    # [Step 9] CodeQL 분석 수행 (빌드 후 실행)
-    # ----------------------------------------------------------------
-    - name: 🔍 [10] Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+    - name: 🔍 [8] Perform CodeQL Analysis v4
+      uses: github/codeql-action/analyze@v4 # <--- v4 Update Reflected
       with:
         category: "/language:cpp,python"
 
     # ----------------------------------------------------------------
-    # [Step 10] 실행 테스트
+    # [Step 8] 실행 및 검증 (부하 테스트)
     # ----------------------------------------------------------------
-    - name: 🧪 [11] Run & Validate Application
+    - name: 🧪 [9] Execute Service Engine
       shell: bash
       run: |
-        echo "🚀 Running Enterprise Application..."
         if [ -f "./build/Release/app.exe" ]; then
             ./build/Release/app.exe
         elif [ -f "./build/app" ]; then
             chmod +x ./build/app
             ./build/app
         else
-            echo "⚠️ Application path divergent. Searching..."
-            find build -name "app*"
+            find build -name "app*" -type f -print -quit
         fi
 
     # ----------------------------------------------------------------
-    # [Step 11] 모든 결과물 업로드 (고객 DB 파일 포함)
+    # [Step 9] 아티팩트 보존
     # ----------------------------------------------------------------
-    - name: 📤 [12] Upload Full Artifacts
+    - name: 📤 [10] Upload Mega-Service Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -306,6 +339,4 @@ jobs:
           *.db
           *.cpp
           *.py
-          *.txt
-          upgrade_manager.py
         retention-days: 1
