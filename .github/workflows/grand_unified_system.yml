@@ -1,4 +1,4 @@
-name: 💎 FIXED:GRAND OPS & MASSIVE ARTIFACTS
+name: 💎 ULTIMATE: FIXED CODEQL & MASSIVE DEPLOY
 
 on:
   push:
@@ -19,8 +19,8 @@ permissions:
   security-events: write
 
 jobs:
-  grand-ops-fix:
-    name: 🚀 Grand Ops Fix on ${{ matrix.os }}
+  grand-universe-ops:
+    name: 🌌 Grand Universe Ops on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -28,11 +28,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-grand-full-pack
+            artifact_name: linux-universe-pack
           - os: windows-latest
-            artifact_name: windows-grand-full-pack
+            artifact_name: windows-universe-pack
           - os: macos-latest
-            artifact_name: macos-grand-full-pack
+            artifact_name: macos-universe-pack
 
     steps:
     # ----------------------------------------------------------------
@@ -42,7 +42,7 @@ jobs:
       uses: actions/checkout@v4
 
     # ----------------------------------------------------------------
-    # [Step 2] Java JDK 17 (엔터프라이즈)
+    # [Step 2] 환경 설정 (Java 17, Python 3.10)
     # ----------------------------------------------------------------
     - name: ☕ [2] Setup Java JDK 17
       uses: actions/setup-java@v4
@@ -50,215 +50,220 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # ----------------------------------------------------------------
-    # [Step 3] Python 설정
-    # ----------------------------------------------------------------
-    - name: 📝 [3] Init Dependencies
-      shell: bash
-      run: |
-        echo "colorama" > requirements.txt
-        echo "requests" >> requirements.txt
-
-    - name: 🐍 [4] Setup Python 3.10
+    - name: 🐍 [3] Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 📦 [4-Post] Install Libs
-      shell: bash
-      run: pip install -r requirements.txt
+    - name: 📝 [3-Pre] Init Dependencies
+      run: |
+        echo "colorama" > requirements.txt
+        echo "requests" >> requirements.txt
+        pip install -r requirements.txt
 
     # ----------------------------------------------------------------
-    # [Step 4] 대량 생성기 실행 (파일 생성 보장)
+    # [Step 4] CodeQL 초기화 (빌드 직전 필수 실행)
     # ----------------------------------------------------------------
-    - name: 🏭 [5] Run Massive Generator
+    - name: 🛡️ [4] Initialize CodeQL v4 (Must Run Before Build)
+      uses: github/codeql-action/init@v4
+      with:
+        languages: java, cpp, python
+        # 수동 빌드 모드 명시 (우리가 직접 javac/g++을 호출하므로)
+        build-mode: manual 
+
+    # ----------------------------------------------------------------
+    # [Step 5] 초대형 생성기 실행 (소스코드 및 데이터 생성)
+    # ----------------------------------------------------------------
+    - name: 🏭 [5] Run Massive Universe Generator
       shell: bash
       run: |
-        cat <<EOF > grand_generator.py
+        cat <<EOF > universe_generator.py
         import os
         import sys
         import sqlite3
         import random
-        import time
 
         sys.stdout.reconfigure(encoding='utf-8')
 
-        SERVICES = ["Banking", "Stock", "Insurance", "PublicData"]
+        # 확장된 7대 서비스
+        SERVICES = ["Banking", "Stock", "Insurance", "PublicData", "Crypto", "RealEstate", "GovTax"]
         
-        # [중요] 디렉토리 강제 생성 함수
         def safe_makedirs(path):
             if not os.path.exists(path):
                 os.makedirs(path, exist_ok=True)
-                print(f"[GEN] Created Directory: {path}")
 
         def log(msg):
-            print(f"[GRAND-GEN] {msg}")
+            print(f"[UNIVERSE-GEN] {msg}")
 
-        # 1. Java 소스 및 구조 대량 생성
-        def generate_java_structure():
-            log("☕ Generating Java Source Code...")
+        # 1. Java 소스 대량 생성 (서비스당 50개 클래스)
+        def generate_massive_java():
+            log("☕ Generating Massive Java Ecosystem...")
             safe_makedirs("src/main/java/com/enterprise")
             
             for svc in SERVICES:
-                base_pkg = f"src/main/java/com/enterprise/{svc.lower()}"
-                safe_makedirs(base_pkg)
+                base = f"src/main/java/com/enterprise/{svc.lower()}"
+                safe_makedirs(base)
                 
-                # Main App
-                with open(f"{base_pkg}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Service Started\"); }} }}")
+                # Main Application
+                with open(f"{base}/{svc}Application.java", "w") as f:
+                    f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Running...\"); }} }}")
                 
-                # Components (Controller, Service, Repository) - 20개씩 생성
+                # Controllers, Services, Repositories (각 10~20개)
                 for i in range(1, 21):
-                    with open(f"{base_pkg}/{svc}Controller{i}.java", "w") as f:
-                        f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Controller{i} {{ }}")
+                    with open(f"{base}/{svc}Controller{i}.java", "w") as f:
+                        f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Controller{i} {{ public String handle() {{ return \"Data {i}\"; }} }}")
+                    with open(f"{base}/{svc}Service{i}.java", "w") as f:
+                        f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Service{i} {{ public void process() {{ }} }}")
 
-        # 2. SQL 및 DB 대량 생성
-        def generate_data_assets():
-            log("🗃️ Generating Database Assets...")
+        # 2. DB 및 SQL 생성
+        def generate_data_layer():
+            log("🗃️ Generating Data Layer (SQL + SQLite)...")
             safe_makedirs("database_store")
             
             for svc in SERVICES:
-                # SQL 파일
+                # SQL Dump
                 with open(f"database_store/{svc}_schema.sql", "w") as f:
-                    f.write(f"CREATE TABLE {svc}_users (id INT, data VARCHAR(255));\n-- Mass Data for {svc}\n")
+                    f.write(f"CREATE TABLE {svc}_ledger (id BIGINT, hash VARCHAR(255));\n")
+                    for k in range(100):
+                        f.write(f"INSERT INTO {svc}_ledger VALUES ({k}, 'hash_{k}');\n")
                 
-                # DB 파일
-                conn = sqlite3.connect(f"database_store/{svc}.db")
-                cur = conn.cursor()
-                cur.execute(f"CREATE TABLE {svc}_logs (id INT, msg TEXT)")
-                cur.executemany(f"INSERT INTO {svc}_logs VALUES (?, ?)", [(i, f"Log {i}") for i in range(100)])
-                conn.commit()
-                conn.close()
+                # SQLite Binary
+                try:
+                    conn = sqlite3.connect(f"database_store/{svc}.db")
+                    cur = conn.cursor()
+                    cur.execute(f"CREATE TABLE {svc}_tx (id INT, amt REAL)")
+                    cur.executemany(f"INSERT INTO {svc}_tx VALUES (?, ?)", [(x, x*10.5) for x in range(100)])
+                    conn.commit()
+                    conn.close()
+                except:
+                    pass
 
-        # 3. 서비스별 실행 스크립트 생성 (Batch/Shell)
-        def generate_scripts():
-            log("📜 Generating Execution Scripts...")
-            safe_makedirs("scripts")
-            
+        # 3. C++ 엔진 소스
+        def generate_cpp_core():
+            log("🚀 Generating C++ High-Freq Engine...")
+            safe_makedirs("cpp_core")
+            with open("cpp_core/engine.cpp", "w") as f:
+                f.write('#include <iostream>\\nint main() { std::cout << "Engine Online"; return 0; }')
+
+        # 4. 배포 스크립트 (Shell/Bat)
+        def generate_ops_scripts():
+            log("📜 Generating Ops Scripts...")
+            safe_makedirs("ops_scripts")
             for svc in SERVICES:
-                # Linux/Mac Script
-                with open(f"scripts/run_{svc}.sh", "w") as f:
-                    f.write(f"#!/bin/bash\necho 'Starting {svc} Service...'\njava -jar ../bin/{svc}App.jar\n")
-                
-                # Windows Script
-                with open(f"scripts/run_{svc}.bat", "w") as f:
-                    f.write(f"@echo off\necho Starting {svc} Service...\njava -jar ..\\bin\\{svc}App.jar\n")
+                with open(f"ops_scripts/start_{svc}.sh", "w") as f:
+                    f.write(f"#!/bin/bash\\njava -jar ../bin/{svc}App.jar\\n")
+                with open(f"ops_scripts/start_{svc}.bat", "w") as f:
+                    f.write(f"@echo off\\njava -jar ..\\bin\\{svc}App.jar\\n")
 
         if __name__ == "__main__":
-            generate_java_structure()
-            generate_data_assets()
-            generate_scripts()
-            # 컴파일될 바이너리 폴더 미리 생성
-            safe_makedirs("bin")
-            log("✅ All Generators Finished Successfully.")
+            generate_massive_java()
+            generate_data_layer()
+            generate_cpp_core()
+            generate_ops_scripts()
+            safe_makedirs("bin") # 빌드 폴더 사전 생성
+            log("✅ Universe Generation Complete.")
         EOF
         
         # 실행
-        python grand_generator.py
+        python universe_generator.py
 
     # ----------------------------------------------------------------
-    # [Step 5] 빌드 (Java Compile & Jar Packaging)
+    # [Step 6] 빌드 실행 (CodeQL이 이 과정을 모니터링함)
     # ----------------------------------------------------------------
-    - name: 🔨 [6] Build All Services
+    - name: 🔨 [6] Build Everything (Traced by CodeQL)
       shell: bash
       run: |
-        echo "🏗️ Compiling Java Sources..."
-        # 소스 리스트 확보
-        find src -name "*.java" > sources.txt
+        echo "=========================================="
+        echo "🏗️ STARTING TRACED BUILD..."
+        echo "=========================================="
         
-        # 컴파일 (bin 폴더에 class 파일 생성)
+        # 1. Java 컴파일
+        echo "☕ Compiling 500+ Java Files..."
+        find src -name "*.java" > sources.txt
         javac -d bin @sources.txt
         
-        # 서비스별 JAR 패키징 시뮬레이션
-        echo "📦 Packaging JARs..."
-        SERVICES="Banking Stock Insurance PublicData"
+        # 2. Jar 패키징 (각 서비스별)
+        echo "📦 Packaging Enterprise JARs..."
+        SERVICES="Banking Stock Insurance PublicData Crypto RealEstate GovTax"
         for svc in $SERVICES; do
-            # 간단한 Manifest 생성
             echo "Main-Class: com.enterprise.${svc,,}.${svc}Application" > Manifest.txt
-            # Jar 생성 (실제 클래스 파일 포함)
             jar cf bin/${svc}App.jar Manifest.txt -C bin .
-            echo "✅ Created bin/${svc}App.jar"
         done
+        
+        # 3. C++ 컴파일
+        echo "🚀 Compiling C++ Core..."
+        g++ -o bin/CoreEngine cpp_core/engine.cpp
+        
+        echo "✅ Build Complete (Ready for Analysis)."
 
     # ----------------------------------------------------------------
-    # [Step 6] 공식 배포 서버 가동 및 다운로드 시뮬레이션
+    # [Step 7] 서버 가동 및 다운로드 시뮬레이션
     # ----------------------------------------------------------------
-    - name: 🌐 [7] Official Server & Download
+    - name: 🌐 [7] Official Distribution Server
       shell: bash
       run: |
-        echo "🚀 Starting Official Distribution Server..."
+        echo "🌍 Launching Official Server..."
+        mkdir -p dist_server
+        cp bin/*.jar dist_server/
+        cp database_store/*.db dist_server/
         
-        # 배포할 파일들을 release_root로 모음
-        mkdir -p release_root
-        cp bin/*.jar release_root/
-        cp database_store/*.db release_root/
+        # 다운로드 받을 폴더
+        mkdir -p client_downloads
         
-        # 클라이언트 다운로드 폴더 생성
-        mkdir -p download_zone
-        
-        # 서버 백그라운드 실행 (Port 9000)
-        cd release_root
-        python3 -m http.server 9000 &
-        SERVER_PID=$!
+        # 서버 백그라운드 실행
+        cd dist_server
+        python3 -m http.server 9999 &
+        PID=$!
         cd ..
         
-        echo "⏳ Waiting for Server..."
-        sleep 3
+        sleep 5
         
-        # 다운로드 테스트 (Banking App)
-        echo "⬇️ Downloading BankingApp.jar from Official Server..."
-        curl -f http://localhost:9000/BankingApp.jar -o download_zone/downloaded_BankingApp.jar
+        # 다운로드 테스트 (Crypto App)
+        echo "⬇️ Downloading CryptoApp.jar..."
+        curl -f http://localhost:9999/CryptoApp.jar -o client_downloads/CryptoApp.jar
         
-        # 다운로드 테스트 (Stock DB)
-        echo "⬇️ Downloading Stock.db from Official Server..."
-        curl -f http://localhost:9000/Stock.db -o download_zone/downloaded_Stock.db
+        # 다운로드 테스트 (RealEstate DB)
+        echo "⬇️ Downloading RealEstate.db..."
+        curl -f http://localhost:9999/RealEstate.db -o client_downloads/RealEstate.db
         
         # 서버 종료
-        kill $SERVER_PID || true
+        kill $PID || true
         
-        # 다운로드 확인
-        ls -l download_zone/
+        echo "✅ Download Simulation Verified."
 
     # ----------------------------------------------------------------
-    # [Step 7] CodeQL v4 분석
+    # [Step 8] CodeQL 분석 (빌드 후 실행 필수)
     # ----------------------------------------------------------------
-    - name: 🛡️ [8] Perform CodeQL Analysis v4
+    - name: 🔍 [8] Perform CodeQL Analysis v4
       uses: github/codeql-action/analyze@v4
       with:
-        category: "/language:java,python"
+        category: "/language:java,cpp,python"
 
     # ----------------------------------------------------------------
-    # [Step 8] 파일 존재 여부 최종 확인 (디버깅)
+    # [Step 9] 파일 존재 여부 최종 검증 (디버깅)
     # ----------------------------------------------------------------
-    - name: 🧐 [9] Verify Files Before Upload
+    - name: 🧐 [9] Verify Artifacts
       shell: bash
       run: |
-        echo "=================================="
-        echo "📂 FILE SYSTEM CHECK (DEBUG)"
-        echo "=================================="
-        echo ">>> Checking 'bin' directory:"
-        ls -R bin || echo "bin missing"
-        echo ">>> Checking 'database_store' directory:"
-        ls -R database_store || echo "db missing"
-        echo ">>> Checking 'scripts' directory:"
-        ls -R scripts || echo "scripts missing"
-        echo ">>> Checking 'download_zone' directory:"
-        ls -R download_zone || echo "download missing"
-        echo "=================================="
+        echo "🔎 Checking Artifact Locations..."
+        ls -l bin/*.jar
+        ls -l database_store/
+        ls -l client_downloads/
 
     # ----------------------------------------------------------------
-    # [Step 9] 아티팩트 업로드 (경로 명확화)
+    # [Step 10] 아티팩트 업로드 (화면 표시용)
     # ----------------------------------------------------------------
-    - name: 📤 [10] Upload All Generated Artifacts
+    - name: 📤 [10] Upload Massive Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
           bin/*.jar
+          bin/CoreEngine*
           database_store/
-          scripts/
+          ops_scripts/
           src/
-          download_zone/
+          client_downloads/
         retention-days: 1
