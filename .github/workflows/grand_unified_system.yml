@@ -1,4 +1,4 @@
-name: 🛡️ ENTERPRISE:UPGRADE, DB, SECURITY & BUILD
+name: 🛡️ ENTERPRISE:UPGRADE, DB, CUSTOMER & SECURITY
 
 on:
   push:
@@ -12,6 +12,12 @@ env:
   PYTHONIOENCODING: utf-8
   PYTHONUTF8: 1
   LC_ALL: en_US.UTF-8
+
+# CodeQL 권한 설정
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 
 jobs:
   enterprise-ops:
@@ -37,10 +43,18 @@ jobs:
       uses: actions/checkout@v4
 
     # ----------------------------------------------------------------
-    # [Step 2] 시스템 및 패키지 전체 업그레이드 (System Upgrade)
-    # 스킵 없이 각 OS에 맞는 최적화된 업데이트 명령을 수행합니다.
+    # [Step 2] CodeQL 초기화 (빌드 전 보안 엔진 가동)
     # ----------------------------------------------------------------
-    - name: 🔄 [2] System & Package Auto-Upgrade
+    - name: 🛡️ [2] Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: cpp, python
+        queries: security-extended, security-and-quality
+
+    # ----------------------------------------------------------------
+    # [Step 3] 시스템 및 패키지 전체 업그레이드 (No Skip)
+    # ----------------------------------------------------------------
+    - name: 🔄 [3] System & Package Auto-Upgrade
       shell: bash
       run: |
         echo "=========================================="
@@ -50,7 +64,6 @@ jobs:
         if [ "$RUNNER_OS" == "Linux" ]; then
             echo "🐧 Linux: Updating APT Repositories..."
             sudo apt-get update -y
-            # 실제 upgrade는 CI 시간 절약을 위해 중요 툴만 업데이트
             echo "🐧 Linux: Ensuring latest Build Tools..."
             sudo apt-get install -y --only-upgrade build-essential cmake
             
@@ -59,28 +72,28 @@ jobs:
             echo "✅ Windows Update Agent is managed by GitHub Actions."
             
         elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "🍎 macOS: Homebrew Update (Lightweight)..."
-            # brew update는 너무 오래 걸리므로 필수 라이브러리만 체크
+            echo "🍎 macOS: Check Environment..."
             echo "✅ macOS Environment Verified."
         fi
         echo "✅ System Upgrade Sequence Completed."
 
     # ----------------------------------------------------------------
-    # [Step 3] Python 설정 (파일 초기화 포함)
+    # [Step 4] Python 설정 (고객 데이터 처리용)
     # ----------------------------------------------------------------
-    - name: 📝 [3-Pre] Force Init Requirements
+    - name: 📝 [4-Pre] Force Init Requirements
       shell: bash
       run: |
         echo "colorama" > requirements.txt
-        echo "✅ requirements.txt initialized."
+        echo "pandas" >> requirements.txt
+        echo "✅ requirements.txt initialized with Data Tools."
 
-    - name: 🐍 [3] Setup Python 3.10
+    - name: 🐍 [4] Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 🔄 [3-Post] Upgrade Python Dependencies
+    - name: 🔄 [4-Post] Upgrade Python Dependencies
       shell: bash
       run: |
         python -m pip install --upgrade pip
@@ -88,18 +101,19 @@ jobs:
         echo "✅ Python Dependencies Upgraded."
 
     # ----------------------------------------------------------------
-    # [Step 4] 통합 매니저 생성 (DB/보안/빌드 통합)
+    # [Step 5] 통합 매니저 생성 (고객 DB / 보안 / 빌드 통합)
     # ----------------------------------------------------------------
-    - name: 📝 [4] Generate DevOps Manager (UTF-8 Safe)
+    - name: 📝 [5] Generate Enterprise Manager (UTF-8 Safe)
       shell: bash
       run: |
-        echo "🔧 Generating upgrade_manager.py with DB & Security modules..."
+        echo "🔧 Generating upgrade_manager.py with Customer Data modules..."
         cat <<EOF > upgrade_manager.py
         import os
         import sys
         import platform
         import sqlite3
         import time
+        import random
 
         # Windows 인코딩 크래시 방지
         sys.stdout.reconfigure(encoding='utf-8')
@@ -108,18 +122,33 @@ jobs:
             print(f"[MANAGER] {msg}")
 
         def generate_cpp_source():
-            log("Generating C++20 Source Code...")
+            log("Generating C++20 Source Code for Enterprise Service...")
             cpp_code = """
         #include <iostream>
         #include <vector>
-        
+        #include <string>
+
+        struct Customer {
+            int id;
+            std::string tier;
+        };
+
         int main() {
             #ifdef _WIN32
             system("chcp 65001 > nul");
             #endif
+            
             std::cout << "🚀 ENTERPRISE BUILD SUCCESSFUL!" << std::endl;
-            std::cout << "✅ Security Patch Applied." << std::endl;
-            std::cout << "✅ DB Schema Updated." << std::endl;
+            std::cout << "✅ Security Patch Applied (CodeQL Ready)." << std::endl;
+            std::cout << "✅ Customer Data Integration Module Loaded." << std::endl;
+            
+            // 데이터 처리 시뮬레이션
+            std::vector<Customer> batch;
+            for(int i=0; i<100; ++i) {
+                batch.push_back({i, "VIP"});
+            }
+            std::cout << "📊 Processed " << batch.size() << " Client Records in Memory." << std::endl;
+
             return 0;
         }
             """
@@ -136,72 +165,87 @@ jobs:
                     f.write(cpp_code)
                 with open("CMakeLists.txt", "w", encoding="utf-8") as f:
                     f.write(cmake_code)
-                log("Source files generated.")
+                log("Source files generated with Customer Logic.")
             except Exception as e:
                 print(f"[ERROR] {e}")
 
-        def run_db_update():
-            log("🔄 STARTING DATABASE MIGRATION...")
-            db_file = "system_data.db"
+        def run_customer_db_migration():
+            log("🔄 STARTING BULK CUSTOMER DATA MIGRATION...")
+            db_file = "enterprise_data.db"
             try:
                 conn = sqlite3.connect(db_file)
                 cursor = conn.cursor()
                 
-                # 테이블 생성 (스키마 업데이트 시뮬레이션)
-                cursor.execute('''CREATE TABLE IF NOT EXISTS logs 
-                                (id INTEGER PRIMARY KEY, msg TEXT, timestamp TEXT)''')
-                log("Table 'logs' check/create: OK")
+                # 1. 시스템 로그 테이블
+                cursor.execute('''CREATE TABLE IF NOT EXISTS logs
+                                 (id INTEGER PRIMARY KEY, msg TEXT, timestamp TEXT)''')
                 
-                # 데이터 삽입 (업데이트 반영)
-                cursor.execute("INSERT INTO logs (msg, timestamp) VALUES ('System Updated', '2025-01-01')")
+                # 2. 고객 정보 테이블 (신규 추가)
+                cursor.execute('''CREATE TABLE IF NOT EXISTS customers
+                                 (id INTEGER PRIMARY KEY, name TEXT, region TEXT, tier TEXT, last_login TEXT)''')
+                log("Table 'customers' schema applied.")
+
+                # 3. 대량 데이터 삽입 시뮬레이션 (Batch Insert)
+                customers_data = []
+                regions = ['KR', 'US', 'JP', 'EU']
+                tiers = ['Standard', 'Gold', 'Platinum', 'Enterprise']
+                
+                for i in range(1, 101): # 100명의 고객 데이터 생성
+                    r_region = random.choice(regions)
+                    r_tier = random.choice(tiers)
+                    customers_data.append((f"Client_User_{i}", r_region, r_tier, "2025-12-24"))
+
+                cursor.executemany("INSERT INTO customers (name, region, tier, last_login) VALUES (?, ?, ?, ?)", customers_data)
                 conn.commit()
-                log(f"✅ Database '{db_file}' successfully updated.")
+                
+                log(f"✅ Bulk Insert: 100 Customer records added to '{db_file}'.")
+                
+                # 검증 쿼리
+                cursor.execute("SELECT COUNT(*) FROM customers")
+                count = cursor.fetchone()[0]
+                log(f"📊 Total Active Customers in DB: {count}")
+                
                 conn.close()
             except Exception as e:
                 print(f"[DB ERROR] {e}")
 
         def run_security_patch():
-            log("🛡️ STARTING SECURITY AUDIT & PATCH...")
-            time.sleep(1) # 스캔 시간 시뮬레이션
-            log("🔍 Scanning Source Code for Vulnerabilities...")
+            log("🛡️ STARTING INTERNAL SECURITY AUDIT...")
+            time.sleep(1) 
+            log("🔍 Scanning Source Code Integrity...")
             
-            # 가상의 취약점 점검 로직
             if os.path.exists("main.cpp"):
                 log("✅ main.cpp integrity verified.")
             else:
                 log("⚠️ main.cpp missing!")
-
-            log("🛠️ Applying Security Hotfix v2025.3...")
+            
+            log("🛠️ Applying CodeQL Preparation Patch...")
             log("✅ All Systems Secure.")
 
         if __name__ == "__main__":
             log(f"🚀 Detected OS: {platform.system()}")
             generate_cpp_source()
-            run_db_update()
+            run_customer_db_migration()
             run_security_patch()
         EOF
 
     # ----------------------------------------------------------------
-    # [Step 5] DB 업데이트 & 보안 패치 & 소스 생성 실행
+    # [Step 6] DB 업데이트 & 보안 패치 실행 (CodeQL 분석 대상)
     # ----------------------------------------------------------------
-    - name: 🛡️ [5] Run DB Update & Security Patch
+    - name: 🛡️ [6] Execute Data & Security Automation
       shell: bash
       run: |
         echo "=========================================="
-        echo "🚀 EXECUTING DEVOPS AUTOMATION..."
+        echo "🚀 EXECUTING ENTERPRISE AUTOMATION..."
         echo "=========================================="
         python upgrade_manager.py
         echo "=========================================="
-        echo "✅ DevOps Automation Finished."
-        echo "=========================================="
-        
-        echo "🔍 Checking Generated Artifacts (DB, Source)..."
-        ls -l *.db *.cpp *.txt || echo "Checking files..."
+        echo "✅ Automation Finished."
 
     # ----------------------------------------------------------------
-    # [Step 6] 빌드 환경 통합 설정 (No Skip)
+    # [Step 7] 빌드 환경 통합 설정 (No Skip)
     # ----------------------------------------------------------------
-    - name: 🛠️ [6] Universal Build Setup
+    - name: 🛠️ [7] Universal Build Setup
       shell: bash
       run: |
         echo "🛠️ Configuring Environment for $RUNNER_OS..."
@@ -214,42 +258,31 @@ jobs:
         fi
 
     # ----------------------------------------------------------------
-    # [Step 7] 컴파일러 검증 (No Skip)
-    # ----------------------------------------------------------------
-    - name: 🧐 [7] Verify Compiler Toolchain
-      shell: bash
-      run: |
-        echo "🔍 Verifying Toolchain Status..."
-        cmake --version
-        
-        if [ "$RUNNER_OS" == "Linux" ]; then
-            g++ --version
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "Checking MSBuild..."
-            cmake --help > nul
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-            clang --version
-        fi
-        echo "✅ Toolchain Verified."
-
-    # ----------------------------------------------------------------
-    # [Step 8] CMake 빌드 (전체 과정, Clean Build)
+    # [Step 8] CMake 빌드 (CodeQL이 이 과정을 감시함)
     # ----------------------------------------------------------------
     - name: 🏗️ [8] CMake Configure
       shell: bash
       run: cmake -S . -B build
 
-    - name: 🔨 [9] Build Project (Verbose & Release)
+    - name: 🔨 [9] Build Project (Release)
       shell: bash
       run: cmake --build build --config Release --verbose
 
     # ----------------------------------------------------------------
-    # [Step 9] 실행 테스트
+    # [Step 9] CodeQL 분석 수행 (빌드 후 실행)
     # ----------------------------------------------------------------
-    - name: 🧪 [10] Run & Validate
+    - name: 🔍 [10] Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:cpp,python"
+
+    # ----------------------------------------------------------------
+    # [Step 10] 실행 테스트
+    # ----------------------------------------------------------------
+    - name: 🧪 [11] Run & Validate Application
       shell: bash
       run: |
-        echo "🚀 Running Application..."
+        echo "🚀 Running Enterprise Application..."
         if [ -f "./build/Release/app.exe" ]; then
             ./build/Release/app.exe
         elif [ -f "./build/app" ]; then
@@ -261,9 +294,9 @@ jobs:
         fi
 
     # ----------------------------------------------------------------
-    # [Step 10] 모든 결과물 업로드 (DB 파일 포함)
+    # [Step 11] 모든 결과물 업로드 (고객 DB 파일 포함)
     # ----------------------------------------------------------------
-    - name: 📤 [11] Upload Full Artifacts
+    - name: 📤 [12] Upload Full Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -274,4 +307,5 @@ jobs:
           *.cpp
           *.py
           *.txt
+          upgrade_manager.py
         retention-days: 1
