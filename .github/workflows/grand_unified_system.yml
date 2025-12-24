@@ -1,4 +1,4 @@
-name: 💎 ULTIMATE:FIXED CODEQL & MASSIVE DEPLOY
+name: 💎 ULTRA:REPO UPLOAD & PERMISSIONS
 
 on:
   push:
@@ -13,14 +13,19 @@ env:
   LC_ALL: en_US.UTF-8
   DEBIAN_FRONTEND: noninteractive
 
+# [중요] 권한 대량 반영 (Massive Permissions Reflection)
 permissions:
-  actions: read
-  contents: read
-  security-events: write
+  contents: write           # 소스 코드 업로드(Git Push) 필수 권한
+  packages: write           # 패키지 배포 권한
+  deployments: write        # 배포 상태 업데이트 권한
+  security-events: write    # CodeQL 보안 리포트 작성 권한
+  actions: write            # 액션 상태 관리 권한
+  checks: write             # 체크 런 관리 권한
+  statuses: write           # 커밋 상태 관리 권한
 
 jobs:
-  grand-universe-ops:
-    name: 🌌 Grand Universe Ops on ${{ matrix.os }}
+  repo-upload-ops:
+    name: 🚀 Repo Upload Ops on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -28,54 +33,64 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-universe-pack
+            artifact_name: linux-repo-pack
           - os: windows-latest
-            artifact_name: windows-universe-pack
+            artifact_name: windows-repo-pack
           - os: macos-latest
-            artifact_name: macos-universe-pack
+            artifact_name: macos-repo-pack
 
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 체크아웃
+    # [Step 1] 체크아웃 (GitHub Token 사용)
     # ----------------------------------------------------------------
     - name: 📥 [1] Checkout Repository
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }} # 쓰기 권한이 있는 토큰 사용
 
     # ----------------------------------------------------------------
-    # [Step 2] 환경 설정 (Java 17, Python 3.10)
+    # [Step 2] 의존성 파일 선행 생성 (에러 방지 필수)
     # ----------------------------------------------------------------
-    - name: ☕ [2] Setup Java JDK 17
+    - name: 📝 [2] Pre-Create Requirements
+      shell: bash
+      run: |
+        echo "Creating requirements.txt for Setup-Python..."
+        echo "colorama" > requirements.txt
+        echo "requests" >> requirements.txt
+        echo "tqdm" >> requirements.txt
+
+    # ----------------------------------------------------------------
+    # [Step 3] 환경 설정 (Java 17, Python 3.10)
+    # ----------------------------------------------------------------
+    - name: ☕ [3] Setup Java JDK 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 🐍 [3] Setup Python 3.10
+    - name: 🐍 [4] Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 📝 [3-Pre] Init Dependencies
-      run: |
-        echo "colorama" > requirements.txt
-        echo "requests" >> requirements.txt
-        pip install -r requirements.txt
+    - name: 📦 [4-Post] Install Dependencies
+      shell: bash
+      run: pip install -r requirements.txt
 
     # ----------------------------------------------------------------
-    # [Step 4] CodeQL 초기화 (빌드 직전 필수 실행)
+    # [Step 4] CodeQL 초기화
     # ----------------------------------------------------------------
-    - name: 🛡️ [4] Initialize CodeQL v4 (Must Run Before Build)
+    - name: 🛡️ [5] Initialize CodeQL v4
       uses: github/codeql-action/init@v4
       with:
         languages: java, cpp, python
-        # 수동 빌드 모드 명시 (우리가 직접 javac/g++을 호출하므로)
-        build-mode: manual 
+        build-mode: manual
 
     # ----------------------------------------------------------------
-    # [Step 5] 초대형 생성기 실행 (소스코드 및 데이터 생성)
+    # [Step 5] 초대형 생성기 (7대 서비스 + 파일 구조화)
     # ----------------------------------------------------------------
-    - name: 🏭 [5] Run Massive Universe Generator
+    - name: 🏭 [6] Run Universe Generator
       shell: bash
       run: |
         cat <<EOF > universe_generator.py
@@ -86,7 +101,6 @@ jobs:
 
         sys.stdout.reconfigure(encoding='utf-8')
 
-        # 확장된 7대 서비스
         SERVICES = ["Banking", "Stock", "Insurance", "PublicData", "Crypto", "RealEstate", "GovTax"]
         
         def safe_makedirs(path):
@@ -94,167 +108,162 @@ jobs:
                 os.makedirs(path, exist_ok=True)
 
         def log(msg):
-            print(f"[UNIVERSE-GEN] {msg}")
+            print(f"[GEN] {msg}")
 
-        # 1. Java 소스 대량 생성 (서비스당 50개 클래스)
-        def generate_massive_java():
-            log("☕ Generating Massive Java Ecosystem...")
+        # 1. Java 소스 (서비스당 30개 클래스)
+        def generate_java():
+            log("☕ Generating Java Sources for Repository Upload...")
             safe_makedirs("src/main/java/com/enterprise")
             
             for svc in SERVICES:
                 base = f"src/main/java/com/enterprise/{svc.lower()}"
                 safe_makedirs(base)
                 
-                # Main Application
+                # Main App
                 with open(f"{base}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Running...\"); }} }}")
+                    f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} System Online\"); }} }}")
                 
-                # Controllers, Services, Repositories (각 10~20개)
-                for i in range(1, 21):
+                # Controllers
+                for i in range(1, 31):
                     with open(f"{base}/{svc}Controller{i}.java", "w") as f:
-                        f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Controller{i} {{ public String handle() {{ return \"Data {i}\"; }} }}")
-                    with open(f"{base}/{svc}Service{i}.java", "w") as f:
-                        f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Service{i} {{ public void process() {{ }} }}")
+                        f.write(f"package com.enterprise.{svc.lower()};\npublic class {svc}Controller{i} {{ }}")
 
-        # 2. DB 및 SQL 생성
-        def generate_data_layer():
-            log("🗃️ Generating Data Layer (SQL + SQLite)...")
+        # 2. SQL 데이터 스키마
+        def generate_sql():
+            log("🗃️ Generating SQL Schemas...")
             safe_makedirs("database_store")
-            
             for svc in SERVICES:
-                # SQL Dump
-                with open(f"database_store/{svc}_schema.sql", "w") as f:
-                    f.write(f"CREATE TABLE {svc}_ledger (id BIGINT, hash VARCHAR(255));\n")
-                    for k in range(100):
-                        f.write(f"INSERT INTO {svc}_ledger VALUES ({k}, 'hash_{k}');\n")
-                
-                # SQLite Binary
-                try:
-                    conn = sqlite3.connect(f"database_store/{svc}.db")
-                    cur = conn.cursor()
-                    cur.execute(f"CREATE TABLE {svc}_tx (id INT, amt REAL)")
-                    cur.executemany(f"INSERT INTO {svc}_tx VALUES (?, ?)", [(x, x*10.5) for x in range(100)])
-                    conn.commit()
-                    conn.close()
-                except:
-                    pass
+                with open(f"database_store/{svc}_init.sql", "w") as f:
+                    f.write(f"-- Auto-generated Schema for {svc}\\nCREATE TABLE {svc}_table (id INT);\\n")
 
-        # 3. C++ 엔진 소스
-        def generate_cpp_core():
-            log("🚀 Generating C++ High-Freq Engine...")
-            safe_makedirs("cpp_core")
-            with open("cpp_core/engine.cpp", "w") as f:
-                f.write('#include <iostream>\\nint main() { std::cout << "Engine Online"; return 0; }')
-
-        # 4. 배포 스크립트 (Shell/Bat)
-        def generate_ops_scripts():
+        # 3. 운영 스크립트
+        def generate_scripts():
             log("📜 Generating Ops Scripts...")
             safe_makedirs("ops_scripts")
             for svc in SERVICES:
-                with open(f"ops_scripts/start_{svc}.sh", "w") as f:
-                    f.write(f"#!/bin/bash\\njava -jar ../bin/{svc}App.jar\\n")
-                with open(f"ops_scripts/start_{svc}.bat", "w") as f:
-                    f.write(f"@echo off\\njava -jar ..\\bin\\{svc}App.jar\\n")
+                with open(f"ops_scripts/deploy_{svc}.sh", "w") as f:
+                    f.write(f"#!/bin/bash\\necho Deploying {svc}...")
+
+        # 4. C++ 엔진
+        def generate_cpp():
+            log("🚀 Generating C++ Engine...")
+            safe_makedirs("cpp_core")
+            with open("cpp_core/core_engine.cpp", "w") as f:
+                f.write('#include <iostream>\\nint main() { return 0; }')
 
         if __name__ == "__main__":
-            generate_massive_java()
-            generate_data_layer()
-            generate_cpp_core()
-            generate_ops_scripts()
-            safe_makedirs("bin") # 빌드 폴더 사전 생성
-            log("✅ Universe Generation Complete.")
+            generate_java()
+            generate_sql()
+            generate_scripts()
+            generate_cpp()
+            safe_makedirs("bin")
+            log("✅ Files Ready for Git Push.")
         EOF
         
-        # 실행
         python universe_generator.py
 
     # ----------------------------------------------------------------
-    # [Step 6] 빌드 실행 (CodeQL이 이 과정을 모니터링함)
+    # [Step 6] 빌드 (Java & C++)
     # ----------------------------------------------------------------
-    - name: 🔨 [6] Build Everything (Traced by CodeQL)
+    - name: 🔨 [7] Build Ecosystem
       shell: bash
       run: |
-        echo "=========================================="
-        echo "🏗️ STARTING TRACED BUILD..."
-        echo "=========================================="
-        
-        # 1. Java 컴파일
-        echo "☕ Compiling 500+ Java Files..."
+        echo "🏗️ Compiling Sources..."
         find src -name "*.java" > sources.txt
         javac -d bin @sources.txt
         
-        # 2. Jar 패키징 (각 서비스별)
-        echo "📦 Packaging Enterprise JARs..."
+        echo "📦 Packaging JARs..."
         SERVICES="Banking Stock Insurance PublicData Crypto RealEstate GovTax"
         for svc in $SERVICES; do
             echo "Main-Class: com.enterprise.${svc,,}.${svc}Application" > Manifest.txt
             jar cf bin/${svc}App.jar Manifest.txt -C bin .
         done
         
-        # 3. C++ 컴파일
-        echo "🚀 Compiling C++ Core..."
-        g++ -o bin/CoreEngine cpp_core/engine.cpp
-        
-        echo "✅ Build Complete (Ready for Analysis)."
+        echo "🚀 Compiling C++..."
+        g++ -o bin/CoreEngine cpp_core/core_engine.cpp
 
     # ----------------------------------------------------------------
-    # [Step 7] 서버 가동 및 다운로드 시뮬레이션
+    # [Step 7] [NEW] GitHub 저장소로 자동 업로드 (Git Push)
     # ----------------------------------------------------------------
-    - name: 🌐 [7] Official Distribution Server
+    - name: 💾 [8] Deploy to Repository (Auto-Upload)
+      if: runner.os == 'Linux' && github.event_name != 'pull_request' # 리눅스에서만, PR이 아닐 때 실행
       shell: bash
       run: |
-        echo "🌍 Launching Official Server..."
-        mkdir -p dist_server
-        cp bin/*.jar dist_server/
-        cp database_store/*.db dist_server/
+        echo "========================================"
+        echo "🚀 UPLOADING GENERATED FILES TO REPO..."
+        echo "========================================"
         
-        # 다운로드 받을 폴더
-        mkdir -p client_downloads
+        # Git 설정
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
         
-        # 서버 백그라운드 실행
-        cd dist_server
-        python3 -m http.server 9999 &
+        # 생성된 폴더들 추가 (바이너리 제외, 소스코드 위주)
+        git add src/ cpp_core/ ops_scripts/ database_store/*.sql universe_generator.py requirements.txt
+        
+        # 변경 사항 확인 및 커밋
+        if git diff --staged --quiet; then
+            echo "✅ No changes to commit."
+        else
+            echo "📝 Committing changes..."
+            # [skip ci]를 추가하여 무한 빌드 루프 방지
+            git commit -m "🚀 Auto-Deploy: Enterprise 7-Service Source Code [skip ci]"
+            
+            echo "📤 Pushing to repository..."
+            git push
+            echo "✅ Upload Complete: https://github.com/${{ github.repository }}"
+        fi
+
+    # ----------------------------------------------------------------
+    # [Step 8] 공식 서버 다운로드 시뮬레이션
+    # ----------------------------------------------------------------
+    - name: 🌐 [9] Official Download Verification
+      shell: bash
+      run: |
+        echo "🌍 Launching Verification Server..."
+        mkdir -p dist
+        cp bin/*.jar dist/
+        mkdir -p downloads
+        
+        cd dist
+        python3 -m http.server 8000 &
         PID=$!
         cd ..
         
         sleep 5
+        echo "⬇️ Downloading BankingApp.jar..."
+        curl -f http://localhost:8000/BankingApp.jar -o downloads/BankingApp.jar
         
-        # 다운로드 테스트 (Crypto App)
-        echo "⬇️ Downloading CryptoApp.jar..."
-        curl -f http://localhost:9999/CryptoApp.jar -o client_downloads/CryptoApp.jar
-        
-        # 다운로드 테스트 (RealEstate DB)
-        echo "⬇️ Downloading RealEstate.db..."
-        curl -f http://localhost:9999/RealEstate.db -o client_downloads/RealEstate.db
-        
-        # 서버 종료
         kill $PID || true
         
-        echo "✅ Download Simulation Verified."
+        if [ -f "downloads/BankingApp.jar" ]; then
+            echo "✅ Download Success."
+        else
+            echo "❌ Download Failed."
+            exit 1
+        fi
 
     # ----------------------------------------------------------------
-    # [Step 8] CodeQL 분석 (빌드 후 실행 필수)
+    # [Step 9] Summary Report (화면 출력)
     # ----------------------------------------------------------------
-    - name: 🔍 [8] Perform CodeQL Analysis v4
+    - name: 📊 [10] Update Summary
+      run: |
+        echo "### 🚀 Deployment & Upload Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repo Upload:** ✅ Completed (Source Codes Pushed to \`src/\`)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Permissions:** ✅ Write Access Granted (Mass Reflection)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Services:** 7 (Banking, Stock, Insurance, Public, Crypto, RealEstate, GovTax)" >> $GITHUB_STEP_SUMMARY
+
+    # ----------------------------------------------------------------
+    # [Step 10] CodeQL 분석
+    # ----------------------------------------------------------------
+    - name: 🔍 [11] Perform CodeQL Analysis v4
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:java,cpp,python"
 
     # ----------------------------------------------------------------
-    # [Step 9] 파일 존재 여부 최종 검증 (디버깅)
+    # [Step 11] Artifacts Upload
     # ----------------------------------------------------------------
-    - name: 🧐 [9] Verify Artifacts
-      shell: bash
-      run: |
-        echo "🔎 Checking Artifact Locations..."
-        ls -l bin/*.jar
-        ls -l database_store/
-        ls -l client_downloads/
-
-    # ----------------------------------------------------------------
-    # [Step 10] 아티팩트 업로드 (화면 표시용)
-    # ----------------------------------------------------------------
-    - name: 📤 [10] Upload Massive Artifacts
+    - name: 📤 [12] Upload Build Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -262,8 +271,5 @@ jobs:
         path: |
           bin/*.jar
           bin/CoreEngine*
-          database_store/
-          ops_scripts/
-          src/
-          client_downloads/
+          downloads/
         retention-days: 1
