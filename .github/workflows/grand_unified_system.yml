@@ -1,18 +1,30 @@
-name: 🏭 Enterprise Factory (Link Visible)
+name: 🏭 Enterprise Factory (Cloud Pages)
 
 on:
+  # [트리거] 6시간마다 or Push or 수동 실행
   schedule:
     - cron: '0 */6 * * *'
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
+# [권한 설정] Pages 배포를 위해 permissions 확장
+permissions:
+  contents: write
+  pages: write      # GitHub Pages 배포 권한
+  id-token: write   # OIDC 토큰 권한
+  packages: write
+
+# [동시성 제어]
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: "pages-production"
   cancel-in-progress: true
 
 jobs:
-  link-visible-ops:
+  # ==============================================================================
+  # [Job 1] 데이터 생산 및 웹사이트 구축 (Core Ops)
+  # ==============================================================================
+  factory-ops:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     
@@ -25,7 +37,7 @@ jobs:
         echo "🧹 Purging disk space..."
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
         docker system prune -af
-        echo "✅ Ready."
+        echo "✅ Disk Ready."
 
     # ----------------------------------------------------------------
     # [Step 2] 런타임 설정
@@ -38,7 +50,7 @@ jobs:
       run: pip install flask flask-cors gunicorn faker pandas requests jinja2 psutil
 
     # ----------------------------------------------------------------
-    # [Step 3] 백엔드 데이터 엔진 (기존 대량 생성 로직 유지)
+    # [Step 3] 백엔드 데이터 엔진 (대량 생성)
     # ----------------------------------------------------------------
     - name: 🏭 Run Backend Engine
       shell: bash
@@ -52,30 +64,45 @@ jobs:
         fake = Faker()
 
         OUTPUT_DIR = "_data_warehouse"
-        SERVICES = ["Auth_Core", "Billing_Gateway", "Ops_Monitor", "AI_Inference"]
-        REGIONS = ["Global_Common", "Asia_Seoul", "US_Virginia"]
+        SERVICES = ["Auth_Core", "Billing_Gateway", "Ops_Monitor", "AI_Inference", "DB_Shard_KR", "DB_Shard_US"]
+        REGIONS = ["Global", "Asia_Seoul", "US_Virginia", "EU_London"]
 
         def generate():
-            print("🚀 Generating Data...")
+            print("🚀 Generating Enterprise Data...")
             metadata = []
+            
+            # 대량 데이터 생성 루프
             for region in REGIONS:
                 for svc in SERVICES:
                     base_path = f"data/{region}/{svc}"
                     os.makedirs(base_path, exist_ok=True)
                     
-                    # Dummy CSV
-                    with open(f"{base_path}/log.csv", "w") as f:
-                        f.write("id,ts,val\n")
-                        for _ in range(100): f.write(f"{uuid.uuid4()},{datetime.now()},{random.randint(0,100)}\n")
+                    # Log Simulation
+                    with open(f"{base_path}/trace.log", "w") as f:
+                        for _ in range(200): f.write(f"INFO {datetime.now()} {uuid.uuid4()} Latency={random.randint(5,100)}ms\n")
 
+                    # Archiving
                     zip_name = f"{region}_{svc}"
                     shutil.make_archive(f"{OUTPUT_DIR}/{zip_name}", 'zip', base_path)
                     shutil.rmtree(base_path)
                     
-                    metadata.append({"id": str(uuid.uuid4())[:8], "service": svc, "region": region, "status": "Healthy"})
+                    metadata.append({
+                        "id": str(uuid.uuid4())[:8],
+                        "service": svc,
+                        "region": region,
+                        "status": "Healthy",
+                        "throughput": f"{random.randint(100, 5000)} TPS"
+                    })
 
+            # Dashboard용 데이터 (정적 파일로 저장)
+            data = {
+                "system_status": "OPERATIONAL",
+                "updated_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "total_nodes": len(SERVICES) * len(REGIONS),
+                "services": metadata
+            }
             with open("dashboard_data.json", "w") as f:
-                json.dump({"system_status": "OPERATIONAL", "services": metadata}, f)
+                json.dump(data, f)
         
         if __name__ == "__main__": generate()
         EOF
@@ -83,105 +110,116 @@ jobs:
         python backend_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 4] 🌐 프론트엔드: 링크 패널이 추가된 대시보드
+    # [Step 4] 🌐 웹 포털 구축 (정적/동적 하이브리드 지원)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Dashboard with Server Link
+    - name: 🎨 Build Universal Dashboard
       shell: bash
       run: |
         mkdir -p _web_portal/static/css
         mkdir -p _web_portal/templates
         
-        # HTML: 서버 링크 표시 기능 추가
+        # HTML: GitHub Pages(정적)와 Flask(동적) 모두에서 작동하도록 JS 수정
         cat <<'EOF' > _web_portal/templates/index.html
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>OPS COMMAND CENTER</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
-                body { background-color: #0b0c10; color: #c5c6c7; font-family: 'Courier New', monospace; }
+                body { background-color: #0b0c10; color: #c5c6c7; font-family: monospace; }
                 .neon-text { color: #66fcf1; text-shadow: 0 0 5px #45a29e; }
                 .card { background-color: #1f2833; border: 1px solid #45a29e; }
                 .status-ok { color: #00ff00; }
-                .link-box { background: #000; border: 1px dashed #66fcf1; padding: 10px; font-family: monospace; color: #66fcf1; }
+                .link-box { background: #000; border: 1px dashed #66fcf1; padding: 5px; font-size: 0.8rem; cursor: pointer; }
             </style>
         </head>
-        <body class="h-screen overflow-hidden flex flex-col">
-            
-            <header class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
-                <h1 class="text-3xl font-bold neon-text">🏭 FACTORY OPS :: COMMAND CENTER</h1>
-                <div class="text-right">
-                    <p class="text-sm text-green-400">SYSTEM NORMAL</p>
-                </div>
+        <body class="h-screen flex flex-col overflow-hidden">
+            <header class="p-4 border-b border-gray-700 bg-gray-900 flex justify-between">
+                <h1 class="text-2xl font-bold neon-text">🏭 FACTORY OPS :: CLOUD VIEW</h1>
+                <div><span class="text-green-400 animate-pulse">● LIVE SYSTEM</span></div>
             </header>
 
             <main class="flex-1 p-6 overflow-y-auto grid grid-cols-4 gap-6">
-                
-                <div class="card p-4 rounded col-span-4 bg-gray-900 border-2 border-green-500">
-                    <div class="flex justify-between items-center">
+                <div class="card p-4 rounded col-span-4 bg-gray-900 border-l-4 border-green-500">
+                    <h3 class="text-green-400 font-bold">🌐 CONNECTION STATUS</h3>
+                    <div class="grid grid-cols-2 gap-4 mt-2">
                         <div>
-                            <h3 class="text-green-400 font-bold text-lg">🌐 SERVER CONNECTION ESTABLISHED</h3>
-                            <p class="text-xs text-gray-400">Secure Uplink Active via Gunicorn WSGI</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="bg-green-900 text-green-300 px-3 py-1 rounded text-xs">LIVE</span>
-                        </div>
-                    </div>
-                    <div class="mt-4 grid grid-cols-3 gap-4">
-                        <div>
-                            <p class="text-gray-500 text-xs">LOCAL ACCESS (IPv4)</p>
-                            <div class="link-box mt-1 select-all cursor-pointer hover:bg-gray-800" onclick="copyToClipboard('http://127.0.0.1:5000')">
-                                http://127.0.0.1:5000
-                            </div>
+                            <p class="text-xs text-gray-500">GITHUB PAGES (STATIC)</p>
+                            <div class="link-box text-blue-300" onclick="window.location.reload()">Current View</div>
                         </div>
                         <div>
-                            <p class="text-gray-500 text-xs">NETWORK ACCESS</p>
-                            <div class="link-box mt-1 select-all cursor-pointer hover:bg-gray-800" onclick="copyToClipboard('http://0.0.0.0:5000')">
-                                http://0.0.0.0:5000
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-xs">API ENDPOINT</p>
-                            <div class="link-box mt-1 select-all cursor-pointer hover:bg-gray-800">
-                                /api/stats
-                            </div>
+                            <p class="text-xs text-gray-500">LAST UPDATE</p>
+                            <div class="link-box text-white" id="last-update">Syncing...</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card p-4 rounded col-span-1">
-                    <h3 class="text-gray-400 text-sm">TOTAL SERVICES</h3>
+                    <p class="text-xs text-gray-400">TOTAL NODES</p>
                     <p class="text-4xl font-bold text-white mt-2" id="node-count">--</p>
                 </div>
-                <div class="card p-4 rounded col-span-3">
-                     <h3 class="text-gray-400 text-sm mb-2">SERVICE REGISTRY</h3>
-                     <table class="w-full text-xs text-left">
-                        <tbody id="svc-table"></tbody>
-                     </table>
+                <div class="card p-4 rounded col-span-3 row-span-2">
+                    <p class="text-xs text-gray-400 mb-2">SERVICE MESH TOPOLOGY</p>
+                    <div class="overflow-auto max-h-64">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-gray-800 text-cyan-400 sticky top-0">
+                                <tr><th class="p-2">ID</th><th class="p-2">REGION</th><th class="p-2">SERVICE</th><th class="p-2">STATUS</th></tr>
+                            </thead>
+                            <tbody id="svc-table"></tbody>
+                        </table>
+                    </div>
                 </div>
-
+                
+                <div class="card p-4 rounded col-span-4 h-48">
+                    <canvas id="mainChart"></canvas>
+                </div>
             </main>
 
             <script>
-                function copyToClipboard(text) {
-                    navigator.clipboard.writeText(text);
-                    alert("Copied: " + text);
-                }
+                // 데이터 로드 로직 (하이브리드)
+                async function loadData() {
+                    let data = null;
+                    try {
+                        // 1. Flask API 시도
+                        const res = await fetch('/api/stats');
+                        if(res.ok) data = await res.json();
+                        else throw new Error("API failed");
+                    } catch(e) {
+                        console.log("Switching to Static Mode...");
+                        try {
+                            // 2. 정적 파일 시도 (GitHub Pages용)
+                            const res = await fetch('./dashboard_data.json');
+                            if(res.ok) data = await res.json();
+                        } catch(e2) { console.error("Data load failed"); }
+                    }
 
-                fetch('/api/stats').then(r => r.json()).then(data => {
-                    document.getElementById('node-count').innerText = data.services.length;
-                    const tbody = document.getElementById('svc-table');
-                    data.services.forEach(s => {
-                        tbody.innerHTML += `<tr class="border-b border-gray-700">
-                            <td class="p-2 text-green-400">${s.id}</td>
-                            <td class="p-2">${s.region}</td>
-                            <td class="p-2 font-bold text-white">${s.service}</td>
-                            <td class="p-2 text-blue-400">${s.status}</td>
-                        </tr>`;
-                    });
+                    if(data) {
+                        document.getElementById('node-count').innerText = data.total_nodes;
+                        document.getElementById('last-update').innerText = data.updated_at;
+                        
+                        const tbody = document.getElementById('svc-table');
+                        data.services.forEach(s => {
+                            tbody.innerHTML += `<tr class="border-b border-gray-700">
+                                <td class="p-2 text-green-400 font-mono">${s.id}</td>
+                                <td class="p-2">${s.region}</td>
+                                <td class="p-2 font-bold text-white">${s.service}</td>
+                                <td class="p-2 status-ok">● ${s.status}</td>
+                            </tr>`;
+                        });
+                    }
+                }
+                loadData();
+
+                // Chart
+                new Chart(document.getElementById('mainChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['KR', 'US', 'EU', 'Global'],
+                        datasets: [{ label: 'Traffic Load', data: [65, 59, 80, 81], backgroundColor: '#45a29e' }]
+                    },
+                    options: { maintainAspectRatio: false, scales: { y: { grid: {color:'#333'} } } }
                 });
             </script>
         </body>
@@ -189,89 +227,83 @@ jobs:
         EOF
 
     # ----------------------------------------------------------------
-    # [Step 5] 🖥️ 프로덕션 서버 구축
+    # [Step 5] 🖥️ Flask/Gunicorn 서버 빌드 (로컬 실행용)
     # ----------------------------------------------------------------
     - name: ⚙️ Build Server App
-      shell: bash
       run: |
         cat <<'EOF' > _web_portal/app.py
-        from flask import Flask, render_template, jsonify
+        from flask import Flask, render_template, jsonify, send_from_directory
         import json
         app = Flask(__name__)
-
         @app.route('/')
         def home(): return render_template('index.html')
-
         @app.route('/api/stats')
         def stats():
-            try:
-                with open('../dashboard_data.json', 'r') as f: return jsonify(json.load(f))
-            except: return jsonify({"services": []})
+            try: return jsonify(json.load(open('../dashboard_data.json')))
+            except: return jsonify({})
+        # 정적 파일 서빙 지원 (하이브리드 모드)
+        @app.route('/dashboard_data.json')
+        def static_data(): return send_from_directory('..', 'dashboard_data.json')
         EOF
         
-        cat <<'EOF' > _web_portal/gunicorn_config.py
-        bind = "0.0.0.0:5000"
-        workers = 2
-        loglevel = "info"
-        EOF
+        # Gunicorn Config
+        echo 'bind = "0.0.0.0:5000"' > _web_portal/gunicorn_config.py
 
     # ----------------------------------------------------------------
-    # [Step 6] 🚀 서버 가동 및 링크 확인 (하이라이트)
+    # [Step 6] 🚀 서버 테스트 (IPv4)
     # ----------------------------------------------------------------
-    - name: 🚀 Launch & Verify (With Link Display)
+    - name: 🧪 Verify Server
       run: |
-        echo "🟢 Starting Server..."
         cd _web_portal
         gunicorn -c gunicorn_config.py app:app &
-        PID=$!
-        
-        # 스마트 대기
-        for i in {1..10}; do
-          if curl -s -4 http://127.0.0.1:5000/ > /dev/null; then
-            echo "✅ Server UP!"
-            break
-          fi
-          sleep 1
-        done
-        
-        echo "==================================================="
-        echo "🌐 SERVER IS LIVE AT:"
-        echo "   👉 Local:   http://127.0.0.1:5000"
-        echo "   👉 Network: http://0.0.0.0:5000"
-        echo "==================================================="
-        
-        # API 테스트
-        curl -4 -s http://127.0.0.1:5000/api/stats | head -c 100
-        echo "..."
-        
-        kill $PID || true
+        sleep 5
+        curl -4 -v http://127.0.0.1:5000/api/stats
+        pkill gunicorn || true
 
     # ----------------------------------------------------------------
-    # [Step 7] 결과물 업로드
+    # [Step 7] GitHub Pages용 정적 사이트 준비 (핵심 추가)
     # ----------------------------------------------------------------
-    - name: 📤 Upload Package
+    - name: 📄 Prepare Pages Site
+      run: |
+        echo "📦 preparing static site for GitHub Pages..."
+        mkdir -p _site
+        
+        # 1. HTML 파일 복사 (루트로 이동)
+        cp _web_portal/templates/index.html _site/index.html
+        
+        # 2. 데이터 파일 복사 (JS가 읽을 수 있게)
+        cp dashboard_data.json _site/dashboard_data.json
+        
+        echo "✅ Static site ready at ./_site"
+        ls -R _site
+
+    # ----------------------------------------------------------------
+    # [Step 8] 아티팩트 업로드 (서버용 & Pages용 분리)
+    # ----------------------------------------------------------------
+    - name: 📤 Upload Server Package (For Local)
       uses: actions/upload-artifact@v4
       with:
-        name: ops-portal-v1
+        name: full-stack-server
         path: |
           _web_portal/
-          _data_warehouse/
           dashboard_data.json
-        retention-days: 1
+          _data_warehouse/
 
-    # ----------------------------------------------------------------
-    # [Step 8] 최종 요약에 링크 표시
-    # ----------------------------------------------------------------
-    - name: 📊 Summary Report with Link
-      if: always()
-      run: |
-        echo "# 🏭 Factory Ops Dashboard" >> $GITHUB_STEP_SUMMARY
-        echo "### 🌐 Server Connection Info" >> $GITHUB_STEP_SUMMARY
-        echo "The web portal has been generated. When deployed locally, access it via:" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Type | URL | Status |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Localhost** | \`http://127.0.0.1:5000\` | ✅ Verified |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Network** | \`http://0.0.0.0:5000\` | ✅ Open |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "> **How to run:** Download the artifact, go to \`_web_portal\`, and run \`python app.py\` (Dev) or \`gunicorn app:app\` (Prod)." >> $GITHUB_STEP_SUMMARY
+    - name: 📤 Upload Pages Artifact (For Cloud)
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: _site/
+
+  # ==============================================================================
+  # [Job 2] GitHub Pages 배포 (Standard Deploy)
+  # ==============================================================================
+  deploy-pages:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: factory-ops # 데이터 생성이 끝나야 실행
+    steps:
+      - name: 🚀 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
