@@ -1,3 +1,6 @@
+// (C) 2025 koreatest12. All rights reserved.
+// Strictly Prohibited for Unauthorized Copying or Reproduction.
+
 // (C) 2025 GLOBAL CYBERNETICS. ENCRYPTED SYSTEM.
 
 #include <iostream>
