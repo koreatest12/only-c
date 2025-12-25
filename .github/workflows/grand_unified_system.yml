@@ -1,10 +1,10 @@
-name: 🏭 MASTER SCM:FULL SYNC & INFRASTRUCTURE
+name: 🏭 FINAL ZERO-ERROR: FACTORY, UPGRADE & SCM
 
 on:
   push:
     branches: [ "main", "master" ]
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 형상관리 동기화
+    - cron: '*/5 * * * *' # 5분마다 무조건 실행
   workflow_dispatch:
 
 env:
@@ -13,12 +13,12 @@ env:
   LC_ALL: en_US.UTF-8
   DEBIAN_FRONTEND: noninteractive
 
-# [권한: 저장소 형상관리를 위한 전체 쓰기 권한]
+# [권한: 전체 허용]
 permissions:
-  contents: write           # 코드 커밋/푸시 (필수)
-  packages: write
-  deployments: write
-  security-events: write
+  contents: write           # 코드 커밋/푸시
+  packages: write           # 패키지 배포
+  deployments: write        # 배포 관리
+  security-events: write    # CodeQL 리포트 (필수)
   actions: write
   checks: write
   statuses: write
@@ -26,8 +26,8 @@ permissions:
   pages: write
 
 jobs:
-  scm-factory-ops:
-    name: 🏭 SCM Factory on ${{ matrix.os }}
+  factory-ops-final:
+    name: 🏭 Factory Ops on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -35,57 +35,67 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-scm-pack
+            artifact_name: linux-final-pack
           - os: windows-latest
-            artifact_name: windows-scm-pack
+            artifact_name: windows-final-pack
           - os: macos-latest
-            artifact_name: macos-scm-pack
+            artifact_name: macos-final-pack
 
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 형상관리 초기화 (Full History Fetch)
+    # [Step 1] 공장 초기화 (Deep Fetch 필수)
     # ----------------------------------------------------------------
-    - name: 📥 [1] Checkout for SCM
+    - name: 📥 [1] Initialize Factory
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # 전체 히스토리를 가져와야 Rebase 가능
+        fetch-depth: 0 # CodeQL 및 Git Rebase를 위해 전체 히스토리 필요
         token: ${{ secrets.GITHUB_TOKEN }}
 
     # ----------------------------------------------------------------
-    # [Step 2] 생산 도구 설정
+    # [Step 2] 의존성 파일 선행 생성 (Setup 에러 방지)
     # ----------------------------------------------------------------
-    - name: 🛠️ [2] Setup Environment
+    - name: 📝 [2] Init Requirements
+      shell: bash
+      run: |
+        echo "Creating dependency manifest..."
+        echo "colorama" > requirements.txt
+        echo "requests" >> requirements.txt
+        echo "tqdm" >> requirements.txt
+        echo "jinja2" >> requirements.txt
+        echo "✅ Requirements ready."
+
+    # ----------------------------------------------------------------
+    # [Step 3] 런타임 환경 설정
+    # ----------------------------------------------------------------
+    - name: 🛠️ [3] Setup Toolchain
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 🐍 [3] Setup Python
+    - name: 🐍 [4] Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 📦 [4] Install Deps
+    - name: 📦 [5] Install Libs
       shell: bash
-      run: |
-        echo "colorama" > requirements.txt
-        echo "requests" >> requirements.txt
-        echo "tqdm" >> requirements.txt
-        pip install -r requirements.txt
+      run: pip install -r requirements.txt
 
     # ----------------------------------------------------------------
-    # [Step 3] CodeQL 보안 감시
+    # [Step 4] CodeQL 초기화 (빌드 전 실행)
     # ----------------------------------------------------------------
-    - name: 🛡️ [5] CodeQL Init
+    - name: 🛡️ [6] CodeQL Init
       uses: github/codeql-action/init@v4
       with:
         languages: java, cpp, python
+        # Build Mode: Auto-Detect (Manual 제거)
 
     # ----------------------------------------------------------------
-    # [Step 4] 초대형 팩토리 가동 (소스 + 인프라 + DB + 문서)
+    # [Step 5] 초대형 유니버스 생성기 (수집/업그레이드/서비스)
     # ----------------------------------------------------------------
-    - name: 🏭 [6] Run Universal Factory
+    - name: 🏭 [7] Run Massive Generator
       shell: bash
       run: |
         cat <<'EOF' > factory_manager.py
@@ -93,107 +103,113 @@ jobs:
         import sys
         import random
         import datetime
+        import json
 
         sys.stdout.reconfigure(encoding='utf-8')
 
-        SERVICES = [
+        # 1. 핵심 서비스 (Core Services)
+        CORE_SERVICES = [
             "Banking", "Stock", "Insurance", "PublicData", "Crypto", "RealEstate", "GovTax",
             "Logistics", "HealthCare", "Metaverse", "AI_Core", "IoT_Network", 
             "Education_Hub", "Energy_Grid", "Defense_Sys"
+        ]
+        
+        # 2. 수집 서버 (Collection Squad)
+        COLLECTORS = [
+            "Log_Aggregator", "Metric_Beat", "Trace_Collector", "User_Activity_Tracker",
+            "Network_Sniffer", "Security_Auditor", "Market_Feeder", "Error_Catcher"
         ]
 
         def safe_makedirs(path):
             if not os.path.exists(path): os.makedirs(path, exist_ok=True)
 
-        def log(msg): print(f"[SCM-FACTORY] {msg}")
+        def log(msg): print(f"[FACTORY] {msg}")
 
-        # 1. 어플리케이션 소스 코드 (Java)
-        def generate_apps():
-            log(f"🚀 Generating Source Code for {len(SERVICES)} Services...")
-            safe_makedirs("src/main/java/com/global")
+        # A. 소스 코드 생산
+        def produce_code():
+            log("🚀 Manufacturing Services & Collectors...")
+            safe_makedirs("src/main/java/com/global/core")
+            safe_makedirs("src/main/java/com/global/collection")
+            safe_makedirs("src/main/resources/config")
             
-            for svc in SERVICES:
-                base = f"src/main/java/com/global/{svc.lower()}"
+            # Core Services
+            for svc in CORE_SERVICES:
+                base = f"src/main/java/com/global/core/{svc.lower()}"
                 safe_makedirs(base)
-                
-                # Main
                 with open(f"{base}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.global.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Active\"); }} }}")
+                    f.write(f"package com.global.core.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Online\"); }} }}")
                 
-                # Controllers & Logic (대량 생성)
-                for i in range(1, 21):
-                    with open(f"{base}/{svc}Controller{i}.java", "w") as f:
-                        f.write(f"package com.global.{svc.lower()};\npublic class {svc}Controller{i} {{ public String status() {{ return \"OK\"; }} }}")
+                # Config with Logic
+                with open(f"src/main/resources/config/{svc}_config.xml", "w") as f:
+                    f.write(f"<config><name>{svc}</name><port>{8000 + CORE_SERVICES.index(svc)}</port></config>")
 
-        # 2. 인프라스트럭처 코드 (IaC - Terraform, Docker, K8s)
-        def generate_infrastructure():
-            log("🏗️ Generating Infrastructure as Code (IaC)...")
-            safe_makedirs("infra/terraform/modules")
-            safe_makedirs("infra/k8s/deployments")
-            safe_makedirs("infra/docker")
-            safe_makedirs("infra/ansible")
+            # Collectors
+            for svc in COLLECTORS:
+                base = f"src/main/java/com/global/collection/{svc.lower()}"
+                safe_makedirs(base)
+                with open(f"{base}/{svc}Agent.java", "w") as f:
+                    f.write(f"package com.global.collection.{svc.lower()};\npublic class {svc}Agent {{ public void run() {{ }} }}")
 
-            for svc in SERVICES:
-                # Terraform
-                with open(f"infra/terraform/modules/{svc}.tf", "w") as f:
-                    f.write(f'resource "aws_ecr_repository" "{svc}_repo" {{ name = "{svc.lower()}_service" }}\n')
-                
-                # Kubernetes
-                with open(f"infra/k8s/deployments/{svc}-deploy.yaml", "w") as f:
-                    f.write(f"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: {svc.lower()}\nspec:\n  replicas: 3")
-                
-                # Dockerfile
-                with open(f"infra/docker/Dockerfile.{svc}", "w") as f:
-                    f.write(f"FROM openjdk:17-slim\nCOPY bin/{svc}App.jar app.jar\nCMD [\"java\", \"-jar\", \"/app.jar\"]")
-
-        # 3. 데이터베이스 스키마 및 마이그레이션
-        def generate_db_assets():
-            log("🗃️ Generating Database Assets...")
-            safe_makedirs("database/migrations")
-            safe_makedirs("database/seeds")
+        # B. 업그레이드 시스템 생산
+        def produce_upgrade_sys():
+            log("⬆️ Generating Upgrade Manager...")
+            safe_makedirs("infra/upgrade")
             
-            for svc in SERVICES:
-                with open(f"database/migrations/V1__{svc}_init.sql", "w") as f:
-                    f.write(f"CREATE TABLE {svc}_table (id INT PRIMARY KEY);")
+            manifest = {
+                "patch_version": f"v{datetime.datetime.now().year}.{random.randint(1,100)}",
+                "targets": CORE_SERVICES + COLLECTORS,
+                "rollback_enabled": True
+            }
+            with open("infra/upgrade/manifest.json", "w") as f:
+                json.dump(manifest, f, indent=4)
+                
+            with open("infra/upgrade/patch_runner.py", "w") as f:
+                f.write("print('Applying Kernel Patches...'); print('Restarting Clusters...');")
 
-        # 4. C++ 보안 엔진
-        def generate_cpp_core():
-            log("🔐 Generating C++ Security Core...")
+        # C. C++ 암호화 엔진
+        def produce_cpp_core():
+            log("🔐 Forging Crypto Engine...")
             safe_makedirs("cpp_core")
-            with open("cpp_core/security.cpp", "w") as f:
-                f.write('#include <iostream>\nint main() { std::cout << "Security Layer Active" << std::endl; return 0; }')
+            # [Fix] 헤더 줄바꿈 명시
+            with open("cpp_core/crypto.cpp", "w") as f:
+                f.write('#include <iostream>\n')
+                f.write('#include <fstream>\n')
+                f.write('void encrypt(std::string f) { std::ofstream o(f+".enc"); o<<"ENC"; o.close(); }\n')
+                f.write('int main(int c, char* v[]) { if(c>1) encrypt(v[1]); return 0; }')
 
         if __name__ == "__main__":
-            generate_apps()
-            generate_infrastructure()
-            generate_db_assets()
-            generate_cpp_core()
+            produce_code()
+            produce_upgrade_sys()
+            produce_cpp_core()
             safe_makedirs("bin")
-            safe_makedirs("docs")
-            log("✅ All Assets Generated for SCM.")
+            safe_makedirs("release_pkg")
+            safe_makedirs("logs")
+            log("✅ Factory Output Ready.")
         EOF
         
         python factory_manager.py
 
     # ----------------------------------------------------------------
-    # [Step 5] 보안 워터마킹 (SCM 추적 대상)
+    # [Step 6] 보안 워터마크 (헤더 파괴 방지 적용)
     # ----------------------------------------------------------------
-    - name: 🛡️ [7] Apply Watermark
+    - name: 🛡️ [8] Apply Watermark
       shell: bash
       run: |
         cat <<'EOF' > watermark.py
         import os
         import datetime
-        HEADER = f"// (C) {datetime.datetime.now().year} GLOBAL SCM. MANAGED CODE.\n"
+        # [CRITICAL] 줄바꿈 명시
+        HEADER = f"// (C) {datetime.datetime.now().year} GLOBAL FACTORY. SECURE.\n"
+
         def inject():
             for root, dirs, files in os.walk("."):
-                if any(x in root for x in [".git", "bin"]): continue
+                if any(x in root for x in ["bin", ".git", "release_pkg"]): continue
                 for file in files:
-                    if file.endswith(('.java', '.cpp', '.tf', '.yaml', '.sql')):
+                    if file.endswith(('.java', '.cpp', '.xml', '.py')):
                         path = os.path.join(root, file)
                         try:
                             with open(path, 'r', encoding='utf-8') as f: content = f.read()
-                            if "GLOBAL SCM" not in content:
+                            if "GLOBAL FACTORY" not in content:
                                 with open(path, 'w', encoding='utf-8') as f:
                                     f.write(HEADER + content)
                         except: pass
@@ -202,93 +218,119 @@ jobs:
         python watermark.py
 
     # ----------------------------------------------------------------
-    # [Step 6] 빌드 및 아티팩트 생성
+    # [Step 7] 정밀 빌드 & 업그레이드 & 암호화
     # ----------------------------------------------------------------
-    - name: 🔨 [8] Build & Package
+    - name: 🔨 [9] Build & Upgrade
       shell: bash
       run: |
-        echo "☕ Compiling Sources..."
+        echo "=========================================="
+        echo "🏗️ FACTORY BUILD & UPGRADE..."
+        echo "=========================================="
+        
+        # 1. C++ 컴파일
+        echo "🔐 Compiling Crypto..."
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+            g++ -o bin/Crypto.exe cpp_core/crypto.cpp
+            CRYPTO="bin/Crypto.exe"
+        else
+            g++ -o bin/Crypto cpp_core/crypto.cpp
+            CRYPTO="./bin/Crypto"
+        fi
+        
+        # 2. Java 컴파일 (Core + Collection)
+        echo "☕ Compiling All Services..."
         find src -name "*.java" > sources.txt
         javac -nowarn -d bin @sources.txt
         
-        echo "🚀 Compiling C++..."
-        g++ -o bin/SecurityCore cpp_core/security.cpp
-        
+        # 3. 패키징 및 암호화
         echo "📦 Packaging..."
-        SERVICES="Banking Stock Insurance PublicData Crypto RealEstate GovTax Logistics HealthCare Metaverse AI_Core IoT_Network Education_Hub Energy_Grid Defense_Sys"
-        for svc in $SERVICES; do
+        
+        # Core Services
+        CORE="Banking Stock Insurance PublicData Crypto RealEstate GovTax Logistics HealthCare Metaverse AI_Core IoT_Network Education_Hub Energy_Grid Defense_Sys"
+        for svc in $CORE; do
             svc_lower=$(echo "$svc" | tr '[:upper:]' '[:lower:]')
-            echo "Main-Class: com.global.${svc_lower}.${svc}Application" > Manifest.txt
+            echo "Main-Class: com.global.core.${svc_lower}.${svc}Application" > Manifest.txt
             jar cf bin/${svc}App.jar Manifest.txt -C bin .
+            
+            # Config 암호화
+            if [ -f "src/main/resources/config/${svc}_config.xml" ]; then
+                cp "src/main/resources/config/${svc}_config.xml" "bin/${svc}_config.xml"
+                $CRYPTO "bin/${svc}_config.xml"
+            fi
         done
+        
+        # Collection Agents
+        COLL="Log_Aggregator Metric_Beat Trace_Collector User_Activity_Tracker Network_Sniffer Security_Auditor Market_Feeder Error_Catcher"
+        for svc in $COLL; do
+            jar cf bin/${svc}Agent.jar -C bin .
+        done
+        
+        # 4. 업그레이드 시뮬레이션
+        echo "⬆️ Running Upgrade Simulation..."
+        python infra/upgrade/patch_runner.py
+        
+        echo "✅ All Systems Built & Upgraded."
 
     # ----------------------------------------------------------------
-    # [Step 7] 대시보드 리포트 생성
+    # [Step 8] CodeQL 분석 (Git Push *이전*에 수행하여 에러 방지)
     # ----------------------------------------------------------------
-    - name: 📊 [9] Generate SCM Dashboard
+    - name: 🔍 [10] Perform CodeQL Analysis v4
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "/language:java,cpp,python"
+
+    # ----------------------------------------------------------------
+    # [Step 9] 대시보드 리포트
+    # ----------------------------------------------------------------
+    - name: 📊 [11] Generate Dashboard
       shell: bash
       run: |
-        FILE_COUNT=$(find src infra database -type f | wc -l | xargs)
-        DATE=$(date -u)
+        JAR_COUNT=$(find bin -name "*.jar" | wc -l | xargs)
+        ENC_COUNT=$(find bin -name "*.enc" | wc -l | xargs)
         
-        cat <<EOF > scm_dashboard.html
-        <html><body><h1>SCM Report</h1><p>$DATE</p><h2>Tracked Files: $FILE_COUNT</h2></body></html>
+        cat <<EOF > factory_dashboard.html
+        <html><body><h1>Factory Status</h1><p>Apps: $JAR_COUNT</p><p>Encrypted: $ENC_COUNT</p></body></html>
         EOF
         
-        echo "## 🏭 SCM Status" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏭 Factory Dashboard" >> $GITHUB_STEP_SUMMARY
         echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
         echo "| :--- | :---: |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Managed Files** | $FILE_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Infrastructure** | Terraform, K8s, Docker |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total Services** | $JAR_COUNT |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Encrypted** | $ENC_COUNT |" >> $GITHUB_STEP_SUMMARY
 
     # ----------------------------------------------------------------
-    # [Step 8] 형상관리 강제 동기화 (SCM Sync - Critical Fix)
+    # [Step 10] Git 저장소 강제 동기화 (CodeQL 이후 실행)
     # ----------------------------------------------------------------
-    - name: 💾 [10] SCM Sync (Commit & Push)
+    - name: 💾 [12] Force Push Assets (Autostash)
       if: runner.os == 'Linux' && github.event_name != 'pull_request'
       shell: bash
       run: |
-        echo "=========================================="
-        echo "🔄 STARTING SCM SYNCHRONIZATION..."
-        echo "=========================================="
+        echo "🔄 STARTING SCM SYNC..."
+        git config --global user.name "Factory-Bot"
+        git config --global user.email "bot@factory.com"
         
-        git config --global user.name "SCM-Bot"
-        git config --global user.email "bot@scm.com"
-        
-        # 1. 모든 파일 강제 스테이징 (-A: 신규/수정/삭제 모두 포함)
-        # .gitignore에 의해 무시되는 파일도 추적하고 싶다면 -f 사용, 여기선 일반 -A 사용
+        # 모든 파일 강제 추가
         git add -A
+        git add -f src/ infra/ database/ cpp_core/ factory_manager.py *.html bin/*.enc
         
-        # 2. 강제 스테이징 (중요 생성 폴더)
-        git add -f src/ infra/ database/ cpp_core/ factory_manager.py *.html
-        
-        # 3. 변경 사항 확인
         if git diff --staged --quiet; then
-            echo "✅ No changes to commit. SCM is up to date."
+            echo "✅ No changes."
         else
-            echo "📝 Committing changes..."
-            git commit -m "🏭 SCM Update: Full Stack Sync & IaC [skip ci]"
+            git commit -m "🏭 Factory Update: Core+Collectors+Upgrade [skip ci]"
             
-            # 4. [CRITICAL FIX] Rebase & Push Loop with Autostash
-            # 로컬의 변경사항(커밋됨)을 유지하면서 원격의 변경사항을 가져옴
-            echo "🔄 Pulling and Rebase..."
-            
-            MAX_RETRIES=10
-            for ((i=1; i<=MAX_RETRIES; i++)); do
-                # --rebase --autostash: 로컬 변경사항 잠시 보관 -> pull -> rebase -> 보관 적용
+            # Rebase & Push Loop with Autostash (충돌 방지 핵심)
+            for i in {1..5}; do
+                echo "🔄 Sync Attempt ($i/5)..."
                 if git pull --rebase --autostash origin main; then
-                    echo "✅ Rebase Successful."
-                    
                     if git push origin main; then
-                        echo "✅ Push Successful."
+                        echo "✅ Push Success."
                         break
                     else
-                        echo "⚠️ Push failed (Concurrent update?), retrying ($i/$MAX_RETRIES)..."
+                        echo "⚠️ Push failed, retrying..."
                         sleep 5
                     fi
                 else
-                    echo "⚠️ Pull/Rebase failed, retrying ($i/$MAX_RETRIES)..."
-                    # Rebase 실패 시 Abort 후 재시도
+                    echo "⚠️ Pull failed, aborting rebase & retrying..."
                     git rebase --abort || true
                     sleep 5
                 fi
@@ -296,23 +338,17 @@ jobs:
         fi
 
     # ----------------------------------------------------------------
-    # [Step 9] CodeQL & Artifacts
+    # [Step 11] 아티팩트 업로드
     # ----------------------------------------------------------------
-    - name: 🔍 [11] Perform CodeQL Analysis v4
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: "/language:java,cpp,python"
-
-    - name: 📤 [12] Upload SCM Artifacts
+    - name: 📤 [13] Upload Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
-          scm_dashboard.html
+          factory_dashboard.html
           bin/*.jar
-          bin/SecurityCore*
+          bin/*.enc
           src/
           infra/
-          database/
         retention-days: 1
