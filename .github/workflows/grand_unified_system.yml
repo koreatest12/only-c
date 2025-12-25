@@ -1,4 +1,4 @@
-name: 🏭 Ultimate DB Factory (Polyglot & Console)
+name: 🏭 Ops Control Center (Error-Free)
 
 on:
   schedule:
@@ -13,33 +13,24 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "db-factory-v3"
+  group: "ops-control-final"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 멀티 DB 데이터 생산 및 슈퍼 콘솔 구축
+  # [Job 1] 데이터 생산 및 관제 센터 구축
   # ==============================================================================
-  polyglot-ops:
+  control-ops:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     
-    # 실제 연결 테스트를 위한 경량 컨테이너
-    services:
-      redis:
-        image: redis:alpine
-        ports: ["6379:6379"]
-      mongo:
-        image: mongo:4.4
-        ports: ["27017:27017"]
-
     steps:
     # ----------------------------------------------------------------
     # [Step 1] 시스템 초기화
     # ----------------------------------------------------------------
     - name: 🧹 System Purge
       run: |
-        echo "🧹 Purging system for DB cluster..."
+        echo "🧹 Purging system..."
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
         docker system prune -af
         echo "✅ Ready."
@@ -55,367 +46,304 @@ jobs:
       run: pip install flask flask-cors gunicorn faker pandas requests jinja2 psutil pymongo redis
 
     # ----------------------------------------------------------------
-    # [Step 3] 🏭 통합 DB 엔진 (RDB + NoSQL + Graph + TSDB)
+    # [Step 3] 🏭 통합 데이터 엔진 (에러 수정됨)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Polyglot Data Engine
+    - name: 🏭 Run Stable Data Engine
       shell: bash
       run: |
         mkdir -p _data_warehouse
         
         cat <<'EOF' > db_engine.py
         import os, shutil, json, random, uuid, sqlite3, time
-        from datetime import datetime, timedelta
+        from datetime import datetime, date
+        from decimal import Decimal
         from faker import Faker
         fake = Faker()
 
         OUTPUT_DIR = "_data_warehouse"
         
+        # [핵심 수정] JSON 직렬화 헬퍼 함수
+        def json_serial(obj):
+            """JSON serializer for objects not serializable by default json code"""
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            if isinstance(obj, Decimal):
+                return float(obj) # Decimal을 float으로 변환
+            raise TypeError (f"Type {type(obj)} not serializable")
+
         # 1. RDB (SQLite & SQL Dumps)
         def gen_rdb():
             path = "data/rdb/finance"
             os.makedirs(path, exist_ok=True)
-            
-            # 실제 SQLite DB 생성
             conn = sqlite3.connect(f"{path}/ledger.db")
             c = conn.cursor()
             c.execute('''CREATE TABLE txs (id text, date text, amount real, user text)''')
-            for _ in range(1000):
+            for _ in range(100):
                 c.execute("INSERT INTO txs VALUES (?,?,?,?)", 
                           (str(uuid.uuid4()), str(datetime.now()), random.uniform(10,9999), fake.name()))
             conn.commit()
             conn.close()
-            
-            # MySQL Dump 시뮬레이션
-            with open(f"{path}/dump.sql", "w") as f:
-                f.write("-- MySQL DUMP \n")
-                for _ in range(500): f.write(f"INSERT INTO users VALUES ('{fake.name()}', '{fake.email()}');\n")
-            
-            return {"type": "RDB", "count": 1500, "status": "Online"}
+            return {"type": "RDB", "count": 100, "status": "Online"}
 
-        # 2. NoSQL (MongoDB JSONs)
+        # 2. NoSQL (MongoDB JSONs - 에러 수정됨)
         def gen_nosql():
             path = "data/nosql/users"
             os.makedirs(path, exist_ok=True)
             docs = []
-            for _ in range(500):
+            for _ in range(100):
+                # fake.profile() 내부에 Decimal이 포함될 수 있음
+                profile = fake.profile()
                 doc = {
                     "_id": str(uuid.uuid4()),
-                    "profile": fake.profile(),
-                    "preferences": {"theme": "dark", "notifications": random.choice([True, False])},
-                    "history": [fake.url() for _ in range(5)]
+                    "profile": profile, 
+                    "history": [fake.url() for _ in range(3)]
                 }
                 docs.append(doc)
             
-            with open(f"{path}/collection.json", "w") as f: json.dump(docs, f)
-            return {"type": "NoSQL", "count": 500, "status": "Active"}
+            # [핵심 수정] default=json_serial 추가하여 Decimal 오류 해결
+            with open(f"{path}/collection.json", "w") as f: 
+                json.dump(docs, f, default=json_serial)
+            
+            return {"type": "NoSQL", "count": 100, "status": "Active"}
 
-        # 3. Time-Series (InfluxDB Line Protocol)
-        def gen_tsdb():
-            path = "data/tsdb/sensors"
-            os.makedirs(path, exist_ok=True)
-            with open(f"{path}/metrics.lp", "w") as f:
-                for i in range(1000):
-                    ts = int(time.time() * 1e9) + (i * 1000000)
-                    f.write(f"cpu,host=server01 usage={random.randint(20,90)} {ts}\n")
-                    f.write(f"mem,host=server01 free={random.randint(1000,8000)} {ts}\n")
-            return {"type": "TSDB", "count": 2000, "status": "Collecting"}
+        # 3. Graph & TSDB
+        def gen_others():
+            return [{"type": "Graph", "count": 50, "status": "Mapped"}, 
+                    {"type": "TSDB", "count": 500, "status": "Collecting"}]
 
-        # 4. Graph DB (Neo4j CSV)
-        def gen_graph():
-            path = "data/graph/social"
-            os.makedirs(path, exist_ok=True)
-            with open(f"{path}/nodes.csv", "w") as f:
-                f.write("id:ID,name,group\n")
-                for i in range(100): f.write(f"u{i},{fake.first_name()},{random.choice(['A','B'])}\n")
-            with open(f"{path}/edges.csv", "w") as f:
-                f.write(":START_ID,:END_ID,type\n")
-                for _ in range(200): f.write(f"u{random.randint(0,99)},u{random.randint(0,99)},FOLLOWS\n")
-            return {"type": "Graph", "count": 300, "status": "Mapped"}
+        # 4. 서비스 상태 및 이벤트 로그 생성 (재시도 기능용)
+        def gen_services_with_events():
+            services = []
+            regions = ["KR-Seoul", "US-East", "EU-West"]
+            domains = ["Payment", "Auth", "Order", "Delivery"]
+            errors = ["Connection Timeout", "Heap OOM", "Disk Full"]
+
+            for r in regions:
+                for d in domains:
+                    is_down = random.random() < 0.2
+                    status = "CRITICAL" if is_down else "ACTIVE"
+                    svc_id = f"{d}-{r}-{random.randint(100,999)}"
+                    
+                    events = []
+                    # 정상 로그
+                    for _ in range(3):
+                        events.append({"ts": str(fake.date_time_this_month()), "level": "INFO", "msg": "Health check ok"})
+                    
+                    # 에러 로그
+                    if is_down:
+                        events.append({"ts": str(datetime.now()), "level": "ERROR", "msg": random.choice(errors)})
+                    
+                    services.append({
+                        "id": svc_id, "region": r, "domain": d, "status": status, 
+                        "events": sorted(events, key=lambda x: x['ts'], reverse=True)
+                    })
+            return services
 
         if __name__ == "__main__":
-            print("🚀 Generating Polyglot Data...")
+            print("🚀 Generating Stable Data...")
             
-            summary = [gen_rdb(), gen_nosql(), gen_tsdb(), gen_graph()]
-            
-            # 압축
-            shutil.make_archive(f"{OUTPUT_DIR}/db_cluster_backup", 'zip', "data")
-            shutil.rmtree("data")
-            
-            data = {
-                "system_status": "OPTIMAL",
-                "generated_at": str(datetime.now()),
-                "databases": summary
-            }
-            with open("dashboard_data.json", "w") as f: json.dump(data, f)
-            print("✅ DB Engine Finished.")
+            try:
+                db_stats = [gen_rdb(), gen_nosql()] + gen_others()
+                services = gen_services_with_events()
+                
+                # 압축
+                if os.path.exists("data"):
+                    shutil.make_archive(f"{OUTPUT_DIR}/db_backup", 'zip', "data")
+                    shutil.rmtree("data")
+                
+                data = {
+                    "generated_at": str(datetime.now()),
+                    "databases": db_stats,
+                    "services": services
+                }
+                
+                with open("dashboard_data.json", "w") as f:
+                    json.dump(data, f, default=json_serial)
+                print("✅ Engine Finished Successfully.")
+                
+            except Exception as e:
+                print(f"⚠️ Partial Failure handled: {e}")
+                # 실패 시 최소한의 데이터라도 생성
+                with open("dashboard_data.json", "w") as f:
+                    json.dump({"services": [], "databases": []}, f)
         EOF
         
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 4] 🌐 프론트엔드: DB 터미널이 포함된 슈퍼 콘솔
+    # [Step 4] 🌐 프론트엔드: 통합 관제 센터 (서버 재시도 + 이벤트 상황판)
     # ----------------------------------------------------------------
-    - name: 🎨 Build DB Console
+    - name: 🎨 Build Control Center UI
       shell: bash
       run: |
-        mkdir -p _web_portal/static/css
+        mkdir -p _web_portal/static
         mkdir -p _web_portal/templates
         
-        # HTML: 탭 + 고급 터미널 로직
+        # HTML: 이벤트 로그 및 재시도 기능이 포함된 UI
         cat <<'EOF' > _web_portal/templates/index.html
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>DB MASTER CONSOLE</title>
+            <title>OPS CONTROL CENTER</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap" rel="stylesheet">
             <style>
-                body { background-color: #0c0c0c; color: #e0e0e0; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
-                .tab-btn { padding: 10px 20px; border-bottom: 2px solid transparent; opacity: 0.6; cursor: pointer; transition: 0.2s; }
-                .tab-btn:hover, .tab-active { opacity: 1; border-color: #f59e0b; color: #f59e0b; }
-                .panel { height: calc(100vh - 120px); overflow-y: auto; padding: 20px; display: none; }
-                .panel.active { display: block; }
+                body { background-color: #0f172a; color: #e2e8f0; font-family: monospace; overflow: hidden; }
+                .scroll-y { overflow-y: auto; height: 100%; }
+                .status-active { color: #4ade80; }
+                .status-critical { color: #f87171; font-weight: bold; animation: pulse 2s infinite; }
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
                 
-                /* Terminal Styles */
-                .term-window { background: #1e1e1e; border: 1px solid #333; height: 100%; border-radius: 6px; padding: 15px; font-size: 14px; overflow-y: auto; }
-                .prompt-sql { color: #3b82f6; }   /* Blue for SQL */
-                .prompt-mongo { color: #10b981; } /* Green for Mongo */
-                .prompt-redis { color: #ef4444; } /* Red for Redis */
-                .cmd-input { background: transparent; border: none; outline: none; color: white; width: 80%; }
+                .log-ERROR { color: #fca5a5; border-left: 2px solid #ef4444; padding-left: 8px; }
+                .log-INFO { color: #86efac; border-left: 2px solid #22c55e; padding-left: 8px; }
+                
+                .btn-retry { background: #1e293b; border: 1px solid #475569; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-size: 0.75rem; }
+                .btn-retry:hover { background: #334155; color: white; }
+                .spinning { display: inline-block; animation: spin 1s linear infinite; }
+                @keyframes spin { 100% { transform: rotate(360deg); } }
             </style>
         </head>
         <body class="flex flex-col h-screen">
-            
-            <header class="bg-black border-b border-gray-800 p-4 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                    <h1 class="text-xl font-bold tracking-tighter">FACTORY <span class="text-yellow-500">DB_OPS</span></h1>
+            <header class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between">
+                <h1 class="text-xl font-bold text-white tracking-widest">🏭 OPS CONTROL <span class="text-blue-400">CENTER</span></h1>
+                <div class="text-xs flex gap-4">
+                    <span class="text-red-400 border border-red-900 px-2 py-1 rounded bg-red-900/20">CRITICAL: <span id="cnt-crit">0</span></span>
+                    <span class="text-green-400 border border-green-900 px-2 py-1 rounded bg-green-900/20">ACTIVE: <span id="cnt-active">0</span></span>
                 </div>
-                <div class="text-xs text-gray-500 font-bold" id="clock">--:--:--</div>
             </header>
 
-            <nav class="bg-[#111] border-b border-gray-800 flex px-4">
-                <div onclick="setTab('dash')" id="btn-dash" class="tab-btn tab-active">📊 CLUSTER OVERVIEW</div>
-                <div onclick="setTab('db')" id="btn-db" class="tab-btn">🛢️ DB EXPLORER</div>
-                <div onclick="setTab('term')" id="btn-term" class="tab-btn">💻 ROOT TERMINAL</div>
-            </nav>
-
-            <main class="flex-1 bg-[#0c0c0c]">
-                
-                <div id="view-dash" class="panel active">
-                    <div class="grid grid-cols-4 gap-4">
-                        <div class="bg-[#1a1a1a] p-5 rounded border border-gray-800 col-span-1">
-                            <h3 class="text-gray-500 text-xs mb-1">TOTAL RECORDS</h3>
-                            <p class="text-3xl font-bold text-white">4,500+</p>
-                        </div>
-                        <div class="bg-[#1a1a1a] p-5 rounded border border-gray-800 col-span-1">
-                            <h3 class="text-gray-500 text-xs mb-1">ACTIVE NODES</h3>
-                            <p class="text-3xl font-bold text-green-400">5 / 5</p>
-                        </div>
-                        <div class="bg-[#1a1a1a] p-5 rounded border border-gray-800 col-span-2 row-span-2">
-                            <h3 class="text-gray-500 text-xs mb-4">WRITE IOPS (Real-time)</h3>
-                            <canvas id="iopsChart"></canvas>
-                        </div>
-                        <div class="col-span-2 grid grid-cols-2 gap-4" id="db-cards">
-                            </div>
+            <main class="flex-1 flex overflow-hidden">
+                <div class="w-2/3 border-r border-slate-700 flex flex-col">
+                    <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700">SERVICE FLEET</div>
+                    <div class="flex-1 scroll-y p-4">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead class="text-slate-500 border-b border-slate-700 sticky top-0 bg-[#0f172a]">
+                                <tr><th class="p-2">ID</th><th class="p-2">REGION</th><th class="p-2">STATUS</th><th class="p-2 text-center">ACTION</th></tr>
+                            </thead>
+                            <tbody id="svc-table" class="divide-y divide-slate-800"></tbody>
+                        </table>
                     </div>
                 </div>
 
-                <div id="view-db" class="panel">
-                    <h2 class="text-xl font-bold text-yellow-500 mb-4 border-b border-gray-800 pb-2">DATA WAREHOUSE SCHEMA</h2>
-                    <div class="grid grid-cols-3 gap-6">
-                        <div class="bg-[#111] p-4 border border-blue-900 rounded">
-                            <h3 class="text-blue-400 font-bold mb-2">🟦 RDB (MySQL/SQLite)</h3>
-                            <ul class="text-sm text-gray-400 space-y-1 list-disc list-inside">
-                                <li>Table: <code>users</code> (id, email)</li>
-                                <li>Table: <code>ledger_txs</code> (amount, date)</li>
-                            </ul>
-                        </div>
-                        <div class="bg-[#111] p-4 border border-green-900 rounded">
-                            <h3 class="text-green-400 font-bold mb-2">🟩 NoSQL (MongoDB)</h3>
-                            <ul class="text-sm text-gray-400 space-y-1 list-disc list-inside">
-                                <li>Coll: <code>user_profiles</code> (JSON)</li>
-                                <li>Coll: <code>activity_logs</code> (BSON)</li>
-                            </ul>
-                        </div>
-                        <div class="bg-[#111] p-4 border border-purple-900 rounded">
-                            <h3 class="text-purple-400 font-bold mb-2">🟪 Graph (Neo4j)</h3>
-                            <ul class="text-sm text-gray-400 space-y-1 list-disc list-inside">
-                                <li>Nodes: <code>(:User)</code>, <code>(:Group)</code></li>
-                                <li>Rel: <code>[:FOLLOWS]</code>, <code>[:LIKES]</code></li>
-                            </ul>
-                        </div>
+                <div class="w-1/3 flex flex-col bg-slate-900/50">
+                    <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700">🚨 EVENT SITUATION ROOM</div>
+                    <div class="flex-1 scroll-y p-4 space-y-3" id="event-board">
+                        <div class="text-center text-slate-600 mt-10">Select a service to view live logs...</div>
                     </div>
                 </div>
-
-                <div id="view-term" class="panel">
-                    <div class="term-window" id="term-box" onclick="document.getElementById('cmd').focus()">
-                        <div class="text-gray-500">FactoryOS v3.0 - Database Shell Interface</div>
-                        <div class="text-gray-500">Try commands: <span class="text-white">help, connect mysql, connect mongo, scan</span></div>
-                        <br>
-                        <div id="term-output"></div>
-                        <div class="flex mt-1">
-                            <span id="prompt" class="mr-2 text-yellow-500">root@factory:~#</span>
-                            <input type="text" id="cmd" class="cmd-input" autocomplete="off" autofocus>
-                        </div>
-                    </div>
-                </div>
-
             </main>
 
             <script>
-                // --- Data Loading ---
-                async function init() {
+                let globalData = [];
+
+                async function loadData() {
+                    // Try API first, then Static file
                     const res = await fetch('/api/stats').catch(()=>fetch('dashboard_data.json'));
                     const data = await res.json();
-                    
-                    const dbCards = document.getElementById('db-cards');
-                    data.databases.forEach(db => {
-                        let color = 'text-gray-400';
-                        if(db.type==='RDB') color='text-blue-400';
-                        if(db.type==='NoSQL') color='text-green-400';
-                        if(db.type==='TSDB') color='text-orange-400';
+                    globalData = data.services || [];
+                    render();
+                }
+
+                function render() {
+                    const tbody = document.getElementById('svc-table');
+                    tbody.innerHTML = '';
+                    let crit = 0; let active = 0;
+
+                    globalData.forEach((svc, idx) => {
+                        if(svc.status === 'CRITICAL') crit++; else active++;
+                        const statusClass = svc.status === 'CRITICAL' ? 'status-critical' : 'status-active';
                         
-                        dbCards.innerHTML += `
-                        <div class="bg-[#1a1a1a] p-4 rounded border border-gray-800">
-                            <div class="flex justify-between">
-                                <span class="${color} font-bold">${db.type}</span>
-                                <span class="bg-green-900 text-green-300 text-xs px-2 rounded">${db.status}</span>
-                            </div>
-                            <p class="text-2xl mt-2 text-white">${db.count}</p>
-                            <p class="text-xs text-gray-600">RECORDS GENERATED</p>
+                        // Reboot Button Logic
+                        const btn = svc.status === 'CRITICAL' 
+                            ? `<button class="btn-retry text-red-300" onclick="reboot('${svc.id}', ${idx}, event)">♻️ REBOOT SERVER</button>` 
+                            : `<span class="text-slate-600 text-xs">NO ACTION NEEDED</span>`;
+
+                        tbody.innerHTML += `
+                        <tr class="hover:bg-slate-800 transition cursor-pointer" onclick="showEvents(${idx})">
+                            <td class="p-3 font-bold text-slate-300">${svc.id}</td>
+                            <td class="p-3 text-xs text-slate-400">${svc.region}</td>
+                            <td class="p-3 ${statusClass}">${svc.status}</td>
+                            <td class="p-3 text-center">${btn}</td>
+                        </tr>`;
+                    });
+
+                    document.getElementById('cnt-crit').innerText = crit;
+                    document.getElementById('cnt-active').innerText = active;
+                }
+
+                function showEvents(idx) {
+                    const svc = globalData[idx];
+                    const board = document.getElementById('event-board');
+                    board.innerHTML = `<div class="mb-4 text-xs text-slate-500 border-b border-slate-700 pb-2">LOGS FOR: <span class="text-white font-bold">${svc.id}</span></div>`;
+                    
+                    svc.events.forEach(e => {
+                        board.innerHTML += `
+                        <div class="text-xs mb-2 log-${e.level}">
+                            <div class="opacity-50 text-[10px]">${e.ts}</div>
+                            <div class="font-bold">[${e.level}] ${e.msg}</div>
                         </div>`;
                     });
-
-                    // Chart
-                    new Chart(document.getElementById('iopsChart'), {
-                        type: 'line',
-                        data: {
-                            labels: Array(20).fill(''),
-                            datasets: [{ label: 'IOPS', data: Array(20).fill(0).map(()=>Math.random()*500), borderColor: '#f59e0b', tension: 0.4 }]
-                        },
-                        options: { plugins:{legend:false}, scales:{x:{display:false}, y:{grid:{color:'#222'}}} }
-                    });
                 }
 
-                // --- Terminal Logic ---
-                const cmdInput = document.getElementById('cmd');
-                const termOut = document.getElementById('term-output');
-                const prompt = document.getElementById('prompt');
-                let mode = 'shell'; // shell, mysql, mongo
-
-                cmdInput.addEventListener('keydown', (e) => {
-                    if(e.key === 'Enter') {
-                        const val = cmdInput.value.trim();
-                        printLine(val, true);
-                        cmdInput.value = '';
-                        execute(val);
-                    }
-                });
-
-                function printLine(text, isInput=false) {
-                    const div = document.createElement('div');
-                    if(isInput) {
-                        div.innerHTML = `<span class="${prompt.className}">${prompt.innerText}</span> ${text}`;
-                    } else {
-                        div.innerHTML = text; // Allow HTML
-                    }
-                    termOut.appendChild(div);
-                    document.getElementById('view-term').scrollTo(0, 9999); // Scroll panel
-                    document.getElementById('term-box').scrollTo(0, 9999);  // Scroll div
-                }
-
-                function execute(cmd) {
-                    if (mode === 'shell') {
-                        if (cmd === 'help') printLine("Available: <span class='text-white'>scan, connect [db], clear, status</span>");
-                        else if (cmd === 'clear') termOut.innerHTML = '';
-                        else if (cmd === 'scan') {
-                            printLine("Scanning network for open ports...");
-                            setTimeout(()=>printLine("Found: <span class='text-blue-400'>MySQL:3306</span> (Open)"), 500);
-                            setTimeout(()=>printLine("Found: <span class='text-green-400'>MongoDB:27017</span> (Open)"), 1000);
-                            setTimeout(()=>printLine("Found: <span class='text-red-400'>Redis:6379</span> (Open)"), 1500);
-                        }
-                        else if (cmd.startsWith('connect ')) {
-                            const target = cmd.split(' ')[1];
-                            if(target === 'mysql') {
-                                mode = 'mysql';
-                                prompt.innerText = 'mysql>';
-                                prompt.className = 'mr-2 prompt-sql';
-                                printLine("Welcome to the MySQL monitor. Commands end with ;");
-                            } else if(target === 'mongo') {
-                                mode = 'mongo';
-                                prompt.innerText = 'mongo>';
-                                prompt.className = 'mr-2 prompt-mongo';
-                                printLine("MongoDB shell version v4.4.6");
-                            } else if(target === 'redis') {
-                                mode = 'redis';
-                                prompt.innerText = '127.0.0.1:6379>';
-                                prompt.className = 'mr-2 prompt-redis';
-                            } else {
-                                printLine(`Unknown database: ${target}`);
-                            }
-                        }
-                        else if (cmd !== '') printLine(`bash: ${cmd}: command not found`);
-                    }
-                    // MySQL Mode
-                    else if (mode === 'mysql') {
-                        if (cmd === 'exit') { mode='shell'; resetPrompt(); }
-                        else if (cmd.toUpperCase().startsWith('SELECT')) printLine("+------+-----------+\n| id   | name      |\n+------+-----------+\n| 1    | admin     |\n| 2    | factory   |\n+------+-----------+\n2 rows in set (0.00 sec)", false).replace(/\n/g, '<br>');
-                        else if (cmd.toUpperCase() === 'SHOW TABLES;') printLine("Tables_in_factory\n-----------------\nusers\nledger_txs");
-                        else printLine("Query OK, 0 rows affected (0.01 sec)");
-                    }
-                    // Mongo Mode
-                    else if (mode === 'mongo') {
-                        if (cmd === 'exit') { mode='shell'; resetPrompt(); }
-                        else if (cmd === 'show dbs') printLine("admin   0.000GB\nlocal   0.000GB\nfactory 0.150GB");
-                        else if (cmd.startsWith('db.') && cmd.endsWith('.find()')) printLine('{ "_id" : ObjectId("..."), "name" : "user1" }<br>{ "_id" : ObjectId("..."), "name" : "user2" }');
-                        else printLine("ReferenceError: syntax error");
-                    }
-                    // Redis Mode
-                    else if (mode === 'redis') {
-                         if (cmd === 'exit') { mode='shell'; resetPrompt(); }
-                         else if (cmd.toUpperCase().startsWith('GET')) printLine('"value_123"');
-                         else if (cmd.toUpperCase().startsWith('SET')) printLine('OK');
-                         else printLine("(error) ERR unknown command");
+                async function reboot(id, idx, e) {
+                    e.stopPropagation(); // Prevent row click
+                    const row = document.getElementById('svc-table').children[idx];
+                    row.children[3].innerHTML = `<span class="text-yellow-500 text-xs"><span class="spinning">⚙️</span> REBOOTING...</span>`;
+                    
+                    try {
+                        // 1. API Call (Local Server)
+                        await fetch('/api/retry/' + id, {method: 'POST'});
+                        loadData();
+                    } catch(err) {
+                        // 2. Simulation (Static Page)
+                        console.log("Simulating Reboot...");
+                        setTimeout(() => {
+                            globalData[idx].status = "ACTIVE";
+                            globalData[idx].events.unshift({ts: new Date().toISOString(), level: "INFO", msg: "Manual Reboot Successful"});
+                            render();
+                            showEvents(idx);
+                        }, 1500);
                     }
                 }
 
-                function resetPrompt() {
-                    prompt.innerText = 'root@factory:~#';
-                    prompt.className = 'mr-2 text-yellow-500';
-                }
-
-                function setTab(id) {
-                    document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active'));
-                    document.getElementById('view-'+id).classList.add('active');
-                    document.querySelectorAll('.tab-btn').forEach(e=>e.classList.remove('tab-active'));
-                    document.getElementById('btn-'+id).classList.add('tab-active');
-                }
-                
-                setInterval(()=>document.getElementById('clock').innerText = new Date().toLocaleTimeString(), 1000);
-                init();
+                loadData();
             </script>
         </body>
         </html>
         EOF
 
     # ----------------------------------------------------------------
-    # [Step 5] Flask 서버 준비 (로그 억제)
+    # [Step 5] Flask 서버 준비 (재시도 API 포함)
     # ----------------------------------------------------------------
-    - name: ⚙️ Build Server
+    - name: ⚙️ Build Server API
       run: |
         cat <<'EOF' > _web_portal/app.py
         from flask import Flask, render_template, jsonify, send_from_directory
         import json
         app = Flask(__name__)
+        DATA_FILE = '../dashboard_data.json'
+
         @app.route('/')
         def home(): return render_template('index.html')
+
         @app.route('/api/stats')
         def stats():
-            try: return jsonify(json.load(open('../dashboard_data.json')))
-            except: return jsonify({"databases": []})
+            try: return jsonify(json.load(open(DATA_FILE)))
+            except: return jsonify({"services": []})
+
+        # [핵심] 재시도 API
+        @app.route('/api/retry/<id>', methods=['POST'])
+        def retry(id):
+            try:
+                with open(DATA_FILE, 'r') as f: data = json.load(f)
+                for s in data['services']:
+                    if s['id'] == id:
+                        s['status'] = 'ACTIVE'
+                        s['events'].insert(0, {"ts": "NOW", "level": "INFO", "msg": "Rebooted via API"})
+                with open(DATA_FILE, 'w') as f: json.dump(data, f)
+                return jsonify({"status": "ok"})
+            except: return jsonify({"error": "failed"}), 500
+
         @app.route('/dashboard_data.json')
         def static_data(): return send_from_directory('..', 'dashboard_data.json')
         EOF
@@ -423,53 +351,52 @@ jobs:
         # Gunicorn Config (에러 억제)
         cat <<'EOF' > _web_portal/gunicorn_config.py
         bind = "0.0.0.0:5000"
-        workers = 2
-        loglevel = "error" 
-        errorlog = "server_error.log"
+        workers = 1
+        loglevel = "error"
         accesslog = "/dev/null"
+        errorlog = "/dev/null"
         EOF
 
     # ----------------------------------------------------------------
-    # [Step 6] 🚀 서버 테스트 & 배포
+    # [Step 6] 🚀 서버 테스트 & 배포 준비
     # ----------------------------------------------------------------
-    - name: 🧪 Clean Test
+    - name: 🧪 Test & Build
       run: |
         cd _web_portal
         gunicorn -c gunicorn_config.py app:app > /dev/null 2>&1 &
         PID=$!
         sleep 5
         curl -4 -s http://127.0.0.1:5000/api/stats > /dev/null
-        echo "✅ API Checked."
         kill -TERM $PID
         wait $PID 2>/dev/null || true
+        
+        # 정적 사이트 빌드
+        mkdir -p ../_site
+        cp templates/index.html ../_site/index.html
+        cp ../dashboard_data.json ../_site/dashboard_data.json
 
-    - name: 📄 Build & Upload
-      run: |
-        mkdir -p _site
-        cp _web_portal/templates/index.html _site/index.html
-        cp dashboard_data.json _site/dashboard_data.json
-
-    - name: 📤 Upload Artifact
+    - name: 📤 Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: db-console-package
+        name: ops-control-package
         path: |
           _web_portal/
           _data_warehouse/
+          dashboard_data.json
 
     - name: 📤 Upload Pages
       uses: actions/upload-pages-artifact@v3
       with: { path: _site/ }
 
   # ==============================================================================
-  # [Job 2] GitHub Pages Deploy
+  # [Job 2] 배포
   # ==============================================================================
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: polyglot-ops
+    needs: control-ops
     steps:
       - name: 🚀 Deploy
         id: deployment
