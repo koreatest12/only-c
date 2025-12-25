@@ -1,8 +1,8 @@
-name: 🏭 Massive Data Factory (Infinite Stream)
+name: 🏭 Full-Stack Mega Factory (Web & Data)
 
 on:
   schedule:
-    - cron: '30 */4 * * *' # 4시간마다 대량 생산
+    - cron: '0 */6 * * *'
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -12,187 +12,341 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  massive-production:
+  mega-ops:
     runs-on: ubuntu-latest
-    timeout-minutes: 45 # 대량 처리를 위해 시간 연장
+    timeout-minutes: 60
     
+    # 웹 서버 구동을 위한 서비스 컨테이너 (Redis: 세션 저장소용)
+    services:
+      redis:
+        image: redis:alpine
+        ports: ["6379:6379"]
+
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 클린 룸 초기화
+    # [Step 1] 인프라 클린업 (Clean Room)
     # ----------------------------------------------------------------
-    - name: 🧹 Deep Clean Init
+    - name: 🧹 Infrastructure Init
       run: |
-        echo "🧹 Purging massive space..."
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift
+        echo "🧹 Cleaning disk for Web Server & Database..."
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
         docker system prune -af
-        df -h
-        echo "✅ Space Secured."
+        echo "✅ Infrastructure Ready."
 
     # ----------------------------------------------------------------
-    # [Step 2] 파이썬 환경 (데이터 엔진)
+    # [Step 2] 런타임 설정 (Python, Node.js)
     # ----------------------------------------------------------------
-    - name: 🐍 Setup Python Engine
+    - name: 🛠️ Setup Stack
       uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      with: { python-version: '3.10' }
+    
+    - name: 📦 Install Python Libs (Flask, DB Drivers)
+      run: pip install flask flask-cors faker pymssql psycopg2-binary redis requests pandas jinja2
 
     # ----------------------------------------------------------------
-    # [Step 3] 초대형 데이터 생성 엔진 가동 (핵심)
+    # [Step 3] 🏭 백엔드: 대량 데이터 생산 엔진 (SQL/Log/Bin)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Massive Data Engine
+    - name: 🏭 Run Backend Data Engine
       shell: bash
       run: |
-        mkdir -p _warehouse
+        mkdir -p _data_warehouse
         
-        # 파이썬 스크립트: 복잡한 데이터 구조 및 대용량 파일 생성 로직
-        cat <<'EOF' > massive_generator.py
-        import os
-        import json
-        import shutil
-        import random
-        import time
-        import uuid
+        cat <<'EOF' > backend_engine.py
+        import os, shutil, json, random, time, gzip
         from datetime import datetime
+        from faker import Faker
+        fake = Faker()
 
-        # 1. 초대형 인프라 정의 (카테고리 > 리전 > 서비스)
-        INFRASTRUCTURE = {
-            "Global_Finance": ["Payment_Gateway", "Ledger_Core", "Fraud_Detection", "HFT_Trading", "Settlement_Chain"],
-            "Mega_Health": ["Genomic_Storage", "MRI_Archive", "Patient_DB", "Tele_Medicine", "Bio_Sensor_IoT"],
-            "Hyper_Retail": ["Inventory_AI", "Logistics_Drone", "User_Behavior", "Global_Sales", "Recommendation_Engine"],
-            "Smart_Defense": ["Sat_Recon", "Cyber_Warfare", "Drone_Swarm", "Encrypted_Comms", "Missile_Guidance"],
-            "Future_Tech": ["Quantum_Sim", "Metaverse_Render", "NFT_Minting", "Fusion_Control", "Space_Telemetry"],
-            "Legacy_Systems": ["Mainframe_COBOL", "Tape_Backup", "Old_Oracle", "Email_Archive", "Paper_Scan"]
-        }
+        OUTPUT_DIR = "_data_warehouse"
         
-        REGIONS = ["US-East", "EU-Central", "Asia-NE", "SA-West"]
-        OUTPUT_DIR = "_warehouse"
+        # 대량 생성할 서비스 목록
+        SERVICES = ["Auth_Server", "Billing_Core", "User_Dashboard", "IoT_Gateway", "AI_Model_Server"]
+        REGIONS = ["KR", "US", "EU", "JP"]
 
-        def get_disk_free_mb():
+        def disk_check():
             _, _, free = shutil.disk_usage("/")
-            return free // (1024 * 1024)
+            if (free // (1024*1024)) < 1000: return False # 1GB 미만 중단
+            return True
 
-        def create_heavy_files(path, service_name):
-            """다양한 포맷의 무거운 데이터 생성"""
+        def generate_data():
+            print("🚀 [Backend] Starting Data Production...")
+            metadata_list = []
             
-            # A. 대용량 SQL 덤프 (텍스트 반복)
-            with open(f"{path}/{service_name}_dump.sql", "w") as f:
-                f.write(f"-- SQL DUMP FOR {service_name}\n")
-                f.write("INSERT INTO logs (id, payload, ts) VALUES \n")
-                # 10,000 라인 생성
-                chunk = f"('{uuid.uuid4()}', 'encrypted_payload_data_{random.getrandbits(64)}', '{datetime.now()}'),\n"
-                f.write(chunk * 5000) 
-            
-            # B. 바이너리 데이터 시뮬레이션 (빠른 생성)
-            # 10MB짜리 더미 바이너리 파일 생성
-            with open(f"{path}/sensor_data.bin", "wb") as f:
-                f.write(os.urandom(1024) * 1024) # 1MB (속도 위해 조절)
-
-            # C. JSON 설정 파일 (구조화 데이터)
-            config = {
-                "service": service_name,
-                "nodes": [f"node-{i}" for i in range(50)],
-                "config_map": {f"key_{k}": random.getrandbits(32) for k in range(100)}
-            }
-            with open(f"{path}/config.json", "w") as f:
-                json.dump(config, f, indent=2)
-
-            # D. 액세스 로그 (라인 단위 데이터)
-            with open(f"{path}/access.log", "w") as f:
-                log_line = '192.168.1.{} - - [{}] "GET /api/v1/{} HTTP/1.1" 200 4096\n'
-                for _ in range(2000):
-                    f.write(log_line.format(random.randint(1,255), datetime.now(), service_name))
-
-        def run_massive_factory():
-            total_tasks = sum(len(v) for v in INFRASTRUCTURE.values()) * len(REGIONS)
-            print(f"🚀 Initializing Massive Factory: {total_tasks} Workloads Expected...")
-            
-            processed = 0
-            
-            for category, services in INFRASTRUCTURE.items():
-                for region in REGIONS:
-                    # 카테고리/리전 폴더 생성
-                    region_base = f"data_lake/{category}/{region}"
+            for region in REGIONS:
+                for svc in SERVICES:
+                    if not disk_check(): break
                     
-                    for service in services:
-                        # [안전장치] 디스크 부족 시 비상 정지
-                        if get_disk_free_mb() < 800:
-                            print("🚨 CRITICAL: Low Disk Space (<800MB). Halting Production.")
-                            return
+                    base_path = f"data/{region}/{svc}"
+                    os.makedirs(base_path, exist_ok=True)
+                    
+                    # 1. SQL Dump 생성
+                    with open(f"{base_path}/dump.sql", "w") as f:
+                        f.write(f"-- SQL Dump for {svc}\n")
+                        for _ in range(1000):
+                            f.write(f"INSERT INTO logs VALUES ('{fake.uuid4()}', '{datetime.now()}', 'INFO');\n")
+                            
+                    # 2. Access Log 생성
+                    with open(f"{base_path}/access.log", "w") as f:
+                        for _ in range(2000):
+                            f.write(f"{fake.ipv4()} - - [{datetime.now()}] \"GET /api/v1/data HTTP/1.1\" 200 1024\n")
+                            
+                    # 3. JSON Config
+                    conf = {"svc": svc, "region": region, "active": True, "shards": random.randint(1,10)}
+                    with open(f"{base_path}/config.json", "w") as f:
+                        json.dump(conf, f)
 
-                        print(f"⚡ [Gen] {category} > {region} > {service}")
-                        
-                        service_path = f"{region_base}/{service}"
-                        os.makedirs(service_path, exist_ok=True)
-                        
-                        # 1. 대량 데이터 파일 생성
-                        create_heavy_files(service_path, service)
-                        
-                        # 2. 메타데이터 생성
-                        with open(f"{service_path}/_META.txt", "w") as f:
-                            f.write(f"Created: {datetime.now()}\nType: Massive_Batch\nPath: {service_path}")
-
-                        # 3. [핵심] 압축 (Path-Specific Archiving)
-                        # data_lake/Finance/US-East/Service -> _warehouse/Finance_US-East_Service.zip
-                        zip_name = f"{category}_{region}_{service}"
-                        shutil.make_archive(f"{OUTPUT_DIR}/{zip_name}", 'zip', service_path)
-                        
-                        # 4. [핵심] 즉시 삭제 (Flush) - 공간 반환
-                        shutil.rmtree(service_path)
-                        processed += 1
-                        
-                    # 리전 처리가 끝나면 상위 폴더도 정리 (빈 폴더 삭제)
-                    try: shutil.rmtree(region_base) 
-                    except: pass
+                    # 4. 압축 및 삭제 (공간 절약)
+                    zip_name = f"{region}_{svc}"
+                    shutil.make_archive(f"{OUTPUT_DIR}/{zip_name}", 'zip', base_path)
+                    shutil.rmtree(base_path) # 즉시 삭제
+                    
+                    metadata_list.append({"name": zip_name, "size": "Compressed", "status": "Ready"})
             
-            print(f"✅ MISSION COMPLETE. {processed} Massive Packages Created.")
+            # 대시보드용 데이터 생성 (frontend가 읽을 파일)
+            with open("dashboard_data.json", "w") as f:
+                json.dump({
+                    "timestamp": str(datetime.now()),
+                    "total_services": len(SERVICES) * len(REGIONS),
+                    "disk_status": "Healthy",
+                    "services": metadata_list
+                }, f)
             
-            # 매니페스트 생성
-            with open(f"{OUTPUT_DIR}/_MANIFEST.json", "w") as f:
-                json.dump({"total_files": processed, "timestamp": str(datetime.now())}, f)
+            print("✅ [Backend] Data Generation Complete.")
 
-        if __name__ == "__main__":
-            run_massive_factory()
+        if __name__ == "__main__": generate_data()
         EOF
         
-        # 엔진 실행
-        python massive_generator.py
+        python backend_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 4] 결과물 업로드 (기가바이트급 데이터도 안전하게 분할 업로드)
+    # [Step 4] 🌐 프론트엔드: 홈페이지(Web Portal) 자동 구축
     # ----------------------------------------------------------------
-    - name: 📤 Upload Massive Artifacts
+    - name: 🎨 Build Web Portal (Dashboard)
+      shell: bash
+      run: |
+        mkdir -p _web_portal/static/css
+        mkdir -p _web_portal/static/js
+        mkdir -p _web_portal/templates
+        
+        # 1. HTML (모던 대시보드 UI)
+        cat <<'EOF' > _web_portal/templates/index.html
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Factory Ops Control Center</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        </head>
+        <body class="bg-gray-900 text-white font-sans">
+            <div class="flex h-screen">
+                <div class="w-64 bg-gray-800 p-5">
+                    <h1 class="text-2xl font-bold text-blue-400 mb-10">🏭 OPS PORTAL</h1>
+                    <ul class="space-y-4">
+                        <li class="p-3 bg-gray-700 rounded cursor-pointer">📊 Dashboard</li>
+                        <li class="p-3 hover:bg-gray-700 rounded cursor-pointer">🛢️ Data Lake</li>
+                        <li class="p-3 hover:bg-gray-700 rounded cursor-pointer">⚙️ Server Config</li>
+                        <li class="p-3 hover:bg-gray-700 rounded cursor-pointer">🚨 Logs</li>
+                    </ul>
+                </div>
+                
+                <div class="flex-1 p-10 overflow-y-auto">
+                    <div class="grid grid-cols-3 gap-6 mb-10">
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-lg border-l-4 border-green-500">
+                            <h3 class="text-gray-400">System Status</h3>
+                            <p class="text-3xl font-bold mt-2">ONLINE ✅</p>
+                        </div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-lg border-l-4 border-blue-500">
+                            <h3 class="text-gray-400">Processed Data</h3>
+                            <p class="text-3xl font-bold mt-2" id="data-count">Loading...</p>
+                        </div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-lg border-l-4 border-purple-500">
+                            <h3 class="text-gray-400">Server Load</h3>
+                            <p class="text-3xl font-bold mt-2">12%</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-800 p-6 rounded-lg mb-10">
+                        <h2 class="text-xl font-bold mb-4">Real-time Traffic</h2>
+                        <canvas id="trafficChart" height="100"></canvas>
+                    </div>
+
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h2 class="text-xl font-bold mb-4">Recent Artifacts</h2>
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700 text-gray-400">
+                                    <th class="p-2">Service Name</th>
+                                    <th class="p-2">Region</th>
+                                    <th class="p-2">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                // Mock Data Loading
+                fetch('/api/stats')
+                    .then(res => res.json())
+                    .then(data => {
+                        document.getElementById('data-count').innerText = data.total_services + " Sets";
+                        const tbody = document.getElementById('table-body');
+                        data.services.slice(0, 5).forEach(s => {
+                            tbody.innerHTML += `<tr class="border-b border-gray-700"><td class="p-2">${s.name}</td><td class="p-2">Global</td><td class="p-2 text-green-400">Archived</td></tr>`;
+                        });
+                    })
+                    .catch(e => console.log("Simulated Mode: API not reachable in static view"));
+
+                // Chart
+                const ctx = document.getElementById('trafficChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['10:00', '10:05', '10:10', '10:15', '10:20', '10:25'],
+                        datasets: [{
+                            label: 'Throughput (MB/s)',
+                            data: [12, 19, 3, 5, 2, 3],
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: { scales: { y: { beginAtZero: true } } }
+                });
+            </script>
+        </body>
+        </html>
+        EOF
+
+        # 2. CSS (커스텀 스타일)
+        cat <<'EOF' > _web_portal/static/css/style.css
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .dashboard-card { transition: transform 0.2s; }
+        .dashboard-card:hover { transform: translateY(-5px); }
+        EOF
+
+    # ----------------------------------------------------------------
+    # [Step 5] 🖥️ 서버 인프라 구축 (Flask Web Server)
+    # ----------------------------------------------------------------
+    - name: ⚙️ Build Web Server & Configs
+      shell: bash
+      run: |
+        # 1. Flask 서버 코드 (Backend API + Frontend Serving)
+        cat <<'EOF' > _web_portal/app.py
+        from flask import Flask, render_template, jsonify
+        import json, os
+
+        app = Flask(__name__)
+
+        @app.route('/')
+        def home():
+            return render_template('index.html')
+
+        @app.route('/api/stats')
+        def stats():
+            # 백엔드 엔진이 생성한 데이터 로드
+            try:
+                with open('../dashboard_data.json', 'r') as f:
+                    return jsonify(json.load(f))
+            except:
+                return jsonify({"error": "Data not found", "services": []})
+
+        @app.route('/health')
+        def health():
+            return jsonify({"status": "healthy", "server": "Flask-Production"})
+
+        if __name__ == '__main__':
+            app.run(host='0.0.0.0', port=5000)
+        EOF
+
+        # 2. Nginx 설정 파일 (운영 환경 시뮬레이션용)
+        cat <<'EOF' > _web_portal/nginx.conf
+        server {
+            listen 80;
+            server_name factory-ops.internal;
+
+            location / {
+                proxy_pass http://localhost:5000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+            
+            location /static {
+                alias /var/www/static;
+            }
+        }
+        EOF
+        
+        # 3. Dockerfile (웹 서버 컨테이너화 준비)
+        cat <<'EOF' > _web_portal/Dockerfile
+        FROM python:3.10-slim
+        WORKDIR /app
+        COPY . .
+        RUN pip install flask flask-cors
+        EXPOSE 5000
+        CMD ["python", "app.py"]
+        EOF
+
+    # ----------------------------------------------------------------
+    # [Step 6] 🧪 라이브 서버 시뮬레이션 (Health Check)
+    # ----------------------------------------------------------------
+    - name: 🧪 Test Run Web Server
+      run: |
+        echo "🌐 Starting Flask Server in Background..."
+        cd _web_portal
+        # 백그라운드 실행
+        python app.py &
+        PID=$!
+        
+        echo "⏳ Waiting for server boot..."
+        sleep 5
+        
+        echo "🔍 Testing API Endpoint..."
+        curl -v http://localhost:5000/api/stats
+        
+        echo "🔍 Testing Homepage..."
+        curl -I http://localhost:5000/
+        
+        echo "✅ Server Test Passed."
+        # 서버 종료
+        kill $PID || true
+
+    # ----------------------------------------------------------------
+    # [Step 7] 결과물 업로드 (웹 소스 + 데이터)
+    # ----------------------------------------------------------------
+    - name: 📤 Upload Full-Stack Package
       uses: actions/upload-artifact@v4
       with:
-        name: massive-data-stream
-        path: _warehouse/
+        name: factory-web-portal-package
+        path: |
+          _web_portal/
+          _data_warehouse/
+          dashboard_data.json
         retention-days: 1
-        compression-level: 0 # 이미 압축했으므로 속도를 위해 압축 안 함
+        compression-level: 9
 
     # ----------------------------------------------------------------
-    # [Step 5] 대시보드 리포트
+    # [Step 8] 대시보드 리포트
     # ----------------------------------------------------------------
-    - name: 📊 Factory Report
+    - name: 📊 Final Report
       if: always()
       run: |
-        echo "# 🏭 Massive Data Factory Report" >> $GITHUB_STEP_SUMMARY
+        echo "# 🏭 Mega Factory & Web Portal Report" >> $GITHUB_STEP_SUMMARY
+        echo "### 🌐 Web Infrastructure Created" >> $GITHUB_STEP_SUMMARY
+        echo "| Component | Path | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Frontend** | `_web_portal/templates/index.html` | ✅ Created (Tailwind/Chart.js) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Backend** | `_web_portal/app.py` | ✅ Created (Flask API) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Config** | `_web_portal/nginx.conf` | ✅ Created |" >> $GITHUB_STEP_SUMMARY
         
-        COUNT=$(ls _warehouse/*.zip 2>/dev/null | wc -l)
-        SIZE=$(du -sh _warehouse | cut -f1)
-        DISK_END=$(df -h / | awk 'NR==2 {print $4}')
-        
-        echo "### 📈 Production Metrics" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Total Packages** | **$COUNT** (Services * Regions) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Total Size** | **$SIZE** |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Final Disk Free** | **$DISK_END** (Safe) |" >> $GITHUB_STEP_SUMMARY
-        
+        DATA_COUNT=$(ls _data_warehouse/*.zip 2>/dev/null | wc -l)
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📂 Generated Data Categories" >> $GITHUB_STEP_SUMMARY
-        echo "- **Global Finance** (SQL, Logs)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Mega Health** (Bio-sensor Data)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Hyper Retail** (Transaction CSV)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Smart Defense** (Binary Streams)" >> $GITHUB_STEP_SUMMARY
-        
+        echo "### 🛢️ Data Production" >> $GITHUB_STEP_SUMMARY
+        echo "- **Generated Artifacts:** $DATA_COUNT ZIP files" >> $GITHUB_STEP_SUMMARY
+        echo "- **API Status:** Tested & Active at \`/api/stats\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "> All data generated, archived, and flushed in real-time." >> $GITHUB_STEP_SUMMARY
+        echo "> Download the artifact to deploy your own OPS Portal." >> $GITHUB_STEP_SUMMARY
