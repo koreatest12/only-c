@@ -1,355 +1,180 @@
-name: 🏭 FINAL PERFECT FACTORY:SELF-HEALING & FUTURE TECH
+name: 🏭 Streamlined Factory (Mass Data & Space Saver)
 
 on:
-  push:
-    branches: [ "main", "master" ]
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 무한 가동
+    - cron: '0 */4 * * *' # 4시간마다 실행 (비용 절감)
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
-env:
-  PYTHONIOENCODING: utf-8
-  LC_ALL: en_US.UTF-8
-  # Docker 빌드 최적화
-  DOCKER_BUILDKIT: 1
-
-permissions:
-  contents: write
-  packages: write
-  deployments: write
-  security-events: write
-  actions: write
-  checks: write
-  statuses: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  perfect-ops:
-    name: 💎 Perfect Ops on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest] # 디스크 최적화를 위해 Ubuntu 집중
-        include:
-          - os: ubuntu-latest
-            artifact_name: linux-perfect-pack
-
+  stream-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
     steps:
     # ----------------------------------------------------------------
-    # [Step 0] 디스크 공간 대량 확보 (No Space Error 방지)
+    # [Step 1] 초기 공간 확보
     # ----------------------------------------------------------------
-    - name: 🧹 [0] Deep Disk Cleanup
-      if: runner.os == 'Linux'
+    - name: 🧹 Init Cleanup
       run: |
-        echo "🧹 Cleaning up disk space..."
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        echo "🧹 Clearing initial space..."
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
         docker system prune -af
-        echo "✅ Disk Space Freed."
+        echo "✅ Ready."
 
     # ----------------------------------------------------------------
-    # [Step 1] 공장 초기화
+    # [Step 2] 환경 설정
     # ----------------------------------------------------------------
-    - name: 📥 [1] Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    # ----------------------------------------------------------------
-    # [Step 2] 생산 도구 준비
-    # ----------------------------------------------------------------
-    - name: 🛠️ [2] Setup Runtimes
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: 🐍 [3] Setup Python
+    - name: 🐍 Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        cache: 'pip'
 
     # ----------------------------------------------------------------
-    # [Step 3] 관리형 스크립트 엔진 (대량 서비스 정의)
+    # [Step 3] 지능형 스트리밍 생산 엔진 (핵심 로직)
     # ----------------------------------------------------------------
-    - name: 📂 [4] Bootstrap Scripts
+    - name: 🏭 Run Stream Generator
       shell: bash
       run: |
-        mkdir -p ops_scripts
+        mkdir -p _artifacts_warehouse
         
-        # 1. 의존성
-        cat <<'EOF' > ops_scripts/requirements.txt
-        colorama
-        requests
-        tqdm
-        jinja2
-        Pillow
-        psutil
-        EOF
+        # 파이썬 스크립트 생성: 생성 -> 압축 -> 삭제 로직 포함
+        cat <<'EOF' > stream_generator.py
+        import os
+        import json
+        import shutil
+        import random
+        import time
+        from datetime import datetime
 
-        # 2. 팩토리 매니저 (미래 기술 서비스 포함)
-        cat <<'EOF' > ops_scripts/factory_manager.py
-        import os, sys, random, datetime
-        from PIL import Image, ImageDraw
+        # 1. 대량 생성할 서비스 및 카테고리 정의
+        # 각 서비스별로 고유한 데이터 특성을 정의합니다.
+        CATEGORIES = {
+            "Finance": ["Banking_Core", "Stock_Ledger", "Crypto_Vault", "Tax_Audit", "Insurance_Claim"],
+            "Health": ["Bio_Genome", "Patient_Records", "Nano_Bot_Control", "Virus_Sim", "XRay_Archive"],
+            "SmartCity": ["Traffic_Grid", "Power_Plant", "Water_Supply", "CCTV_Network", "Drone_Port"],
+            "Space": ["Mars_Base", "Sat_Telemetry", "Rocket_Launch", "Deep_Space_Comms", "Alien_Signal"],
+            "Military": ["Cyber_Defense", "Radar_Sys", "Missile_Guidance", "Troop_Log", "Sat_Spy"]
+        }
 
-        sys.stdout.reconfigure(encoding='utf-8')
+        OUTPUT_DIR = "_artifacts_warehouse"
 
-        # 기존 엔터프라이즈 + 미래 기술 + 수집 서버
-        SERVICES = [
-            "Banking", "Stock", "Insurance", "PublicData", "Crypto", "RealEstate", "GovTax",
-            "Logistics", "HealthCare", "Metaverse", "AI_Core", "IoT_Network", 
-            "Education_Hub", "Energy_Grid", "Defense_Sys",
-            "Quantum_Compute", "Bio_Tech", "Space_Ops", "Nano_Bot", "Fusion_Energy",
-            "Genomic_Seq", "Autonomous_Vehicle", "Smart_City", "Drone_Delivery", "Robotics"
-        ]
-        COLLECTORS = ["Log_Aggregator", "Metric_Beat", "Trace_Collector", "Security_Auditor", "Deep_Packet_Inspector"]
+        def get_disk_free_mb():
+            total, used, free = shutil.disk_usage("/")
+            return free // (1024 * 1024)
 
-        def safe_makedirs(path):
-            if not os.path.exists(path): os.makedirs(path, exist_ok=True)
-
-        def produce_assets():
-            print(f"🚀 [FACTORY] Generating {len(SERVICES) + len(COLLECTORS)} Systems...")
+        def generate_unique_data(service_name, category):
+            """각 경로별 특화된 데이터 생성"""
+            timestamp = datetime.now().isoformat()
             
-            # 1. 디렉토리 구조 확보
-            safe_makedirs("src/main/java/com/global/core")
-            safe_makedirs("src/main/java/com/global/future")
-            safe_makedirs("src/main/java/com/global/collection")
-            safe_makedirs("docs/images")
-            safe_makedirs("cpp_core")
-            safe_makedirs("bin") # [중요] Python 레벨에서도 생성
-
-            # 2. Java 코드 생성
-            all_svcs = SERVICES + COLLECTORS
-            for svc in all_svcs:
-                # 분류
-                if svc in SERVICES:
-                    kind = 'future' if svc in ["Quantum_Compute", "Bio_Tech"] else 'core'
-                else:
-                    kind = 'collection'
-                
-                base = f"src/main/java/com/global/{kind}/{svc.lower()}"
-                safe_makedirs(base)
-                
-                with open(f"{base}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.global.{kind}.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Active\"); }} }}")
-
-            # 3. 아키텍처 시각화 (이미지 생성)
-            try:
-                img = Image.new('RGB', (600, 300), color=(10, 20, 40))
-                d = ImageDraw.Draw(img)
-                d.rectangle([(20, 20), (580, 280)], outline="cyan", width=2)
-                d.text((50, 50), f"Global System v{datetime.datetime.now().year}", fill="white")
-                d.text((50, 100), f"Active Nodes: {len(all_svcs)}", fill="green")
-                d.text((50, 150), "Status: SELF-HEALING ACTIVE", fill="yellow")
-                img.save("docs/images/architecture_v2.png")
-            except: pass
-
-            # 4. C++ 엔진 소스
-            with open("cpp_core/crypto.cpp", "w") as f:
-                f.write('#include <iostream>\n#include <string>\n')
-                f.write('int main(int argc, char* argv[]) { std::cout << "Crypto Engine v2.0 Online" << std::endl; return 0; }')
-
-        if __name__ == "__main__":
-            produce_assets()
-        EOF
-
-        # 3. 자가 복구형 배포 시뮬레이터
-        cat <<'EOF' > ops_scripts/deploy_simulator.py
-        import http.server, socketserver, threading, time, os, sys
-        
-        def run_sim():
-            print("🌐 [DEPLOY] Starting Self-Healing Server Farm...")
-            if not os.path.exists("deploy_root"): os.makedirs("deploy_root")
-            os.chdir("deploy_root")
+            # A. 설정 데이터 (JSON)
+            config_data = {
+                "service": service_name,
+                "category": category,
+                "status": "ACTIVE",
+                "shards": random.randint(1, 100),
+                "created_at": timestamp,
+                "security_level": "Level_5" if category == "Military" else "Level_3"
+            }
             
-            # 포트 충돌 시 자동 우회 로직
-            def start_node(p):
-                retries = 3
-                current_port = p
-                while retries > 0:
-                    try:
-                        with socketserver.TCPServer(("", current_port), http.server.SimpleHTTPRequestHandler) as h:
-                            h.serve_forever()
+            # B. 대량 더미 데이터 (CSV 시뮬레이션) - 용량 제어
+            # 실제로는 크지만 압축 효율이 좋은 반복 텍스트 생성
+            dummy_rows = []
+            for i in range(500): # 파일 개수/크기 조절
+                dummy_rows.append(f"{i},{service_name}_hash_{random.getrandbits(32)},{category},active")
+            
+            return config_data, "\n".join(dummy_rows)
+
+        def run_factory():
+            total_services = sum(len(v) for v in CATEGORIES.values())
+            print(f"🚀 Starting Stream Production for {total_services} Services...")
+            
+            processed_count = 0
+            
+            for category, services in CATEGORIES.items():
+                for service in services:
+                    # [안전장치] 디스크 공간 체크 (500MB 미만이면 비상 정지)
+                    if get_disk_free_mb() < 500:
+                        print("🚨 EMERGENCY: Low Disk Space! Stopping Generation.")
                         break
-                    except OSError:
-                        print(f"⚠️ Port {current_port} busy, healing...")
-                        current_port += 100 # 포트 변경
-                        retries -= 1
+
+                    print(f"🛠️ [Processing] {category}/{service} ...")
+                    
+                    # 1. 임시 작업 경로 생성 (src/Category/Service)
+                    base_path = f"src/{category}/{service}"
+                    os.makedirs(base_path, exist_ok=True)
+                    
+                    # 2. 데이터 적재 (Data Loading)
+                    cfg, csv_data = generate_unique_data(service, category)
+                    
+                    # 파일 쓰기
+                    with open(f"{base_path}/config.json", "w") as f:
+                        json.dump(cfg, f, indent=4)
+                    
+                    with open(f"{base_path}/transaction_logs.csv", "w") as f:
+                        f.write(csv_data)
+                        
+                    with open(f"{base_path}/README.md", "w") as f:
+                        f.write(f"# {service}\n\nManaged by Stream Factory.\nCategory: {category}")
+                    
+                    # 3. [핵심] 압축 및 격리 (Compress to Artifact)
+                    # src 폴더를 _artifacts_warehouse/Service.zip 으로 압축
+                    shutil.make_archive(f"{OUTPUT_DIR}/{service}", 'zip', base_path)
+                    
+                    # 4. [핵심] 즉시 삭제 (Flush) - 공간 확보
+                    shutil.rmtree(base_path)
+                    
+                    # 상위 카테고리 폴더도 비었으면 삭제 (깔끔하게 유지)
+                    try: os.rmdir(f"src/{category}")
+                    except: pass
+                    
+                    processed_count += 1
+                    
+            print(f"✅ Completed. {processed_count}/{total_services} services archived.")
             
-            # 20개 노드 기동
-            for p in range(8000, 8020):
-                t = threading.Thread(target=start_node, args=(p,))
-                t.daemon = True
-                t.start()
-            
-            time.sleep(5)
-            print("✅ [DEPLOY] 20+ Nodes Active.")
+            # 최종 요약 리포트 생성
+            with open(f"{OUTPUT_DIR}/_MANIFEST.txt", "w") as f:
+                f.write(f"Total Processed: {processed_count}\nTimestamp: {datetime.now()}")
 
         if __name__ == "__main__":
-            run_sim()
-        EOF
-
-        # 4. 보안 인젝터
-        cat <<'EOF' > ops_scripts/security_injector.py
-        import os, datetime
-        HEADER = f"// (C) {datetime.datetime.now().year} FUTURE OPS. SECURE.\n"
-        def inject():
-            for root, dirs, files in os.walk("."):
-                if any(x in root for x in ["bin", ".git", "docs"]): continue
-                for file in files:
-                    if file.endswith(('.java', '.cpp')):
-                        try:
-                            path = os.path.join(root, file)
-                            with open(path, 'r+', encoding='utf-8') as f:
-                                c = f.read()
-                                if "FUTURE OPS" not in c:
-                                    f.seek(0, 0)
-                                    f.write(HEADER + c)
-                        except: pass
-        if __name__ == "__main__": inject()
-        EOF
-
-    # ----------------------------------------------------------------
-    # [Step 4] 의존성 설치 & CodeQL Init
-    # ----------------------------------------------------------------
-    - name: 📦 [5] Install Deps
-      run: pip install -r ops_scripts/requirements.txt
-
-    - name: 🛡️ [6] CodeQL Init
-      uses: github/codeql-action/init@v4
-      with:
-        languages: java, cpp, python
-
-    # ----------------------------------------------------------------
-    # [Step 5] 팩토리 가동 (파일 생성)
-    # ----------------------------------------------------------------
-    - name: 🏭 [7] Execute Factory
-      run: |
-        python ops_scripts/factory_manager.py
-        python ops_scripts/security_injector.py
-
-    # ----------------------------------------------------------------
-    # [Step 6] 빌드 (에러 완벽 수정: mkdir -p bin 추가)
-    # ----------------------------------------------------------------
-    - name: 🔨 [8] Build System (Robust)
-      shell: bash
-      run: |
-        echo "=========================================="
-        echo "🏗️ BUILDING BINARIES & SERVICES..."
-        echo "=========================================="
-        
-        # [CRITICAL FIX] 출력 디렉토리 강제 생성 (ld 에러 방지)
-        mkdir -p bin
-        mkdir -p deploy_root
-        
-        # 1. C++ 컴파일 (이제 bin 폴더가 확실히 존재함)
-        echo "🔐 Compiling C++ Crypto Engine..."
-        g++ -o bin/Crypto cpp_core/crypto.cpp
-        
-        # 2. Java 컴파일 (대량 소스)
-        echo "☕ Compiling 30+ Services..."
-        find src -name "*.java" > sources.txt
-        javac -nowarn -d bin @sources.txt
-        
-        # 3. 패키징 (JAR)
-        echo "📦 Packaging Artifacts..."
-        jar cf bin/CoreServices.jar -C bin .
-        
-        # 배포용 파일 복사
-        cp bin/*.jar deploy_root/
-        cp bin/Crypto deploy_root/
-        
-        echo "✅ Build Complete."
-
-    # ----------------------------------------------------------------
-    # [Step 7] Docker 이미지 빌드 (공간 절약 모드)
-    # ----------------------------------------------------------------
-    - name: 🐳 [9] Build Containers
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        echo "FROM scratch" > Dockerfile
-        docker build -t global/future-tech:latest .
-        docker rmi global/future-tech:latest # 즉시 삭제로 공간 확보
-
-    # ----------------------------------------------------------------
-    # [Step 8] 자가 복구형 배포 시뮬레이션
-    # ----------------------------------------------------------------
-    - name: 🌐 [10] Run Self-Healing Sim
-      run: python ops_scripts/deploy_simulator.py
-
-    # ----------------------------------------------------------------
-    # [Step 9] 대시보드 생성
-    # ----------------------------------------------------------------
-    - name: 📊 [11] Generate Dashboard
-      shell: bash
-      run: |
-        JAR_SZ=$(du -sh bin/CoreServices.jar | cut -f1)
-        IMG_COUNT=$(ls docs/images/*.png | wc -l)
-        
-        cat <<EOF > ops_dashboard.html
-        <html><body><h1>Future Ops Status</h1><p>Core Jar: $JAR_SZ</p><p>Images: $IMG_COUNT</p></body></html>
+            run_factory()
         EOF
         
-        echo "## 💎 Perfect Ops Dashboard" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :---: |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Total Services** | 30+ (Quantum, Bio, etc) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Build Status** | ✅ Success (bin/Crypto created) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Self-Healing** | ✅ Active |" >> $GITHUB_STEP_SUMMARY
+        # 스크립트 실행
+        python stream_generator.py
 
     # ----------------------------------------------------------------
-    # [Step 10] CodeQL 분석 (Push 전 수행)
+    # [Step 4] 결과물 업로드 (압축된 파일들만)
     # ----------------------------------------------------------------
-    - name: 🔍 [12] Perform CodeQL Analysis v4
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: "/language:java,cpp,python"
-
-    # ----------------------------------------------------------------
-    # [Step 11] SCM Sync (Rebase & Autostash)
-    # ----------------------------------------------------------------
-    - name: 💾 [13] Robust SCM Sync
-      if: runner.os == 'Linux' && github.event_name != 'pull_request'
-      shell: bash
-      run: |
-        echo "🔄 STARTING SCM SYNC..."
-        git config --global user.name "Future-Bot"
-        git config --global user.email "bot@future.com"
-        
-        # 강제 추가
-        git add -A
-        git add -f ops_scripts/ src/ docs/ bin/Crypto* *.html
-        
-        if git diff --staged --quiet; then
-            echo "✅ No changes."
-        else
-            git commit -m "💎 Factory Update: Future Tech & Self-Healing [skip ci]"
-            
-            # Rebase Loop
-            for i in {1..5}; do
-                echo "Attempt $i..."
-                git pull --rebase --autostash origin main && git push origin main && break || sleep 5
-            done
-        fi
-
-    # ----------------------------------------------------------------
-    # [Step 12] 아티팩트 업로드 (최적화)
-    # ----------------------------------------------------------------
-    - name: 📤 [14] Upload Artifacts
-      if: always()
+    - name: 📤 Upload Data Packages
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.artifact_name }}
-        path: |
-          ops_dashboard.html
-          ops_scripts/
-          bin/
-          src/
-          docs/
-        retention-days: 1
-        compression-level: 9
+        name: mass-service-data
+        path: _artifacts_warehouse/
+        retention-days: 1 # 보관 비용 절약
+        if-no-files-found: warn
+
+    # ----------------------------------------------------------------
+    # [Step 5] 대시보드
+    # ----------------------------------------------------------------
+    - name: 📊 Summary Dashboard
+      if: always()
+      run: |
+        echo "# 🏭 Stream Factory Report" >> $GITHUB_STEP_SUMMARY
+        
+        COUNT=$(ls _artifacts_warehouse/*.zip 2>/dev/null | wc -l)
+        SIZE=$(du -sh _artifacts_warehouse | cut -f1)
+        
+        echo "### 📦 Production Stats" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total Services Generated:** $COUNT" >> $GITHUB_STEP_SUMMARY
+        echo "- **Total Artifact Size:** $SIZE" >> $GITHUB_STEP_SUMMARY
+        echo "- **Method:** Generate -> Zip -> Flush (Zero Disk Waste)" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📂 Generated Services (Sample)" >> $GITHUB_STEP_SUMMARY
+        ls -1 _artifacts_warehouse/*.zip | head -n 10 | sed 's/_artifacts_warehouse\///g' | sed 's/^/- 📦 /' >> $GITHUB_STEP_SUMMARY
