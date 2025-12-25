@@ -1,6 +1,5 @@
 import os, sys, random, datetime
 from PIL import Image, ImageDraw
-
 sys.stdout.reconfigure(encoding='utf-8')
 
 # 기존 엔터프라이즈 + 미래 기술 + 수집 서버
@@ -25,14 +24,14 @@ def produce_assets():
     safe_makedirs("src/main/java/com/global/collection")
     safe_makedirs("docs/images")
     safe_makedirs("cpp_core")
-    safe_makedirs("bin") # [중요] Python 레벨에서도 생성
+    safe_makedirs("bin") # [중요] 빌드 오류 방지
 
     # 2. Java 코드 생성
     all_svcs = SERVICES + COLLECTORS
     for svc in all_svcs:
         # 분류
         if svc in SERVICES:
-            kind = 'future' if svc in ["Quantum_Compute", "Bio_Tech"] else 'core'
+            kind = 'future' if svc in ["Quantum_Compute", "Bio_Tech", "Space_Ops"] else 'core'
         else:
             kind = 'collection'
         
