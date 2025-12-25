@@ -1,4 +1,3 @@
-// (C) 2025 GLOBAL ENTERPRISE. STRICTLY PROTECTED.
-
+// (C) 2025 GLOBAL CYBERNETICS. ENCRYPTED SYSTEM.
 package com.global.healthcare;
-public class HealthCareApplication { public static void main(String[] args) { System.out.println("HealthCare Service Global Online"); } }
+public class HealthCareApplication { }
