@@ -1,4 +1,4 @@
-name: Factory Ops Dashboard & Build
+name: Factory Ops with Artifacts & Dashboard
 
 on:
   push:
@@ -6,37 +6,36 @@ on:
   workflow_dispatch:
 
 jobs:
-  factory-ops-dashboard:
+  factory-ops-complete:
     runs-on: ubuntu-latest
     
     steps:
     # ------------------------------------------------------------------
-    # [1단계] 초기 디스크 공간 확보
+    # [1단계] 디스크 공간 확보
     # ------------------------------------------------------------------
-    - name: 🧹 Free Disk Space (Safe Mode)
+    - name: 🧹 Free Disk Space
       run: |
-        echo "::group::Initializing Disk Cleanup"
-        # 초기 용량 측정
+        echo "::group::Disk Cleanup"
         echo "START_DISK=$(df -h / | awk 'NR==2 {print $4}')" >> $GITHUB_ENV
         
-        sudo rm -rf /usr/local/lib/android # Android SDK (10GB+)
+        sudo rm -rf /usr/local/lib/android # Android SDK
         sudo rm -rf /opt/ghc               # Haskell
         sudo rm -rf /usr/share/swift       # Swift
         sudo rm -rf /opt/hostedtoolcache/CodeQL
         sudo docker system prune -af
         sudo apt-get clean
         
-        # 확보 후 용량 측정
         echo "CLEANED_DISK=$(df -h / | awk 'NR==2 {print $4}')" >> $GITHUB_ENV
+        mkdir -p _dist_artifacts # 결과물을 모을 임시 폴더 생성
         echo "::endgroup::"
 
     # ------------------------------------------------------------------
-    # [2단계] 환경 설정 (Code Checkout & Setup)
+    # [2단계] 환경 설정
     # ------------------------------------------------------------------
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Setup Tools (Java & .NET)
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
@@ -48,7 +47,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     # ------------------------------------------------------------------
-    # [3단계] 🐶 Watchdog 실행 (시스템 감시)
+    # [3단계] 🐶 Watchdog (자원 감시)
     # ------------------------------------------------------------------
     - name: 🐶 Start Watchdog
       run: |
@@ -57,7 +56,7 @@ jobs:
         while true; do
           DISK_AVAIL=$(df -k . | awk 'NR==2 {print $4}')
           if [ "$DISK_AVAIL" -lt 500000 ]; then
-             echo "🚨 [WATCHDOG] Low Disk Space: ${DISK_AVAIL} KB" >> watchdog_alerts.log
+             echo "🚨 Low Disk Space: ${DISK_AVAIL} KB" >> watchdog_alerts.log
           fi
           sleep 10
         done
@@ -66,122 +65,123 @@ jobs:
         ./watchdog.sh &
 
     # ------------------------------------------------------------------
-    # [4단계] 대량 서비스 빌드 및 데이터 수집 (핵심)
+    # [4단계] 대량 빌드 및 결과물 추출 (핵심 변경 사항)
     # ------------------------------------------------------------------
-    - name: 🏭 Run Services & Collect Metrics
+    - name: 🏭 Build, Harvest & Clean
       id: build_process
       run: |
-        # 리포트 데이터 파일 초기화 (CSV 형식: 서비스명,상태,시간,아이콘)
-        echo "Service|Status|Duration|Icon" > build_results.txt
-        
-        echo "🚀 Starting Bulk Processing..."
-        
-        # 전체 실패 여부 플래그
+        echo "Service|Status|Duration|Artifact" > build_results.txt
         GLOBAL_EXIT_CODE=0
-
-        # 루트 경로의 폴더 순회
-        find . -maxdepth 1 -type d -not -path '*/.*' -not -path '.' | while read service_dir; do
+        
+        # 현재 위치(_dist_artifacts 제외)의 폴더만 순회
+        find . -maxdepth 1 -type d -not -path '*/.*' -not -path '.' -not -name '_dist_artifacts' | while read service_dir; do
           SERVICE_NAME=$(basename "$service_dir")
           START_TIME=$(date +%s)
           BUILD_STATUS="SUCCESS"
-          ICON="✅"
+          ARTIFACT_MSG="-"
           
-          echo "::group::🔨 Building: $SERVICE_NAME"
+          echo "::group::🔨 Processing: $SERVICE_NAME"
           cd "$service_dir"
           
-          # --- 빌드 로직 실행 (에러 발생 시 멈추지 않고 캡처) ---
+          # --- [A] 빌드 실행 ---
           if [ -f "pom.xml" ]; then
-            mvn clean package -DskipTests || { BUILD_STATUS="FAILED"; ICON="❌"; }
+            mvn clean package -DskipTests || BUILD_STATUS="FAILED"
           elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
             chmod +x gradlew || true
-            ./gradlew clean build -x test || { BUILD_STATUS="FAILED"; ICON="❌"; }
+            ./gradlew clean build -x test || BUILD_STATUS="FAILED"
           elif [ -f *.csproj ] || ls *.csproj 1> /dev/null 2>&1; then
-            dotnet restore && dotnet build --no-restore || { BUILD_STATUS="FAILED"; ICON="❌"; }
+            dotnet restore && dotnet build -c Release || BUILD_STATUS="FAILED"
           elif [ -f "Makefile" ]; then
-            make || { BUILD_STATUS="FAILED"; ICON="❌"; }
+            make || BUILD_STATUS="FAILED"
           elif [ -f "run.sh" ]; then
             chmod +x run.sh
-            ./run.sh || { BUILD_STATUS="FAILED"; ICON="❌"; }
+            ./run.sh || BUILD_STATUS="FAILED"
           else
-            echo "⚠️ No build file found."
             BUILD_STATUS="SKIPPED"
-            ICON="⚠️"
           fi
           
-          # --- 빌드 종료 후 정리 및 기록 ---
+          # --- [B] 결과물(Artifact) 추출 및 이동 ---
+          if [ "$BUILD_STATUS" == "SUCCESS" ]; then
+            mkdir -p ../_dist_artifacts/$SERVICE_NAME
+            
+            # 1. Java (.jar, .war)
+            find target build/libs -name "*.jar" -o -name "*.war" 2>/dev/null | xargs -I {} cp {} ../_dist_artifacts/$SERVICE_NAME/
+            
+            # 2. .NET (.dll, .exe) - Release 폴더 위주
+            find bin/Release -name "*.dll" -o -name "*.exe" 2>/dev/null | grep -v "ref/" | xargs -I {} cp {} ../_dist_artifacts/$SERVICE_NAME/
+            
+            # 3. General Binaries (확장자 없는 실행 파일 등) - 필요 시 로직 추가
+            
+            # 결과물 개수 확인
+            FILE_COUNT=$(ls ../_dist_artifacts/$SERVICE_NAME/ | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+               ARTIFACT_MSG="📦 Saved ($FILE_COUNT files)"
+            else
+               ARTIFACT_MSG="⚠️ No Output Found"
+            fi
+          else
+            ARTIFACT_MSG="❌ Build Failed"
+          fi
+
+          # --- [C] 공간 확보를 위한 즉시 청소 (Clean) ---
+          # 결과물을 안전한 _dist_artifacts로 옮겼으므로 원본 빌드 폴더는 과감히 삭제
+          rm -rf target build bin obj
+          
           cd ..
           
+          # --- [D] 기록 ---
           END_TIME=$(date +%s)
           DURATION=$((END_TIME - START_TIME))
+          # 아이콘 설정
+          if [ "$BUILD_STATUS" == "SUCCESS" ]; then ICON="✅"; elif [ "$BUILD_STATUS" == "SKIPPED" ]; then ICON="⚠️"; else ICON="❌"; fi
           
-          # 결과 파일에 기록
-          echo "$SERVICE_NAME|$BUILD_STATUS|${DURATION}s|$ICON" >> build_results.txt
-          
-          # 임시 파일 즉시 삭제 (공간 확보)
-          rm -rf "$service_dir/target" "$service_dir/build" "$service_dir/bin" "$service_dir/obj"
-          
+          echo "$SERVICE_NAME|$BUILD_STATUS|${DURATION}s|$ARTIFACT_MSG" >> build_results.txt
           echo "::endgroup::"
           
-          # 실패가 하나라도 있으면 최종적으로 워크플로우 실패 처리용 플래그 설정
-          if [ "$BUILD_STATUS" == "FAILED" ]; then
-            GLOBAL_EXIT_CODE=1
-          fi
+          if [ "$BUILD_STATUS" == "FAILED" ]; then GLOBAL_EXIT_CODE=1; fi
         done
         
-        # 루프 내부 변수 전달을 위해 임시 파일 사용했으므로 다시 환경변수로 내보냄
-        if [ $GLOBAL_EXIT_CODE -ne 0 ]; then
-          echo "BUILD_HAS_FAILURES=true" >> $GITHUB_ENV
-        else
-          echo "BUILD_HAS_FAILURES=false" >> $GITHUB_ENV
-        fi
+        if [ $GLOBAL_EXIT_CODE -ne 0 ]; then echo "BUILD_HAS_FAILURES=true" >> $GITHUB_ENV; fi
 
     # ------------------------------------------------------------------
-    # [5단계] 📊 GitHub 대시보드 생성 (Job Summary)
+    # [5단계] 추출한 결과물 업로드 (GitHub Artifacts)
+    # ------------------------------------------------------------------
+    - name: 📤 Upload All Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: factory-ops-build-outputs
+        path: _dist_artifacts/
+        retention-days: 3 # 용량 관리 위해 3일만 보관
+
+    # ------------------------------------------------------------------
+    # [6단계] 대시보드 생성
     # ------------------------------------------------------------------
     - name: 📈 Generate Dashboard
-      if: always() # 빌드 실패하더라도 대시보드는 출력
+      if: always()
       run: |
-        # 1. 헤더 작성
         echo "# 🏭 Factory Ops Dashboard" >> $GITHUB_STEP_SUMMARY
-        echo "### 📅 Date: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "### 📅 Run ID: $GITHUB_RUN_ID" >> $GITHUB_STEP_SUMMARY
         
-        # 2. 시스템 상태 요약
-        echo "## 🖥️ System Health" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-        echo "| 💿 Initial Disk | **$START_DISK** |" >> $GITHUB_STEP_SUMMARY
-        echo "| 🧹 After Cleanup | **$CLEANED_DISK** |" >> $GITHUB_STEP_SUMMARY
+        # 시스템 상태
+        echo "## 🖥️ System Stats" >> $GITHUB_STEP_SUMMARY
         CURRENT_DISK=$(df -h / | awk 'NR==2 {print $4}')
-        echo "| 🏁 Final Disk | **$CURRENT_DISK** |" >> $GITHUB_STEP_SUMMARY
-        
-        # Watchdog 경고 확인
-        if [ -f watchdog_alerts.log ]; then
-           ALERT_COUNT=$(wc -l < watchdog_alerts.log)
-           echo "| 🐶 Watchdog Alerts | 🔴 **$ALERT_COUNT Warnings** (Check logs) |" >> $GITHUB_STEP_SUMMARY
-        else
-           echo "| 🐶 Watchdog Alerts | 🟢 System Stable |" >> $GITHUB_STEP_SUMMARY
-        fi
-        
-        # 3. 서비스 빌드 결과 테이블 작성
+        echo "- **Start Disk:** $START_DISK / **Cleaned:** $CLEANED_DISK / **End:** $CURRENT_DISK" >> $GITHUB_STEP_SUMMARY
+        if [ -f watchdog_alerts.log ]; then echo "- 🔴 **Watchdog Alerts Found**" >> $GITHUB_STEP_SUMMARY; else echo "- 🟢 **System Stable**" >> $GITHUB_STEP_SUMMARY; fi
+
+        # 빌드 결과 테이블
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 🏗️ Build Results" >> $GITHUB_STEP_SUMMARY
-        echo "| Service Name | Status | Duration | Result |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏗️ Build & Artifact Report" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | Status | Time | Artifacts |" >> $GITHUB_STEP_SUMMARY
+        echo "| :--- | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
         
-        # 결과 파일 읽어서 테이블 행 생성
-        # 첫 줄(헤더) 건너뛰고 처리
-        tail -n +2 build_results.txt | while IFS='|' read -r service status duration icon; do
-          echo "| **$service** | $status | $duration | $icon |" >> $GITHUB_STEP_SUMMARY
+        tail -n +2 build_results.txt | while IFS='|' read -r service status duration artifact; do
+          if [ "$status" == "SUCCESS" ]; then ICON="✅"; elif [ "$status" == "SKIPPED" ]; then ICON="⚠️"; else ICON="❌"; fi
+          echo "| **$service** | $ICON $status | $duration | $artifact |" >> $GITHUB_STEP_SUMMARY
         done
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "> *Generated by Factory Ops Automation*" >> $GITHUB_STEP_SUMMARY
+        echo "> Artifacts are available in the 'Summary' tab under 'Artifacts'." >> $GITHUB_STEP_SUMMARY
 
-    # ------------------------------------------------------------------
-    # [6단계] 최종 실패 처리 (빌드 실패가 있었다면 워크플로우를 Red로 표시)
-    # ------------------------------------------------------------------
     - name: Check Final Status
       if: env.BUILD_HAS_FAILURES == 'true'
-      run: |
-        echo "⛔ Some services failed to build. Check the Dashboard above."
-        exit 1
+      run: exit 1
