@@ -1,0 +1,3 @@
+// (C) 2025 GLOBAL ENTERPRISE. STRICTLY PROTECTED.
+
+CREATE TABLE Education_Hub_global (id BIGINT, region VARCHAR(50), data TEXT);
