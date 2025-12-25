@@ -1,235 +1,360 @@
-name: 🏭 Enterprise Factory (Cloud Pages)
+name: 🏭 Ultimate Ops Factory (Expert Console)
 
 on:
-  # [트리거] 6시간마다 or Push or 수동 실행
   schedule:
     - cron: '0 */6 * * *'
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-# [권한 설정] Pages 배포를 위해 permissions 확장
 permissions:
   contents: write
-  pages: write      # GitHub Pages 배포 권한
-  id-token: write   # OIDC 토큰 권한
-  packages: write
+  pages: write
+  id-token: write
 
-# [동시성 제어]
 concurrency:
-  group: "pages-production"
+  group: "ultimate-factory"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 데이터 생산 및 웹사이트 구축 (Core Ops)
+  # [Job 1] 대량 데이터 생산 및 전문가용 포털 구축
   # ==============================================================================
-  factory-ops:
+  expert-ops:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90 # 대량 데이터 처리를 위해 시간 연장
     
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 인프라 클린룸
+    # [Step 1] 클린룸 초기화
     # ----------------------------------------------------------------
-    - name: 🧹 Infrastructure Cleanup
+    - name: 🧹 Deep Clean
       run: |
-        echo "🧹 Purging disk space..."
+        echo "🧹 Purging system for massive generation..."
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
         docker system prune -af
-        echo "✅ Disk Ready."
+        echo "✅ System Ready."
 
     # ----------------------------------------------------------------
-    # [Step 2] 런타임 설정
+    # [Step 2] 엔진 설정
     # ----------------------------------------------------------------
-    - name: 🛠️ Setup Python 3.10
+    - name: 🛠️ Setup Python
       uses: actions/setup-python@v5
       with: { python-version: '3.10' }
     
     - name: 📦 Install Deps
-      run: pip install flask flask-cors gunicorn faker pandas requests jinja2 psutil
+      run: pip install flask flask-cors gunicorn faker pandas requests jinja2 psutil pyyaml
 
     # ----------------------------------------------------------------
-    # [Step 3] 백엔드 데이터 엔진 (대량 생성)
+    # [Step 3] 🏭 백엔드: 전문가용 데이터 엔진 (소스코드/바이너리/스펙)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Backend Engine
+    - name: 🏭 Run Expert Data Engine
       shell: bash
       run: |
         mkdir -p _data_warehouse
         
-        cat <<'EOF' > backend_engine.py
-        import os, shutil, json, random, uuid
+        cat <<'EOF' > expert_engine.py
+        import os, shutil, json, random, uuid, yaml
         from datetime import datetime
         from faker import Faker
         fake = Faker()
 
         OUTPUT_DIR = "_data_warehouse"
-        SERVICES = ["Auth_Core", "Billing_Gateway", "Ops_Monitor", "AI_Inference", "DB_Shard_KR", "DB_Shard_US"]
-        REGIONS = ["Global", "Asia_Seoul", "US_Virginia", "EU_London"]
+        
+        # 확장된 서비스 목록 (마이크로서비스 아키텍처)
+        DOMAINS = ["Payment", "Auth", "Inventory", "Logistics", "AI_Core", "Search", "Recommendation", "User", "Notification", "Analytics"]
+        ENVIRONMENTS = ["Dev", "Stage", "Prod", "DR"]
+        
+        def generate_source_code(path, svc):
+            """개발자용 소스코드 시뮬레이션"""
+            # Python Code
+            with open(f"{path}/app.py", "w") as f:
+                f.write(f"# Service: {svc}\nimport os\n\ndef main():\n    print('Starting {svc}...')\n")
+            # Config YAML
+            with open(f"{path}/config.yaml", "w") as f:
+                yaml.dump({"service": svc, "replicas": random.randint(1,5), "db": "postgres"}, f)
+            # Dockerfile
+            with open(f"{path}/Dockerfile", "w") as f:
+                f.write(f"FROM python:3.9-slim\nCMD ['python', 'app.py']\n")
 
-        def generate():
-            print("🚀 Generating Enterprise Data...")
+        def generate_expert_data():
+            print("🚀 Generating Massive Expert Data...")
             metadata = []
             
-            # 대량 데이터 생성 루프
-            for region in REGIONS:
-                for svc in SERVICES:
-                    base_path = f"data/{region}/{svc}"
+            for env in ENVIRONMENTS:
+                for domain in DOMAINS:
+                    svc_id = f"{domain}_{env}_{random.randint(100,999)}"
+                    base_path = f"data/{env}/{domain}/{svc_id}"
                     os.makedirs(base_path, exist_ok=True)
                     
-                    # Log Simulation
-                    with open(f"{base_path}/trace.log", "w") as f:
-                        for _ in range(200): f.write(f"INFO {datetime.now()} {uuid.uuid4()} Latency={random.randint(5,100)}ms\n")
+                    # 1. 소스코드 및 설정 (개발자용)
+                    generate_source_code(base_path, svc_id)
+                    
+                    # 2. 바이너리 덤프 (시스템용)
+                    with open(f"{base_path}/core.bin", "wb") as f:
+                        f.write(os.urandom(1024 * 10)) # 10KB Binary
+                        
+                    # 3. API 스펙 (OpenAPI/Swagger 시뮬레이션)
+                    api_spec = {
+                        "openapi": "3.0.0",
+                        "info": {"title": svc_id, "version": "1.0.0"},
+                        "paths": {f"/api/v1/{domain.lower()}": {"get": {"summary": "Fetch Data"}}}
+                    }
+                    with open(f"{base_path}/openapi.json", "w") as f:
+                        json.dump(api_spec, f, indent=2)
 
-                    # Archiving
-                    zip_name = f"{region}_{svc}"
+                    # 4. 압축 및 삭제 (공간 방어)
+                    zip_name = f"{env}_{domain}_{svc_id}"
                     shutil.make_archive(f"{OUTPUT_DIR}/{zip_name}", 'zip', base_path)
                     shutil.rmtree(base_path)
                     
                     metadata.append({
                         "id": str(uuid.uuid4())[:8],
-                        "service": svc,
-                        "region": region,
-                        "status": "Healthy",
-                        "throughput": f"{random.randint(100, 5000)} TPS"
+                        "service": svc_id,
+                        "env": env,
+                        "status": random.choice(["Running", "Deploying", "Stopped"]),
+                        "type": "Microservice",
+                        "files": ["app.py", "config.yaml", "openapi.json", "core.bin"]
                     })
 
-            # Dashboard용 데이터 (정적 파일로 저장)
+            # 전문가용 대시보드 데이터
             data = {
-                "system_status": "OPERATIONAL",
-                "updated_at": str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                "total_nodes": len(SERVICES) * len(REGIONS),
+                "system_status": "OPTIMAL",
+                "generated_at": str(datetime.now()),
+                "total_artifacts": len(metadata),
                 "services": metadata
             }
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f)
         
-        if __name__ == "__main__": generate()
+        if __name__ == "__main__": generate_expert_data()
         EOF
         
-        python backend_engine.py
+        python expert_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 4] 🌐 웹 포털 구축 (정적/동적 하이브리드 지원)
+    # [Step 4] 🌐 프론트엔드: 전문가 콘솔 (Web Terminal & Explorer)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Universal Dashboard
+    - name: 🎨 Build Expert Console
       shell: bash
       run: |
         mkdir -p _web_portal/static/css
         mkdir -p _web_portal/templates
         
-        # HTML: GitHub Pages(정적)와 Flask(동적) 모두에서 작동하도록 JS 수정
+        # HTML: 탭 인터페이스 + 웹 터미널 + 데이터 그리드
         cat <<'EOF' > _web_portal/templates/index.html
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>OPS COMMAND CENTER</title>
+            <title>DEV OPS CONSOLE</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                body { background-color: #0b0c10; color: #c5c6c7; font-family: monospace; }
-                .neon-text { color: #66fcf1; text-shadow: 0 0 5px #45a29e; }
-                .card { background-color: #1f2833; border: 1px solid #45a29e; }
-                .status-ok { color: #00ff00; }
-                .link-box { background: #000; border: 1px dashed #66fcf1; padding: 5px; font-size: 0.8rem; cursor: pointer; }
+                body { background-color: #0d1117; color: #c9d1d9; font-family: 'Fira Code', monospace; }
+                .tab-active { border-bottom: 2px solid #58a6ff; color: #58a6ff; }
+                .terminal { background: #000; color: #0f0; padding: 20px; border-radius: 5px; height: 400px; overflow-y: auto; border: 1px solid #30363d; }
+                .cursor { animation: blink 1s step-end infinite; }
+                @keyframes blink { 50% { opacity: 0; } }
+                .data-row:hover { background-color: #161b22; }
             </style>
         </head>
         <body class="h-screen flex flex-col overflow-hidden">
-            <header class="p-4 border-b border-gray-700 bg-gray-900 flex justify-between">
-                <h1 class="text-2xl font-bold neon-text">🏭 FACTORY OPS :: CLOUD VIEW</h1>
-                <div><span class="text-green-400 animate-pulse">● LIVE SYSTEM</span></div>
+            
+            <header class="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-xl font-bold text-white">🏭 FACTORY_OPS :: <span class="text-blue-400">EXPERT_MODE</span></h1>
+                    <span class="bg-green-900 text-green-300 px-2 py-0.5 rounded text-xs">KERNEL: ONLINE</span>
+                </div>
+                <div class="text-xs text-gray-400" id="clock">Loading...</div>
             </header>
 
-            <main class="flex-1 p-6 overflow-y-auto grid grid-cols-4 gap-6">
-                <div class="card p-4 rounded col-span-4 bg-gray-900 border-l-4 border-green-500">
-                    <h3 class="text-green-400 font-bold">🌐 CONNECTION STATUS</h3>
-                    <div class="grid grid-cols-2 gap-4 mt-2">
-                        <div>
-                            <p class="text-xs text-gray-500">GITHUB PAGES (STATIC)</p>
-                            <div class="link-box text-blue-300" onclick="window.location.reload()">Current View</div>
+            <nav class="flex gap-6 px-6 border-b border-gray-800 bg-gray-900 text-sm">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="py-3 tab-active hover:text-white transition">📊 DASHBOARD</button>
+                <button onclick="switchTab('terminal')" id="tab-terminal" class="py-3 hover:text-white transition">💻 TERMINAL</button>
+                <button onclick="switchTab('datalake')" id="tab-datalake" class="py-3 hover:text-white transition">🛢️ DATA EXPLORER</button>
+                <button onclick="switchTab('api')" id="tab-api" class="py-3 hover:text-white transition">🔌 API DOCS</button>
+            </nav>
+
+            <main class="flex-1 p-6 overflow-y-auto bg-[#0d1117]">
+                
+                <div id="view-dashboard" class="space-y-6">
+                    <div class="grid grid-cols-4 gap-6">
+                        <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                            <h3 class="text-xs text-gray-400">TOTAL ARTIFACTS</h3>
+                            <p class="text-3xl font-bold text-white mt-1" id="dash-total">--</p>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">LAST UPDATE</p>
-                            <div class="link-box text-white" id="last-update">Syncing...</div>
+                        <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                            <h3 class="text-xs text-gray-400">SYSTEM HEALTH</h3>
+                            <p class="text-3xl font-bold text-green-400 mt-1">100%</p>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded border border-gray-700 col-span-2">
+                            <h3 class="text-xs text-gray-400">PRODUCTION RATE</h3>
+                            <div class="h-16 mt-2"><canvas id="miniChart"></canvas></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card p-4 rounded col-span-1">
-                    <p class="text-xs text-gray-400">TOTAL NODES</p>
-                    <p class="text-4xl font-bold text-white mt-2" id="node-count">--</p>
+                <div id="view-terminal" class="hidden h-full flex flex-col">
+                    <div class="terminal flex-1 text-sm font-mono shadow-lg" id="console-output">
+                        <div>Welcome to OpsShell v2.5.0</div>
+                        <div>Type 'help' for available commands.</div>
+                        <div>-----------------------------------</div>
+                        <br>
+                    </div>
+                    <div class="mt-2 flex bg-gray-800 p-2 rounded">
+                        <span class="text-green-400 mr-2">$</span>
+                        <input type="text" id="console-input" class="bg-transparent outline-none flex-1 text-white font-mono" placeholder="Enter command..." autocomplete="off">
+                    </div>
                 </div>
-                <div class="card p-4 rounded col-span-3 row-span-2">
-                    <p class="text-xs text-gray-400 mb-2">SERVICE MESH TOPOLOGY</p>
-                    <div class="overflow-auto max-h-64">
+
+                <div id="view-datalake" class="hidden">
+                    <div class="bg-gray-800 rounded border border-gray-700 overflow-hidden">
                         <table class="w-full text-xs text-left">
-                            <thead class="bg-gray-800 text-cyan-400 sticky top-0">
-                                <tr><th class="p-2">ID</th><th class="p-2">REGION</th><th class="p-2">SERVICE</th><th class="p-2">STATUS</th></tr>
+                            <thead class="bg-gray-900 text-gray-400 border-b border-gray-700">
+                                <tr>
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">ENV</th>
+                                    <th class="p-3">SERVICE</th>
+                                    <th class="p-3">FILES</th>
+                                    <th class="p-3">STATUS</th>
+                                </tr>
                             </thead>
-                            <tbody id="svc-table"></tbody>
+                            <tbody id="data-table-body"></tbody>
                         </table>
                     </div>
                 </div>
                 
-                <div class="card p-4 rounded col-span-4 h-48">
-                    <canvas id="mainChart"></canvas>
+                <div id="view-api" class="hidden">
+                    <div class="bg-gray-800 p-6 rounded border border-gray-700">
+                        <h2 class="text-xl font-bold mb-4">REST API Endpoints</h2>
+                        <div class="space-y-4">
+                            <div class="p-3 bg-gray-900 rounded border-l-4 border-green-500">
+                                <span class="bg-green-700 text-white px-2 py-0.5 rounded text-xs font-bold mr-2">GET</span>
+                                <span class="font-mono">/api/stats</span>
+                                <p class="text-xs text-gray-400 mt-1">Returns full system telemetry and service registry.</p>
+                            </div>
+                            <div class="p-3 bg-gray-900 rounded border-l-4 border-blue-500">
+                                <span class="bg-blue-700 text-white px-2 py-0.5 rounded text-xs font-bold mr-2">GET</span>
+                                <span class="font-mono">/dashboard_data.json</span>
+                                <p class="text-xs text-gray-400 mt-1">Static data access for GitHub Pages mode.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
             </main>
 
             <script>
-                // 데이터 로드 로직 (하이브리드)
-                async function loadData() {
-                    let data = null;
-                    try {
-                        // 1. Flask API 시도
-                        const res = await fetch('/api/stats');
-                        if(res.ok) data = await res.json();
-                        else throw new Error("API failed");
-                    } catch(e) {
-                        console.log("Switching to Static Mode...");
-                        try {
-                            // 2. 정적 파일 시도 (GitHub Pages용)
-                            const res = await fetch('./dashboard_data.json');
-                            if(res.ok) data = await res.json();
-                        } catch(e2) { console.error("Data load failed"); }
-                    }
+                // --- CORE LOGIC ---
+                let globalData = null;
 
-                    if(data) {
-                        document.getElementById('node-count').innerText = data.total_nodes;
-                        document.getElementById('last-update').innerText = data.updated_at;
+                // Tab Switcher
+                function switchTab(tabName) {
+                    ['dashboard', 'terminal', 'datalake', 'api'].forEach(t => {
+                        document.getElementById('view-'+t).classList.add('hidden');
+                        document.getElementById('tab-'+t).classList.remove('tab-active');
+                    });
+                    document.getElementById('view-'+tabName).classList.remove('hidden');
+                    document.getElementById('tab-'+tabName).classList.add('tab-active');
+                }
+
+                // Data Loader
+                async function init() {
+                    try {
+                        const res = await fetch('/api/stats').catch(() => fetch('./dashboard_data.json'));
+                        globalData = await res.json();
                         
-                        const tbody = document.getElementById('svc-table');
-                        data.services.forEach(s => {
-                            tbody.innerHTML += `<tr class="border-b border-gray-700">
-                                <td class="p-2 text-green-400 font-mono">${s.id}</td>
-                                <td class="p-2">${s.region}</td>
-                                <td class="p-2 font-bold text-white">${s.service}</td>
-                                <td class="p-2 status-ok">● ${s.status}</td>
+                        // Dashboard Populate
+                        document.getElementById('dash-total').innerText = globalData.total_artifacts;
+                        
+                        // Data Lake Populate
+                        const tbody = document.getElementById('data-table-body');
+                        globalData.services.slice(0, 50).forEach(s => { // Show top 50
+                            tbody.innerHTML += `<tr class="data-row border-b border-gray-700">
+                                <td class="p-3 font-mono text-gray-500">${s.id}</td>
+                                <td class="p-3"><span class="bg-gray-700 px-2 py-0.5 rounded text-xs">${s.env}</span></td>
+                                <td class="p-3 font-bold text-white">${s.service}</td>
+                                <td class="p-3 font-mono text-xs text-blue-300">[${s.files.join(', ')}]</td>
+                                <td class="p-3 text-green-400">${s.status}</td>
                             </tr>`;
                         });
+                        
+                        renderChart();
+
+                    } catch(e) { console.error("Boot failed", e); }
+                }
+
+                // Terminal Logic (Simulation)
+                const input = document.getElementById('console-input');
+                const output = document.getElementById('console-output');
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const cmd = input.value.trim().toLowerCase();
+                        log(`$ ${cmd}`);
+                        input.value = '';
+                        processCommand(cmd);
+                    }
+                });
+
+                function log(text) {
+                    const div = document.createElement('div');
+                    div.innerText = text;
+                    output.appendChild(div);
+                    output.scrollTop = output.scrollHeight;
+                }
+
+                function processCommand(cmd) {
+                    if (cmd === 'help') {
+                        log("Available commands: help, status, ls, clear, date, version");
+                    } else if (cmd === 'status') {
+                        log("System Status: OPERATIONAL");
+                        log("Active Services: " + (globalData ? globalData.total_artifacts : "Unknown"));
+                    } else if (cmd === 'ls') {
+                        log("Listing mounted volumes...");
+                        log("drwxr-xr-x  root  _data_warehouse");
+                        log("drwxr-xr-x  root  _web_portal");
+                    } else if (cmd === 'clear') {
+                        output.innerHTML = '';
+                    } else if (cmd === 'date') {
+                        log(new Date().toString());
+                    } else if (cmd === 'version') {
+                        log("OpsShell v2.5.0 (Factory Edition)");
+                    } else if (cmd === '') {
+                        // do nothing
+                    } else {
+                        log(`Command not found: ${cmd}`);
                     }
                 }
-                loadData();
 
                 // Chart
-                new Chart(document.getElementById('mainChart'), {
-                    type: 'bar',
-                    data: {
-                        labels: ['KR', 'US', 'EU', 'Global'],
-                        datasets: [{ label: 'Traffic Load', data: [65, 59, 80, 81], backgroundColor: '#45a29e' }]
-                    },
-                    options: { maintainAspectRatio: false, scales: { y: { grid: {color:'#333'} } } }
-                });
+                function renderChart() {
+                    new Chart(document.getElementById('miniChart'), {
+                        type: 'line',
+                        data: {
+                            labels: Array(10).fill(''),
+                            datasets: [{
+                                data: [10, 25, 40, 35, 50, 65, 80, 75, 90, 100],
+                                borderColor: '#58a6ff', borderWidth: 2, tension: 0.4, pointRadius: 0
+                            }]
+                        },
+                        options: { plugins: {legend: false}, scales: {x:{display:false}, y:{display:false}} }
+                    });
+                }
+                
+                setInterval(() => document.getElementById('clock').innerText = new Date().toISOString(), 1000);
+                init();
             </script>
         </body>
         </html>
         EOF
 
     # ----------------------------------------------------------------
-    # [Step 5] 🖥️ Flask/Gunicorn 서버 빌드 (로컬 실행용)
+    # [Step 5] Flask 서버 준비 (로컬 실행용)
     # ----------------------------------------------------------------
-    - name: ⚙️ Build Server App
+    - name: ⚙️ Build Server
       run: |
         cat <<'EOF' > _web_portal/app.py
         from flask import Flask, render_template, jsonify, send_from_directory
@@ -241,18 +366,15 @@ jobs:
         def stats():
             try: return jsonify(json.load(open('../dashboard_data.json')))
             except: return jsonify({})
-        # 정적 파일 서빙 지원 (하이브리드 모드)
         @app.route('/dashboard_data.json')
         def static_data(): return send_from_directory('..', 'dashboard_data.json')
         EOF
-        
-        # Gunicorn Config
         echo 'bind = "0.0.0.0:5000"' > _web_portal/gunicorn_config.py
 
     # ----------------------------------------------------------------
     # [Step 6] 🚀 서버 테스트 (IPv4)
     # ----------------------------------------------------------------
-    - name: 🧪 Verify Server
+    - name: 🧪 Test Server
       run: |
         cd _web_portal
         gunicorn -c gunicorn_config.py app:app &
@@ -261,49 +383,40 @@ jobs:
         pkill gunicorn || true
 
     # ----------------------------------------------------------------
-    # [Step 7] GitHub Pages용 정적 사이트 준비 (핵심 추가)
+    # [Step 7] GitHub Pages 준비
     # ----------------------------------------------------------------
-    - name: 📄 Prepare Pages Site
+    - name: 📄 Build Static Site
       run: |
-        echo "📦 preparing static site for GitHub Pages..."
         mkdir -p _site
-        
-        # 1. HTML 파일 복사 (루트로 이동)
         cp _web_portal/templates/index.html _site/index.html
-        
-        # 2. 데이터 파일 복사 (JS가 읽을 수 있게)
         cp dashboard_data.json _site/dashboard_data.json
-        
-        echo "✅ Static site ready at ./_site"
-        ls -R _site
 
     # ----------------------------------------------------------------
-    # [Step 8] 아티팩트 업로드 (서버용 & Pages용 분리)
+    # [Step 8] 아티팩트 업로드
     # ----------------------------------------------------------------
-    - name: 📤 Upload Server Package (For Local)
+    - name: 📤 Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: full-stack-server
+        name: expert-console-package
         path: |
           _web_portal/
-          dashboard_data.json
           _data_warehouse/
+          dashboard_data.json
 
-    - name: 📤 Upload Pages Artifact (For Cloud)
+    - name: 📤 Upload Pages
       uses: actions/upload-pages-artifact@v3
-      with:
-        path: _site/
+      with: { path: _site/ }
 
   # ==============================================================================
-  # [Job 2] GitHub Pages 배포 (Standard Deploy)
+  # [Job 2] 배포
   # ==============================================================================
-  deploy-pages:
+  deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: factory-ops # 데이터 생성이 끝나야 실행
+    needs: expert-ops
     steps:
-      - name: 🚀 Deploy to GitHub Pages
+      - name: 🚀 Deploy
         id: deployment
         uses: actions/deploy-pages@v4
