@@ -1,8 +1,8 @@
-name: 🏭 Streamlined Factory (Mass Data & Space Saver)
+name: 🏭 Massive Data Factory (Infinite Stream)
 
 on:
   schedule:
-    - cron: '0 */4 * * *' # 4시간마다 실행 (비용 절감)
+    - cron: '30 */4 * * *' # 4시간마다 대량 생산
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -12,169 +12,187 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  stream-production:
+  massive-production:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45 # 대량 처리를 위해 시간 연장
     
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 초기 공간 확보
+    # [Step 1] 클린 룸 초기화
     # ----------------------------------------------------------------
-    - name: 🧹 Init Cleanup
+    - name: 🧹 Deep Clean Init
       run: |
-        echo "🧹 Clearing initial space..."
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        echo "🧹 Purging massive space..."
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift
         docker system prune -af
-        echo "✅ Ready."
+        df -h
+        echo "✅ Space Secured."
 
     # ----------------------------------------------------------------
-    # [Step 2] 환경 설정
+    # [Step 2] 파이썬 환경 (데이터 엔진)
     # ----------------------------------------------------------------
-    - name: 🐍 Setup Python
+    - name: 🐍 Setup Python Engine
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
     # ----------------------------------------------------------------
-    # [Step 3] 지능형 스트리밍 생산 엔진 (핵심 로직)
+    # [Step 3] 초대형 데이터 생성 엔진 가동 (핵심)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Stream Generator
+    - name: 🏭 Run Massive Data Engine
       shell: bash
       run: |
-        mkdir -p _artifacts_warehouse
+        mkdir -p _warehouse
         
-        # 파이썬 스크립트 생성: 생성 -> 압축 -> 삭제 로직 포함
-        cat <<'EOF' > stream_generator.py
+        # 파이썬 스크립트: 복잡한 데이터 구조 및 대용량 파일 생성 로직
+        cat <<'EOF' > massive_generator.py
         import os
         import json
         import shutil
         import random
         import time
+        import uuid
         from datetime import datetime
 
-        # 1. 대량 생성할 서비스 및 카테고리 정의
-        # 각 서비스별로 고유한 데이터 특성을 정의합니다.
-        CATEGORIES = {
-            "Finance": ["Banking_Core", "Stock_Ledger", "Crypto_Vault", "Tax_Audit", "Insurance_Claim"],
-            "Health": ["Bio_Genome", "Patient_Records", "Nano_Bot_Control", "Virus_Sim", "XRay_Archive"],
-            "SmartCity": ["Traffic_Grid", "Power_Plant", "Water_Supply", "CCTV_Network", "Drone_Port"],
-            "Space": ["Mars_Base", "Sat_Telemetry", "Rocket_Launch", "Deep_Space_Comms", "Alien_Signal"],
-            "Military": ["Cyber_Defense", "Radar_Sys", "Missile_Guidance", "Troop_Log", "Sat_Spy"]
+        # 1. 초대형 인프라 정의 (카테고리 > 리전 > 서비스)
+        INFRASTRUCTURE = {
+            "Global_Finance": ["Payment_Gateway", "Ledger_Core", "Fraud_Detection", "HFT_Trading", "Settlement_Chain"],
+            "Mega_Health": ["Genomic_Storage", "MRI_Archive", "Patient_DB", "Tele_Medicine", "Bio_Sensor_IoT"],
+            "Hyper_Retail": ["Inventory_AI", "Logistics_Drone", "User_Behavior", "Global_Sales", "Recommendation_Engine"],
+            "Smart_Defense": ["Sat_Recon", "Cyber_Warfare", "Drone_Swarm", "Encrypted_Comms", "Missile_Guidance"],
+            "Future_Tech": ["Quantum_Sim", "Metaverse_Render", "NFT_Minting", "Fusion_Control", "Space_Telemetry"],
+            "Legacy_Systems": ["Mainframe_COBOL", "Tape_Backup", "Old_Oracle", "Email_Archive", "Paper_Scan"]
         }
-
-        OUTPUT_DIR = "_artifacts_warehouse"
+        
+        REGIONS = ["US-East", "EU-Central", "Asia-NE", "SA-West"]
+        OUTPUT_DIR = "_warehouse"
 
         def get_disk_free_mb():
-            total, used, free = shutil.disk_usage("/")
+            _, _, free = shutil.disk_usage("/")
             return free // (1024 * 1024)
 
-        def generate_unique_data(service_name, category):
-            """각 경로별 특화된 데이터 생성"""
-            timestamp = datetime.now().isoformat()
+        def create_heavy_files(path, service_name):
+            """다양한 포맷의 무거운 데이터 생성"""
             
-            # A. 설정 데이터 (JSON)
-            config_data = {
+            # A. 대용량 SQL 덤프 (텍스트 반복)
+            with open(f"{path}/{service_name}_dump.sql", "w") as f:
+                f.write(f"-- SQL DUMP FOR {service_name}\n")
+                f.write("INSERT INTO logs (id, payload, ts) VALUES \n")
+                # 10,000 라인 생성
+                chunk = f"('{uuid.uuid4()}', 'encrypted_payload_data_{random.getrandbits(64)}', '{datetime.now()}'),\n"
+                f.write(chunk * 5000) 
+            
+            # B. 바이너리 데이터 시뮬레이션 (빠른 생성)
+            # 10MB짜리 더미 바이너리 파일 생성
+            with open(f"{path}/sensor_data.bin", "wb") as f:
+                f.write(os.urandom(1024) * 1024) # 1MB (속도 위해 조절)
+
+            # C. JSON 설정 파일 (구조화 데이터)
+            config = {
                 "service": service_name,
-                "category": category,
-                "status": "ACTIVE",
-                "shards": random.randint(1, 100),
-                "created_at": timestamp,
-                "security_level": "Level_5" if category == "Military" else "Level_3"
+                "nodes": [f"node-{i}" for i in range(50)],
+                "config_map": {f"key_{k}": random.getrandbits(32) for k in range(100)}
             }
-            
-            # B. 대량 더미 데이터 (CSV 시뮬레이션) - 용량 제어
-            # 실제로는 크지만 압축 효율이 좋은 반복 텍스트 생성
-            dummy_rows = []
-            for i in range(500): # 파일 개수/크기 조절
-                dummy_rows.append(f"{i},{service_name}_hash_{random.getrandbits(32)},{category},active")
-            
-            return config_data, "\n".join(dummy_rows)
+            with open(f"{path}/config.json", "w") as f:
+                json.dump(config, f, indent=2)
 
-        def run_factory():
-            total_services = sum(len(v) for v in CATEGORIES.values())
-            print(f"🚀 Starting Stream Production for {total_services} Services...")
-            
-            processed_count = 0
-            
-            for category, services in CATEGORIES.items():
-                for service in services:
-                    # [안전장치] 디스크 공간 체크 (500MB 미만이면 비상 정지)
-                    if get_disk_free_mb() < 500:
-                        print("🚨 EMERGENCY: Low Disk Space! Stopping Generation.")
-                        break
+            # D. 액세스 로그 (라인 단위 데이터)
+            with open(f"{path}/access.log", "w") as f:
+                log_line = '192.168.1.{} - - [{}] "GET /api/v1/{} HTTP/1.1" 200 4096\n'
+                for _ in range(2000):
+                    f.write(log_line.format(random.randint(1,255), datetime.now(), service_name))
 
-                    print(f"🛠️ [Processing] {category}/{service} ...")
+        def run_massive_factory():
+            total_tasks = sum(len(v) for v in INFRASTRUCTURE.values()) * len(REGIONS)
+            print(f"🚀 Initializing Massive Factory: {total_tasks} Workloads Expected...")
+            
+            processed = 0
+            
+            for category, services in INFRASTRUCTURE.items():
+                for region in REGIONS:
+                    # 카테고리/리전 폴더 생성
+                    region_base = f"data_lake/{category}/{region}"
                     
-                    # 1. 임시 작업 경로 생성 (src/Category/Service)
-                    base_path = f"src/{category}/{service}"
-                    os.makedirs(base_path, exist_ok=True)
-                    
-                    # 2. 데이터 적재 (Data Loading)
-                    cfg, csv_data = generate_unique_data(service, category)
-                    
-                    # 파일 쓰기
-                    with open(f"{base_path}/config.json", "w") as f:
-                        json.dump(cfg, f, indent=4)
-                    
-                    with open(f"{base_path}/transaction_logs.csv", "w") as f:
-                        f.write(csv_data)
+                    for service in services:
+                        # [안전장치] 디스크 부족 시 비상 정지
+                        if get_disk_free_mb() < 800:
+                            print("🚨 CRITICAL: Low Disk Space (<800MB). Halting Production.")
+                            return
+
+                        print(f"⚡ [Gen] {category} > {region} > {service}")
                         
-                    with open(f"{base_path}/README.md", "w") as f:
-                        f.write(f"# {service}\n\nManaged by Stream Factory.\nCategory: {category}")
-                    
-                    # 3. [핵심] 압축 및 격리 (Compress to Artifact)
-                    # src 폴더를 _artifacts_warehouse/Service.zip 으로 압축
-                    shutil.make_archive(f"{OUTPUT_DIR}/{service}", 'zip', base_path)
-                    
-                    # 4. [핵심] 즉시 삭제 (Flush) - 공간 확보
-                    shutil.rmtree(base_path)
-                    
-                    # 상위 카테고리 폴더도 비었으면 삭제 (깔끔하게 유지)
-                    try: os.rmdir(f"src/{category}")
+                        service_path = f"{region_base}/{service}"
+                        os.makedirs(service_path, exist_ok=True)
+                        
+                        # 1. 대량 데이터 파일 생성
+                        create_heavy_files(service_path, service)
+                        
+                        # 2. 메타데이터 생성
+                        with open(f"{service_path}/_META.txt", "w") as f:
+                            f.write(f"Created: {datetime.now()}\nType: Massive_Batch\nPath: {service_path}")
+
+                        # 3. [핵심] 압축 (Path-Specific Archiving)
+                        # data_lake/Finance/US-East/Service -> _warehouse/Finance_US-East_Service.zip
+                        zip_name = f"{category}_{region}_{service}"
+                        shutil.make_archive(f"{OUTPUT_DIR}/{zip_name}", 'zip', service_path)
+                        
+                        # 4. [핵심] 즉시 삭제 (Flush) - 공간 반환
+                        shutil.rmtree(service_path)
+                        processed += 1
+                        
+                    # 리전 처리가 끝나면 상위 폴더도 정리 (빈 폴더 삭제)
+                    try: shutil.rmtree(region_base) 
                     except: pass
-                    
-                    processed_count += 1
-                    
-            print(f"✅ Completed. {processed_count}/{total_services} services archived.")
             
-            # 최종 요약 리포트 생성
-            with open(f"{OUTPUT_DIR}/_MANIFEST.txt", "w") as f:
-                f.write(f"Total Processed: {processed_count}\nTimestamp: {datetime.now()}")
+            print(f"✅ MISSION COMPLETE. {processed} Massive Packages Created.")
+            
+            # 매니페스트 생성
+            with open(f"{OUTPUT_DIR}/_MANIFEST.json", "w") as f:
+                json.dump({"total_files": processed, "timestamp": str(datetime.now())}, f)
 
         if __name__ == "__main__":
-            run_factory()
+            run_massive_factory()
         EOF
         
-        # 스크립트 실행
-        python stream_generator.py
+        # 엔진 실행
+        python massive_generator.py
 
     # ----------------------------------------------------------------
-    # [Step 4] 결과물 업로드 (압축된 파일들만)
+    # [Step 4] 결과물 업로드 (기가바이트급 데이터도 안전하게 분할 업로드)
     # ----------------------------------------------------------------
-    - name: 📤 Upload Data Packages
+    - name: 📤 Upload Massive Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: mass-service-data
-        path: _artifacts_warehouse/
-        retention-days: 1 # 보관 비용 절약
-        if-no-files-found: warn
+        name: massive-data-stream
+        path: _warehouse/
+        retention-days: 1
+        compression-level: 0 # 이미 압축했으므로 속도를 위해 압축 안 함
 
     # ----------------------------------------------------------------
-    # [Step 5] 대시보드
+    # [Step 5] 대시보드 리포트
     # ----------------------------------------------------------------
-    - name: 📊 Summary Dashboard
+    - name: 📊 Factory Report
       if: always()
       run: |
-        echo "# 🏭 Stream Factory Report" >> $GITHUB_STEP_SUMMARY
+        echo "# 🏭 Massive Data Factory Report" >> $GITHUB_STEP_SUMMARY
         
-        COUNT=$(ls _artifacts_warehouse/*.zip 2>/dev/null | wc -l)
-        SIZE=$(du -sh _artifacts_warehouse | cut -f1)
+        COUNT=$(ls _warehouse/*.zip 2>/dev/null | wc -l)
+        SIZE=$(du -sh _warehouse | cut -f1)
+        DISK_END=$(df -h / | awk 'NR==2 {print $4}')
         
-        echo "### 📦 Production Stats" >> $GITHUB_STEP_SUMMARY
-        echo "- **Total Services Generated:** $COUNT" >> $GITHUB_STEP_SUMMARY
-        echo "- **Total Artifact Size:** $SIZE" >> $GITHUB_STEP_SUMMARY
-        echo "- **Method:** Generate -> Zip -> Flush (Zero Disk Waste)" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Production Metrics" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total Packages** | **$COUNT** (Services * Regions) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total Size** | **$SIZE** |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Final Disk Free** | **$DISK_END** (Safe) |" >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📂 Generated Services (Sample)" >> $GITHUB_STEP_SUMMARY
-        ls -1 _artifacts_warehouse/*.zip | head -n 10 | sed 's/_artifacts_warehouse\///g' | sed 's/^/- 📦 /' >> $GITHUB_STEP_SUMMARY
+        echo "### 📂 Generated Data Categories" >> $GITHUB_STEP_SUMMARY
+        echo "- **Global Finance** (SQL, Logs)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Mega Health** (Bio-sensor Data)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Hyper Retail** (Transaction CSV)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Smart Defense** (Binary Streams)" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "> All data generated, archived, and flushed in real-time." >> $GITHUB_STEP_SUMMARY
