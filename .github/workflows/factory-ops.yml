@@ -1,4 +1,4 @@
-name: Factory Ops with Capacity Check
+name: Factory Ops Dashboard & Build
 
 on:
   push:
@@ -6,89 +6,182 @@ on:
   workflow_dispatch:
 
 jobs:
-  factory-ops-build:
+  factory-ops-dashboard:
     runs-on: ubuntu-latest
-
+    
     steps:
     # ------------------------------------------------------------------
-    # [1단계] 시스템 디스크 공간 확보 (핵심: .NET은 남기고 나머지만 삭제)
+    # [1단계] 초기 디스크 공간 확보
     # ------------------------------------------------------------------
-    - name: 🧹 Free Disk Space (Optimized for .NET/C)
+    - name: 🧹 Free Disk Space (Safe Mode)
       run: |
-        echo "::group::Initialize Disk Cleanup"
-        echo "📉 [초기 상태] 디스크 용량 확인:"
-        df -h
+        echo "::group::Initializing Disk Cleanup"
+        # 초기 용량 측정
+        echo "START_DISK=$(df -h / | awk 'NR==2 {print $4}')" >> $GITHUB_ENV
         
-        echo "🗑️ 불필요한 대형 패키지 삭제 중..."
-        # 1. Android SDK 삭제 (가장 큼, C# 서버 개발에 불필요)
-        sudo rm -rf /usr/local/lib/android
-        
-        # 2. Swift, Haskell, CodeQL 삭제
-        sudo rm -rf /usr/share/swift
-        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/lib/android # Android SDK (10GB+)
+        sudo rm -rf /opt/ghc               # Haskell
+        sudo rm -rf /usr/share/swift       # Swift
         sudo rm -rf /opt/hostedtoolcache/CodeQL
-        
-        # 3. Docker 이미지 정리 (캐시된 레이어 전체 삭제)
         sudo docker system prune -af
-        
-        # 4. Apt 캐시 정리
         sudo apt-get clean
         
-        # ⚠️ 중요: /usr/share/dotnet 폴더는 절대 삭제하지 않습니다. (프로젝트 빌드 필수 요소)
-        
-        echo "📈 [정리 후] 디스크 용량 확인:"
-        df -h
+        # 확보 후 용량 측정
+        echo "CLEANED_DISK=$(df -h / | awk 'NR==2 {print $4}')" >> $GITHUB_ENV
         echo "::endgroup::"
 
     # ------------------------------------------------------------------
-    # [2단계] 코드 체크아웃
+    # [2단계] 환경 설정 (Code Checkout & Setup)
     # ------------------------------------------------------------------
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # ------------------------------------------------------------------
-    # [3단계] 레포지토리 내 서비스별 용량 체크 (요청하신 기능)
-    # ------------------------------------------------------------------
-    - name: 🔍 Check Service Capacity (Folder Size Analysis)
-      run: |
-        echo "::group::Service Capacity Report"
-        echo "📂 현재 레포지토리 내 폴더별 용량 분석 (상위 15개):"
-        
-        # 현재 디렉토리 내의 폴더 용량을 큰 순서대로 출력
-        du -h --max-depth=2 . | sort -hr | head -n 15
-        
-        echo "------------------------------------------------"
-        echo "💾 전체 프로젝트 크기:"
-        du -sh .
-        echo "::endgroup::"
+    - name: Setup Tools (Java & .NET)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
 
     # ------------------------------------------------------------------
-    # [4단계] Factory Ops 실행
+    # [3단계] 🐶 Watchdog 실행 (시스템 감시)
     # ------------------------------------------------------------------
-    - name: Run Factory Ops
+    - name: 🐶 Start Watchdog
       run: |
-        echo "🚀 Running Factory Ops..."
-        
-        # C# 프로젝트인 경우 의존성 복원 시 공간 부족을 방지하기 위해 
-        # nuget 캐시를 정리하거나 최소화하는 옵션을 고려할 수 있습니다.
-        # 예: dotnet restore --disable-parallel
-        
-        # 여기에 실제 실행할 스크립트를 입력하세요.
-        # 예: ./build.sh 또는 dotnet run --project ...
-        echo "Factory Ops Logic execution placeholder"
+        cat << 'EOF' > watchdog.sh
+        #!/bin/bash
+        while true; do
+          DISK_AVAIL=$(df -k . | awk 'NR==2 {print $4}')
+          if [ "$DISK_AVAIL" -lt 500000 ]; then
+             echo "🚨 [WATCHDOG] Low Disk Space: ${DISK_AVAIL} KB" >> watchdog_alerts.log
+          fi
+          sleep 10
+        done
+        EOF
+        chmod +x watchdog.sh
+        ./watchdog.sh &
 
     # ------------------------------------------------------------------
-    # [5단계] 빌드 후 정리 (선택 사항)
+    # [4단계] 대량 서비스 빌드 및 데이터 수집 (핵심)
     # ------------------------------------------------------------------
-    - name: 🧹 Post-Build Cleanup
-      if: always() # 실패하더라도 실행
+    - name: 🏭 Run Services & Collect Metrics
+      id: build_process
       run: |
-        echo "::group::Post-Build Cleanup"
-        echo "Cleaning up bin/obj folders to save space for artifacts..."
-        # 모든 bin, obj 폴더 찾아서 삭제 (공간 확보용)
-        find . -iname "bin" -type d -exec rm -rf {} + 2>/dev/null || true
-        find . -iname "obj" -type d -exec rm -rf {} + 2>/dev/null || true
+        # 리포트 데이터 파일 초기화 (CSV 형식: 서비스명,상태,시간,아이콘)
+        echo "Service|Status|Duration|Icon" > build_results.txt
         
-        echo "Final Disk Space:"
-        df -h
-        echo "::endgroup::"
+        echo "🚀 Starting Bulk Processing..."
+        
+        # 전체 실패 여부 플래그
+        GLOBAL_EXIT_CODE=0
+
+        # 루트 경로의 폴더 순회
+        find . -maxdepth 1 -type d -not -path '*/.*' -not -path '.' | while read service_dir; do
+          SERVICE_NAME=$(basename "$service_dir")
+          START_TIME=$(date +%s)
+          BUILD_STATUS="SUCCESS"
+          ICON="✅"
+          
+          echo "::group::🔨 Building: $SERVICE_NAME"
+          cd "$service_dir"
+          
+          # --- 빌드 로직 실행 (에러 발생 시 멈추지 않고 캡처) ---
+          if [ -f "pom.xml" ]; then
+            mvn clean package -DskipTests || { BUILD_STATUS="FAILED"; ICON="❌"; }
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            chmod +x gradlew || true
+            ./gradlew clean build -x test || { BUILD_STATUS="FAILED"; ICON="❌"; }
+          elif [ -f *.csproj ] || ls *.csproj 1> /dev/null 2>&1; then
+            dotnet restore && dotnet build --no-restore || { BUILD_STATUS="FAILED"; ICON="❌"; }
+          elif [ -f "Makefile" ]; then
+            make || { BUILD_STATUS="FAILED"; ICON="❌"; }
+          elif [ -f "run.sh" ]; then
+            chmod +x run.sh
+            ./run.sh || { BUILD_STATUS="FAILED"; ICON="❌"; }
+          else
+            echo "⚠️ No build file found."
+            BUILD_STATUS="SKIPPED"
+            ICON="⚠️"
+          fi
+          
+          # --- 빌드 종료 후 정리 및 기록 ---
+          cd ..
+          
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          # 결과 파일에 기록
+          echo "$SERVICE_NAME|$BUILD_STATUS|${DURATION}s|$ICON" >> build_results.txt
+          
+          # 임시 파일 즉시 삭제 (공간 확보)
+          rm -rf "$service_dir/target" "$service_dir/build" "$service_dir/bin" "$service_dir/obj"
+          
+          echo "::endgroup::"
+          
+          # 실패가 하나라도 있으면 최종적으로 워크플로우 실패 처리용 플래그 설정
+          if [ "$BUILD_STATUS" == "FAILED" ]; then
+            GLOBAL_EXIT_CODE=1
+          fi
+        done
+        
+        # 루프 내부 변수 전달을 위해 임시 파일 사용했으므로 다시 환경변수로 내보냄
+        if [ $GLOBAL_EXIT_CODE -ne 0 ]; then
+          echo "BUILD_HAS_FAILURES=true" >> $GITHUB_ENV
+        else
+          echo "BUILD_HAS_FAILURES=false" >> $GITHUB_ENV
+        fi
+
+    # ------------------------------------------------------------------
+    # [5단계] 📊 GitHub 대시보드 생성 (Job Summary)
+    # ------------------------------------------------------------------
+    - name: 📈 Generate Dashboard
+      if: always() # 빌드 실패하더라도 대시보드는 출력
+      run: |
+        # 1. 헤더 작성
+        echo "# 🏭 Factory Ops Dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "### 📅 Date: $(date)" >> $GITHUB_STEP_SUMMARY
+        
+        # 2. 시스템 상태 요약
+        echo "## 🖥️ System Health" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+        echo "| 💿 Initial Disk | **$START_DISK** |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🧹 After Cleanup | **$CLEANED_DISK** |" >> $GITHUB_STEP_SUMMARY
+        CURRENT_DISK=$(df -h / | awk 'NR==2 {print $4}')
+        echo "| 🏁 Final Disk | **$CURRENT_DISK** |" >> $GITHUB_STEP_SUMMARY
+        
+        # Watchdog 경고 확인
+        if [ -f watchdog_alerts.log ]; then
+           ALERT_COUNT=$(wc -l < watchdog_alerts.log)
+           echo "| 🐶 Watchdog Alerts | 🔴 **$ALERT_COUNT Warnings** (Check logs) |" >> $GITHUB_STEP_SUMMARY
+        else
+           echo "| 🐶 Watchdog Alerts | 🟢 System Stable |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # 3. 서비스 빌드 결과 테이블 작성
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏗️ Build Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Service Name | Status | Duration | Result |" >> $GITHUB_STEP_SUMMARY
+        echo "| :--- | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
+        
+        # 결과 파일 읽어서 테이블 행 생성
+        # 첫 줄(헤더) 건너뛰고 처리
+        tail -n +2 build_results.txt | while IFS='|' read -r service status duration icon; do
+          echo "| **$service** | $status | $duration | $icon |" >> $GITHUB_STEP_SUMMARY
+        done
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "> *Generated by Factory Ops Automation*" >> $GITHUB_STEP_SUMMARY
+
+    # ------------------------------------------------------------------
+    # [6단계] 최종 실패 처리 (빌드 실패가 있었다면 워크플로우를 Red로 표시)
+    # ------------------------------------------------------------------
+    - name: Check Final Status
+      if: env.BUILD_HAS_FAILURES == 'true'
+      run: |
+        echo "⛔ Some services failed to build. Check the Dashboard above."
+        exit 1
