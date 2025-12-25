@@ -1,0 +1,94 @@
+name: Factory Ops with Capacity Check
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  factory-ops-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # ------------------------------------------------------------------
+    # [1단계] 시스템 디스크 공간 확보 (핵심: .NET은 남기고 나머지만 삭제)
+    # ------------------------------------------------------------------
+    - name: 🧹 Free Disk Space (Optimized for .NET/C)
+      run: |
+        echo "::group::Initialize Disk Cleanup"
+        echo "📉 [초기 상태] 디스크 용량 확인:"
+        df -h
+        
+        echo "🗑️ 불필요한 대형 패키지 삭제 중..."
+        # 1. Android SDK 삭제 (가장 큼, C# 서버 개발에 불필요)
+        sudo rm -rf /usr/local/lib/android
+        
+        # 2. Swift, Haskell, CodeQL 삭제
+        sudo rm -rf /usr/share/swift
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        
+        # 3. Docker 이미지 정리 (캐시된 레이어 전체 삭제)
+        sudo docker system prune -af
+        
+        # 4. Apt 캐시 정리
+        sudo apt-get clean
+        
+        # ⚠️ 중요: /usr/share/dotnet 폴더는 절대 삭제하지 않습니다. (프로젝트 빌드 필수 요소)
+        
+        echo "📈 [정리 후] 디스크 용량 확인:"
+        df -h
+        echo "::endgroup::"
+
+    # ------------------------------------------------------------------
+    # [2단계] 코드 체크아웃
+    # ------------------------------------------------------------------
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # ------------------------------------------------------------------
+    # [3단계] 레포지토리 내 서비스별 용량 체크 (요청하신 기능)
+    # ------------------------------------------------------------------
+    - name: 🔍 Check Service Capacity (Folder Size Analysis)
+      run: |
+        echo "::group::Service Capacity Report"
+        echo "📂 현재 레포지토리 내 폴더별 용량 분석 (상위 15개):"
+        
+        # 현재 디렉토리 내의 폴더 용량을 큰 순서대로 출력
+        du -h --max-depth=2 . | sort -hr | head -n 15
+        
+        echo "------------------------------------------------"
+        echo "💾 전체 프로젝트 크기:"
+        du -sh .
+        echo "::endgroup::"
+
+    # ------------------------------------------------------------------
+    # [4단계] Factory Ops 실행
+    # ------------------------------------------------------------------
+    - name: Run Factory Ops
+      run: |
+        echo "🚀 Running Factory Ops..."
+        
+        # C# 프로젝트인 경우 의존성 복원 시 공간 부족을 방지하기 위해 
+        # nuget 캐시를 정리하거나 최소화하는 옵션을 고려할 수 있습니다.
+        # 예: dotnet restore --disable-parallel
+        
+        # 여기에 실제 실행할 스크립트를 입력하세요.
+        # 예: ./build.sh 또는 dotnet run --project ...
+        echo "Factory Ops Logic execution placeholder"
+
+    # ------------------------------------------------------------------
+    # [5단계] 빌드 후 정리 (선택 사항)
+    # ------------------------------------------------------------------
+    - name: 🧹 Post-Build Cleanup
+      if: always() # 실패하더라도 실행
+      run: |
+        echo "::group::Post-Build Cleanup"
+        echo "Cleaning up bin/obj folders to save space for artifacts..."
+        # 모든 bin, obj 폴더 찾아서 삭제 (공간 확보용)
+        find . -iname "bin" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -iname "obj" -type d -exec rm -rf {} + 2>/dev/null || true
+        
+        echo "Final Disk Space:"
+        df -h
+        echo "::endgroup::"
