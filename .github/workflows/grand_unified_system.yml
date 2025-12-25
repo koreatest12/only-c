@@ -1,10 +1,10 @@
-name: 🏭 UNIVERSAL FACTORY:ZERO-DEFECT PRODUCTION
+name: 🏭 MASTER SCM:FULL SYNC & INFRASTRUCTURE
 
 on:
   push:
     branches: [ "main", "master" ]
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 무조건 생산 가동
+    - cron: '*/5 * * * *' # 5분마다 형상관리 동기화
   workflow_dispatch:
 
 env:
@@ -13,21 +13,21 @@ env:
   LC_ALL: en_US.UTF-8
   DEBIAN_FRONTEND: noninteractive
 
-# [권한: 전지전능 (All-Powerful Permissions)]
+# [권한: 저장소 형상관리를 위한 전체 쓰기 권한]
 permissions:
-  contents: write           # 소스 및 아티팩트 저장
-  packages: write           # 패키지 배포
-  deployments: write        # 배포 관리
-  security-events: write    # 보안 리포팅
-  actions: write            # 워크플로우 제어
-  checks: write             # 체크 상태 관리
-  statuses: write           # 커밋 상태 관리
-  issues: write             # 이슈 관리
-  pages: write              # 페이지 배포
+  contents: write           # 코드 커밋/푸시 (필수)
+  packages: write
+  deployments: write
+  security-events: write
+  actions: write
+  checks: write
+  statuses: write
+  issues: write
+  pages: write
 
 jobs:
-  precision-production:
-    name: 🏭 Precision Ops on ${{ matrix.os }}
+  scm-factory-ops:
+    name: 🏭 SCM Factory on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -35,59 +35,57 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: linux-factory-pack
+            artifact_name: linux-scm-pack
           - os: windows-latest
-            artifact_name: windows-factory-pack
+            artifact_name: windows-scm-pack
           - os: macos-latest
-            artifact_name: macos-factory-pack
+            artifact_name: macos-scm-pack
 
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 공장 초기화 (Checkout)
+    # [Step 1] 형상관리 초기화 (Full History Fetch)
     # ----------------------------------------------------------------
-    - name: 📥 [1] Initialize Factory Floor
+    - name: 📥 [1] Checkout for SCM
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 0 # 전체 히스토리를 가져와야 Rebase 가능
         token: ${{ secrets.GITHUB_TOKEN }}
 
     # ----------------------------------------------------------------
-    # [Step 2] 생산 도구 세팅 (Java 17, Python 3.10)
+    # [Step 2] 생산 도구 설정
     # ----------------------------------------------------------------
-    - name: 🛠️ [2] Setup Production Tools
+    - name: 🛠️ [2] Setup Environment
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 🐍 [3] Setup Scripting Engine
+    - name: 🐍 [3] Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 📦 [4] Install Logistics Libraries
+    - name: 📦 [4] Install Deps
       shell: bash
       run: |
         echo "colorama" > requirements.txt
         echo "requests" >> requirements.txt
         echo "tqdm" >> requirements.txt
-        echo "jinja2" >> requirements.txt
         pip install -r requirements.txt
 
     # ----------------------------------------------------------------
-    # [Step 3] CodeQL 품질/보안 검사기 가동
+    # [Step 3] CodeQL 보안 감시
     # ----------------------------------------------------------------
-    - name: 🛡️ [5] Activate CodeQL Scanner
+    - name: 🛡️ [5] CodeQL Init
       uses: github/codeql-action/init@v4
       with:
         languages: java, cpp, python
-        # Auto-detect mode activated
 
     # ----------------------------------------------------------------
-    # [Step 4] [CORE] 정밀 어플리케이션 생산 (15 Service Generator)
+    # [Step 4] 초대형 팩토리 가동 (소스 + 인프라 + DB + 문서)
     # ----------------------------------------------------------------
-    - name: 🏭 [6] Run Precision Generator
+    - name: 🏭 [6] Run Universal Factory
       shell: bash
       run: |
         cat <<'EOF' > factory_manager.py
@@ -107,277 +105,214 @@ jobs:
         def safe_makedirs(path):
             if not os.path.exists(path): os.makedirs(path, exist_ok=True)
 
-        def log(msg): print(f"[FACTORY] {msg}")
+        def log(msg): print(f"[SCM-FACTORY] {msg}")
 
-        # 1. 소스 코드 생산
-        def produce_source_code():
-            log(f"🚀 Manufacturing {len(SERVICES)} Services...")
+        # 1. 어플리케이션 소스 코드 (Java)
+        def generate_apps():
+            log(f"🚀 Generating Source Code for {len(SERVICES)} Services...")
             safe_makedirs("src/main/java/com/global")
-            safe_makedirs("src/main/resources/config")
             
             for svc in SERVICES:
                 base = f"src/main/java/com/global/{svc.lower()}"
                 safe_makedirs(base)
                 
-                # Main App
+                # Main
                 with open(f"{base}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.global.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Online\"); }} }}")
+                    f.write(f"package com.global.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Active\"); }} }}")
                 
-                # Controllers & Configs
-                for i in range(1, 11):
+                # Controllers & Logic (대량 생성)
+                for i in range(1, 21):
                     with open(f"{base}/{svc}Controller{i}.java", "w") as f:
-                        f.write(f"package com.global.{svc.lower()};\npublic class {svc}Controller{i} {{ }}")
-                
-                # Config XML (암호화 대상)
-                with open(f"src/main/resources/config/{svc}_config.xml", "w") as f:
-                    f.write(f"<config><service>{svc}</service><secret>KEY_{random.randint(1000,9999)}</secret></config>")
+                        f.write(f"package com.global.{svc.lower()};\npublic class {svc}Controller{i} {{ public String status() {{ return \"OK\"; }} }}")
 
-        # 2. C++ 암호화 엔진 (CryptoCore)
-        def produce_crypto_engine():
-            log("🔐 Forging C++ Crypto Engine...")
+        # 2. 인프라스트럭처 코드 (IaC - Terraform, Docker, K8s)
+        def generate_infrastructure():
+            log("🏗️ Generating Infrastructure as Code (IaC)...")
+            safe_makedirs("infra/terraform/modules")
+            safe_makedirs("infra/k8s/deployments")
+            safe_makedirs("infra/docker")
+            safe_makedirs("infra/ansible")
+
+            for svc in SERVICES:
+                # Terraform
+                with open(f"infra/terraform/modules/{svc}.tf", "w") as f:
+                    f.write(f'resource "aws_ecr_repository" "{svc}_repo" {{ name = "{svc.lower()}_service" }}\n')
+                
+                # Kubernetes
+                with open(f"infra/k8s/deployments/{svc}-deploy.yaml", "w") as f:
+                    f.write(f"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: {svc.lower()}\nspec:\n  replicas: 3")
+                
+                # Dockerfile
+                with open(f"infra/docker/Dockerfile.{svc}", "w") as f:
+                    f.write(f"FROM openjdk:17-slim\nCOPY bin/{svc}App.jar app.jar\nCMD [\"java\", \"-jar\", \"/app.jar\"]")
+
+        # 3. 데이터베이스 스키마 및 마이그레이션
+        def generate_db_assets():
+            log("🗃️ Generating Database Assets...")
+            safe_makedirs("database/migrations")
+            safe_makedirs("database/seeds")
+            
+            for svc in SERVICES:
+                with open(f"database/migrations/V1__{svc}_init.sql", "w") as f:
+                    f.write(f"CREATE TABLE {svc}_table (id INT PRIMARY KEY);")
+
+        # 4. C++ 보안 엔진
+        def generate_cpp_core():
+            log("🔐 Generating C++ Security Core...")
             safe_makedirs("cpp_core")
-            # [FIX] 헤더 파일 주석 처리 방지를 위해 명확한 줄바꿈 사용
-            with open("cpp_core/crypto_core.cpp", "w") as f:
-                f.write('#include <iostream>\n')
-                f.write('#include <fstream>\n')
-                f.write('#include <string>\n')
-                f.write('void encrypt(std::string path) { std::ofstream o(path + ".enc"); o << "ENCRYPTED"; o.close(); }\n')
-                f.write('int main(int c, char* v[]) { if(c>1) encrypt(v[1]); return 0; }')
+            with open("cpp_core/security.cpp", "w") as f:
+                f.write('#include <iostream>\nint main() { std::cout << "Security Layer Active" << std::endl; return 0; }')
 
         if __name__ == "__main__":
-            produce_source_code()
-            produce_crypto_engine()
+            generate_apps()
+            generate_infrastructure()
+            generate_db_assets()
+            generate_cpp_core()
             safe_makedirs("bin")
-            safe_makedirs("release_pkg")
-            safe_makedirs("logs")
-            log("✅ Production Ready.")
+            safe_makedirs("docs")
+            log("✅ All Assets Generated for SCM.")
         EOF
+        
         python factory_manager.py
 
     # ----------------------------------------------------------------
-    # [Step 5] 보안 워터마크 주입 (안전 모드)
+    # [Step 5] 보안 워터마킹 (SCM 추적 대상)
     # ----------------------------------------------------------------
-    - name: 🛡️ [7] Apply Safety Watermarks
+    - name: 🛡️ [7] Apply Watermark
       shell: bash
       run: |
-        cat <<'EOF' > security_injector.py
+        cat <<'EOF' > watermark.py
         import os
         import datetime
-
-        # [CRITICAL FIX] 줄바꿈(\n)을 명시하여 C++ 헤더가 주석에 먹히지 않도록 함
-        HEADER = f"// (C) {datetime.datetime.now().year} GLOBAL FACTORY. SECURE CODE.\n"
-
+        HEADER = f"// (C) {datetime.datetime.now().year} GLOBAL SCM. MANAGED CODE.\n"
         def inject():
-            print("[SEC] Injecting Watermarks...")
             for root, dirs, files in os.walk("."):
-                if any(x in root for x in ["bin", ".git", "release_pkg"]): continue
+                if any(x in root for x in [".git", "bin"]): continue
                 for file in files:
-                    if file.endswith(('.java', '.cpp', '.xml')):
+                    if file.endswith(('.java', '.cpp', '.tf', '.yaml', '.sql')):
                         path = os.path.join(root, file)
                         try:
                             with open(path, 'r', encoding='utf-8') as f: content = f.read()
-                            if "GLOBAL FACTORY" not in content:
+                            if "GLOBAL SCM" not in content:
                                 with open(path, 'w', encoding='utf-8') as f:
-                                    # 헤더 + 줄바꿈 + 내용
                                     f.write(HEADER + content)
                         except: pass
         if __name__ == "__main__": inject()
         EOF
-        python security_injector.py
+        python watermark.py
 
     # ----------------------------------------------------------------
-    # [Step 6] 정밀 빌드 및 암호화 패키징
+    # [Step 6] 빌드 및 아티팩트 생성
     # ----------------------------------------------------------------
-    - name: 🔨 [8] Execute Factory Build
+    - name: 🔨 [8] Build & Package
       shell: bash
       run: |
-        echo "=========================================="
-        echo "🏗️ STARTING PRODUCTION LINE..."
-        echo "=========================================="
-        
-        # 1. CryptoCore 컴파일
-        echo "🔐 Compiling CryptoCore..."
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-            g++ -o bin/CryptoCore.exe cpp_core/crypto_core.cpp
-            CRYPTO_CMD="bin/CryptoCore.exe"
-        else
-            g++ -o bin/CryptoCore cpp_core/crypto_core.cpp
-            CRYPTO_CMD="./bin/CryptoCore"
-        fi
-        
-        # 2. Java 서비스 컴파일
-        echo "☕ Compiling 15+ Services..."
+        echo "☕ Compiling Sources..."
         find src -name "*.java" > sources.txt
         javac -nowarn -d bin @sources.txt
         
-        # 3. 패키징 및 암호화
-        echo "📦 Packaging & Encrypting..."
-        SERVICES="Banking Stock Insurance PublicData Crypto RealEstate GovTax Logistics HealthCare Metaverse AI_Core IoT_Network Education_Hub Energy_Grid Defense_Sys"
+        echo "🚀 Compiling C++..."
+        g++ -o bin/SecurityCore cpp_core/security.cpp
         
+        echo "📦 Packaging..."
+        SERVICES="Banking Stock Insurance PublicData Crypto RealEstate GovTax Logistics HealthCare Metaverse AI_Core IoT_Network Education_Hub Energy_Grid Defense_Sys"
         for svc in $SERVICES; do
-            # Mac 호환 소문자 변환
             svc_lower=$(echo "$svc" | tr '[:upper:]' '[:lower:]')
-            
-            # JAR 생성
             echo "Main-Class: com.global.${svc_lower}.${svc}Application" > Manifest.txt
             jar cf bin/${svc}App.jar Manifest.txt -C bin .
-            
-            # Config 암호화 실행
-            if [ -f "src/main/resources/config/${svc}_config.xml" ]; then
-                cp "src/main/resources/config/${svc}_config.xml" "bin/${svc}_config.xml"
-                $CRYPTO_CMD "bin/${svc}_config.xml"
-            fi
-            
-            # 릴리즈 폴더로 이동
-            mkdir -p release_pkg/${svc}_v1.0
-            cp bin/${svc}App.jar release_pkg/${svc}_v1.0/
-            cp bin/${svc}_config.xml.enc release_pkg/${svc}_v1.0/ 2>/dev/null || true
         done
-        echo "✅ Factory Build Completed."
 
     # ----------------------------------------------------------------
-    # [Step 7] 서버 배포 시뮬레이션 및 검증
+    # [Step 7] 대시보드 리포트 생성
     # ----------------------------------------------------------------
-    - name: 🌐 [9] Deploy & Verify
+    - name: 📊 [9] Generate SCM Dashboard
       shell: bash
       run: |
-        # 배포 폴더 준비
-        mkdir -p deploy_root
-        cp -r release_pkg/* deploy_root/
+        FILE_COUNT=$(find src infra database -type f | wc -l | xargs)
+        DATE=$(date -u)
         
-        # 서버 스크립트
-        cat <<'EOF' > deploy_monitor.py
-        import http.server
-        import socketserver
-        import threading
-        import time
-        import os
-        
-        os.chdir("deploy_root")
-        
-        def start_server(port):
-            try:
-                with socketserver.TCPServer(("", port), http.server.SimpleHTTPRequestHandler) as httpd:
-                    httpd.serve_forever()
-            except: pass
-
-        # 16개 포트 (8000~8015)
-        for p in range(8000, 8016):
-            t = threading.Thread(target=start_server, args=(p,))
-            t.daemon = True
-            t.start()
-            time.sleep(0.05)
-        
-        time.sleep(30)
+        cat <<EOF > scm_dashboard.html
+        <html><body><h1>SCM Report</h1><p>$DATE</p><h2>Tracked Files: $FILE_COUNT</h2></body></html>
         EOF
         
-        python deploy_monitor.py &
-        SERVER_PID=$!
-        sleep 5
-        
-        # 검증 (curl)
-        echo "🔄 Verifying Network..."
-        function check_url() {
-            url=$1
-            for i in {1..5}; do
-                if curl -s -f "$url" -o /dev/null; then echo "✅ OK: $url"; return 0; fi
-                sleep 2
-            done
-            echo "❌ Failed: $url"
-            return 1
-        }
-        
-        # Banking (8000), AI (8010) 검증
-        check_url "http://localhost:8000/Banking_v1.0/BankingApp.jar" || exit 1
-        check_url "http://localhost:8010/AI_Core_v1.0/AI_CoreApp.jar" || exit 1
-        
-        kill $SERVER_PID || true
-
-    # ----------------------------------------------------------------
-    # [Step 8] 대시보드 생성 (Bash Syntax Fix: 공백 제거 및 xargs 사용)
-    # ----------------------------------------------------------------
-    - name: 📊 [10] Generate Precision Dashboard
-      shell: bash
-      run: |
-        # [CRITICAL FIX] 변수 할당 시 공백 제거 및 xargs로 trim 처리
-        # find 명령어로 파일 개수 카운트. 없으면 0 반환
-        JAR_COUNT=$(find release_pkg -name "*.jar" | wc -l | xargs)
-        ENC_COUNT=$(find release_pkg -name "*.enc" | wc -l | xargs)
-        
-        # 숫자만 있는지 확인 (디버깅)
-        echo "Debug: JAR_COUNT=[$JAR_COUNT], ENC_COUNT=[$ENC_COUNT]"
-        
-        DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
-        
-        # HTML 대시보드 작성
-        cat <<EOF > global_dashboard.html
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Global Factory Dashboard</title>
-            <style>
-                body { font-family: sans-serif; background: #121212; color: #e0e0e0; padding: 20px; }
-                .metric { background: #1e1e1e; padding: 20px; margin: 10px; display: inline-block; border-radius: 8px; width: 200px; text-align: center; }
-                .val { font-size: 2.5em; font-weight: bold; color: #bb86fc; }
-                .lbl { color: #b0bec5; }
-            </style>
-        </head>
-        <body>
-            <h1>🏭 Factory Output Report</h1>
-            <p>Generated at: $DATE ($RUNNER_OS)</p>
-            <div>
-                <div class="metric"><div class="val">$JAR_COUNT</div><div class="lbl">Apps Built</div></div>
-                <div class="metric"><div class="val">$ENC_COUNT</div><div class="lbl">Encrypted Files</div></div>
-                <div class="metric"><div class="val">16</div><div class="lbl">Server Nodes</div></div>
-            </div>
-            <h3>📋 Status: ALL SYSTEMS OPERATIONAL</h3>
-        </body>
-        </html>
-        EOF
-        
-        # GitHub Step Summary 출력
-        echo "## 🏭 Factory Dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "## 🏭 SCM Status" >> $GITHUB_STEP_SUMMARY
         echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
         echo "| :--- | :---: |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Applications** | $JAR_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Encrypted** | $ENC_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Network** | ✅ Verified |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Managed Files** | $FILE_COUNT |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Infrastructure** | Terraform, K8s, Docker |" >> $GITHUB_STEP_SUMMARY
 
     # ----------------------------------------------------------------
-    # [Step 9] 강제 푸시 (모든 산출물 저장소 반영)
+    # [Step 8] 형상관리 강제 동기화 (SCM Sync - Critical Fix)
     # ----------------------------------------------------------------
-    - name: 💾 [11] Force Push Assets
+    - name: 💾 [10] SCM Sync (Commit & Push)
       if: runner.os == 'Linux' && github.event_name != 'pull_request'
       shell: bash
       run: |
-        git config --global user.name "Factory-Bot"
-        git config --global user.email "bot@factory.com"
+        echo "=========================================="
+        echo "🔄 STARTING SCM SYNCHRONIZATION..."
+        echo "=========================================="
         
-        # [FIX] 모든 경로 강제 추가 (-f)
-        git add -f src/ cpp_core/ release_pkg/ global_dashboard.html factory_manager.py *.py
+        git config --global user.name "SCM-Bot"
+        git config --global user.email "bot@scm.com"
         
+        # 1. 모든 파일 강제 스테이징 (-A: 신규/수정/삭제 모두 포함)
+        # .gitignore에 의해 무시되는 파일도 추적하고 싶다면 -f 사용, 여기선 일반 -A 사용
+        git add -A
+        
+        # 2. 강제 스테이징 (중요 생성 폴더)
+        git add -f src/ infra/ database/ cpp_core/ factory_manager.py *.html
+        
+        # 3. 변경 사항 확인
         if git diff --staged --quiet; then
-            echo "✅ No changes."
+            echo "✅ No changes to commit. SCM is up to date."
         else
-            git commit -m "🏭 Factory Update: Full Sync [skip ci]"
-            # 충돌 방지 재시도 루프
-            for i in {1..5}; do
-                git pull --rebase && git push && break || sleep 5
+            echo "📝 Committing changes..."
+            git commit -m "🏭 SCM Update: Full Stack Sync & IaC [skip ci]"
+            
+            # 4. [CRITICAL FIX] Rebase & Push Loop with Autostash
+            # 로컬의 변경사항(커밋됨)을 유지하면서 원격의 변경사항을 가져옴
+            echo "🔄 Pulling and Rebase..."
+            
+            MAX_RETRIES=10
+            for ((i=1; i<=MAX_RETRIES; i++)); do
+                # --rebase --autostash: 로컬 변경사항 잠시 보관 -> pull -> rebase -> 보관 적용
+                if git pull --rebase --autostash origin main; then
+                    echo "✅ Rebase Successful."
+                    
+                    if git push origin main; then
+                        echo "✅ Push Successful."
+                        break
+                    else
+                        echo "⚠️ Push failed (Concurrent update?), retrying ($i/$MAX_RETRIES)..."
+                        sleep 5
+                    fi
+                else
+                    echo "⚠️ Pull/Rebase failed, retrying ($i/$MAX_RETRIES)..."
+                    # Rebase 실패 시 Abort 후 재시도
+                    git rebase --abort || true
+                    sleep 5
+                fi
             done
         fi
 
     # ----------------------------------------------------------------
-    # [Step 10] 아티팩트 업로드
+    # [Step 9] CodeQL & Artifacts
     # ----------------------------------------------------------------
-    - name: 📤 [12] Upload All Artifacts
+    - name: 🔍 [11] Perform CodeQL Analysis v4
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "/language:java,cpp,python"
+
+    - name: 📤 [12] Upload SCM Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
-          global_dashboard.html
-          release_pkg/
-          bin/CryptoCore*
+          scm_dashboard.html
+          bin/*.jar
+          bin/SecurityCore*
           src/
-          logs/
+          infra/
+          database/
         retention-days: 1
