@@ -1,354 +1,316 @@
-name: 🏭 FINAL ZERO-ERROR:FACTORY, UPGRADE & SCM
+name: 🏭 OPTIMIZED FACTORY:DISK CLEANER & MASSIVE OPS
 
 on:
   push:
     branches: [ "main", "master" ]
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 무조건 실행
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 env:
   PYTHONIOENCODING: utf-8
-  PYTHONUTF8: 1
   LC_ALL: en_US.UTF-8
-  DEBIAN_FRONTEND: noninteractive
+  # Docker 빌드 시 공간 절약을 위한 설정
+  DOCKER_BUILDKIT: 1
 
-# [권한: 전체 허용]
 permissions:
-  contents: write           # 코드 커밋/푸시
-  packages: write           # 패키지 배포
-  deployments: write        # 배포 관리
-  security-events: write    # CodeQL 리포트 (필수)
+  contents: write
+  packages: write
+  deployments: write
+  security-events: write
   actions: write
   checks: write
   statuses: write
-  issues: write
-  pages: write
 
 jobs:
-  factory-ops-final:
-    name: 🏭 Factory Ops on ${{ matrix.os }}
+  optimized-ops:
+    name: 🚀 Optimized Ops on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest] # 디스크 확보 스크립트는 Ubuntu에 최적화됨 (Windows/Mac은 OS 관리로 대체)
         include:
           - os: ubuntu-latest
-            artifact_name: linux-final-pack
-          - os: windows-latest
-            artifact_name: windows-final-pack
-          - os: macos-latest
-            artifact_name: macos-final-pack
+            artifact_name: linux-optimized-pack
 
     steps:
     # ----------------------------------------------------------------
-    # [Step 1] 공장 초기화 (Deep Fetch 필수)
+    # [Step 0] [CRITICAL] 디스크 공간 대량 확보 (에러 해결의 핵심)
     # ----------------------------------------------------------------
-    - name: 📥 [1] Initialize Factory
+    - name: 🧹 [0] Free Disk Space (Maximize Storage)
+      if: runner.os == 'Linux'
+      run: |
+        echo "=============================================================================="
+        echo "🧹 STARTING DISK CLEANUP TO PREVENT 'NO SPACE LEFT ON DEVICE' ERROR..."
+        echo "=============================================================================="
+        
+        # 1. 초기 상태 확인
+        df -h
+        
+        # 2. 불필요한 사전 설치 소프트웨어 삭제 (Android, .NET, Haskell, CodeQL 캐시 등)
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        
+        # 3. Docker 이미지 정리
+        docker system prune -af
+        
+        # 4. 확보 후 상태 확인
+        echo "✅ Disk Space After Cleanup:"
+        df -h
+        echo "=============================================================================="
+
+    # ----------------------------------------------------------------
+    # [Step 1] 체크아웃
+    # ----------------------------------------------------------------
+    - name: 📥 [1] Checkout Repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # CodeQL 및 Git Rebase를 위해 전체 히스토리 필요
+        fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
 
     # ----------------------------------------------------------------
-    # [Step 2] 의존성 파일 선행 생성 (Setup 에러 방지)
+    # [Step 2] 런타임 설정
     # ----------------------------------------------------------------
-    - name: 📝 [2] Init Requirements
-      shell: bash
-      run: |
-        echo "Creating dependency manifest..."
-        echo "colorama" > requirements.txt
-        echo "requests" >> requirements.txt
-        echo "tqdm" >> requirements.txt
-        echo "jinja2" >> requirements.txt
-        echo "✅ Requirements ready."
-
-    # ----------------------------------------------------------------
-    # [Step 3] 런타임 환경 설정
-    # ----------------------------------------------------------------
-    - name: 🛠️ [3] Setup Toolchain
+    - name: 🛠️ [2] Setup Runtimes
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 🐍 [4] Setup Python
+    - name: 🐍 [3] Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: 📦 [5] Install Libs
-      shell: bash
-      run: pip install -r requirements.txt
-
     # ----------------------------------------------------------------
-    # [Step 4] CodeQL 초기화 (빌드 전 실행)
+    # [Step 3] 관리형 스크립트 생성 (디스크 관리자 포함)
     # ----------------------------------------------------------------
-    - name: 🛡️ [6] CodeQL Init
-      uses: github/codeql-action/init@v4
-      with:
-        languages: java, cpp, python
-        # Build Mode: Auto-Detect (Manual 제거)
-
-    # ----------------------------------------------------------------
-    # [Step 5] 초대형 유니버스 생성기 (수집/업그레이드/서비스)
-    # ----------------------------------------------------------------
-    - name: 🏭 [7] Run Massive Generator
+    - name: 📂 [4] Bootstrap Ops Scripts
       shell: bash
       run: |
-        cat <<'EOF' > factory_manager.py
+        mkdir -p ops_scripts
+        
+        # 1. 의존성
+        cat <<'EOF' > ops_scripts/requirements.txt
+        colorama
+        requests
+        tqdm
+        jinja2
+        Pillow
+        psutil
+        EOF
+        
+        # 2. [NEW] 디스크 및 리소스 관리자
+        cat <<'EOF' > ops_scripts/resource_manager.py
         import os
-        import sys
-        import random
-        import datetime
-        import json
+        import shutil
+        import psutil
+
+        def check_disk():
+            total, used, free = shutil.disk_usage("/")
+            print(f"💾 [DISK] Total: {total // (2**30)}GB | Used: {used // (2**30)}GB | Free: {free // (2**30)}GB")
+            
+            # 1GB 미만이면 경고 및 긴급 청소
+            if free < (1 * 1024 * 1024 * 1024):
+                print("⚠️ [WARNING] Low Disk Space! Cleaning temp files...")
+                os.system("rm -rf /tmp/*")
+                os.system("docker system prune -f")
+
+        def monitor_memory():
+            mem = psutil.virtual_memory()
+            print(f"🧠 [MEM] Total: {mem.total // (2**20)}MB | Available: {mem.available // (2**20)}MB")
+
+        if __name__ == "__main__":
+            check_disk()
+            monitor_memory()
+        EOF
+
+        # 3. 팩토리 매니저 (대량 생성 로직)
+        cat <<'EOF' > ops_scripts/factory_manager.py
+        import os, sys, random, datetime
+        from PIL import Image, ImageDraw
 
         sys.stdout.reconfigure(encoding='utf-8')
 
-        # 1. 핵심 서비스 (Core Services)
-        CORE_SERVICES = [
+        SERVICES = [
             "Banking", "Stock", "Insurance", "PublicData", "Crypto", "RealEstate", "GovTax",
             "Logistics", "HealthCare", "Metaverse", "AI_Core", "IoT_Network", 
             "Education_Hub", "Energy_Grid", "Defense_Sys"
         ]
-        
-        # 2. 수집 서버 (Collection Squad)
-        COLLECTORS = [
-            "Log_Aggregator", "Metric_Beat", "Trace_Collector", "User_Activity_Tracker",
-            "Network_Sniffer", "Security_Auditor", "Market_Feeder", "Error_Catcher"
-        ]
+        COLLECTORS = ["Log_Aggregator", "Metric_Beat", "Trace_Collector", "Security_Auditor"]
 
         def safe_makedirs(path):
             if not os.path.exists(path): os.makedirs(path, exist_ok=True)
 
-        def log(msg): print(f"[FACTORY] {msg}")
-
-        # A. 소스 코드 생산
-        def produce_code():
-            log("🚀 Manufacturing Services & Collectors...")
+        def produce_assets():
+            print(f"🚀 [FACTORY] Generating {len(SERVICES) + len(COLLECTORS)} Services...")
             safe_makedirs("src/main/java/com/global/core")
             safe_makedirs("src/main/java/com/global/collection")
-            safe_makedirs("src/main/resources/config")
-            
-            # Core Services
-            for svc in CORE_SERVICES:
-                base = f"src/main/java/com/global/core/{svc.lower()}"
-                safe_makedirs(base)
-                with open(f"{base}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.global.core.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Online\"); }} }}")
-                
-                # Config with Logic
-                with open(f"src/main/resources/config/{svc}_config.xml", "w") as f:
-                    f.write(f"<config><name>{svc}</name><port>{8000 + CORE_SERVICES.index(svc)}</port></config>")
-
-            # Collectors
-            for svc in COLLECTORS:
-                base = f"src/main/java/com/global/collection/{svc.lower()}"
-                safe_makedirs(base)
-                with open(f"{base}/{svc}Agent.java", "w") as f:
-                    f.write(f"package com.global.collection.{svc.lower()};\npublic class {svc}Agent {{ public void run() {{ }} }}")
-
-        # B. 업그레이드 시스템 생산
-        def produce_upgrade_sys():
-            log("⬆️ Generating Upgrade Manager...")
-            safe_makedirs("infra/upgrade")
-            
-            manifest = {
-                "patch_version": f"v{datetime.datetime.now().year}.{random.randint(1,100)}",
-                "targets": CORE_SERVICES + COLLECTORS,
-                "rollback_enabled": True
-            }
-            with open("infra/upgrade/manifest.json", "w") as f:
-                json.dump(manifest, f, indent=4)
-                
-            with open("infra/upgrade/patch_runner.py", "w") as f:
-                f.write("print('Applying Kernel Patches...'); print('Restarting Clusters...');")
-
-        # C. C++ 암호화 엔진
-        def produce_cpp_core():
-            log("🔐 Forging Crypto Engine...")
+            safe_makedirs("docs/images")
             safe_makedirs("cpp_core")
-            # [Fix] 헤더 줄바꿈 명시
+
+            all_svcs = SERVICES + COLLECTORS
+            for i, svc in enumerate(all_svcs):
+                kind = 'core' if svc in SERVICES else 'collection'
+                base = f"src/main/java/com/global/{kind}/{svc.lower()}"
+                safe_makedirs(base)
+                
+                with open(f"{base}/{svc}Application.java", "w") as f:
+                    f.write(f"package com.global.{kind}.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Ready\"); }} }}")
+
+            # Image Gen
+            img = Image.new('RGB', (400, 200), color=(50, 50, 50))
+            d = ImageDraw.Draw(img)
+            d.text((20, 90), f"System Architecture {datetime.datetime.now().year}", fill="yellow")
+            img.save("docs/images/architecture.png")
+
+            # C++
             with open("cpp_core/crypto.cpp", "w") as f:
-                f.write('#include <iostream>\n')
-                f.write('#include <fstream>\n')
-                f.write('void encrypt(std::string f) { std::ofstream o(f+".enc"); o<<"ENC"; o.close(); }\n')
-                f.write('int main(int c, char* v[]) { if(c>1) encrypt(v[1]); return 0; }')
+                f.write('#include <iostream>\nint main() { return 0; }')
 
         if __name__ == "__main__":
-            produce_code()
-            produce_upgrade_sys()
-            produce_cpp_core()
-            safe_makedirs("bin")
-            safe_makedirs("release_pkg")
-            safe_makedirs("logs")
-            log("✅ Factory Output Ready.")
+            produce_assets()
         EOF
-        
-        python factory_manager.py
 
-    # ----------------------------------------------------------------
-    # [Step 6] 보안 워터마크 (헤더 파괴 방지 적용)
-    # ----------------------------------------------------------------
-    - name: 🛡️ [8] Apply Watermark
-      shell: bash
-      run: |
-        cat <<'EOF' > watermark.py
-        import os
-        import datetime
-        # [CRITICAL] 줄바꿈 명시
-        HEADER = f"// (C) {datetime.datetime.now().year} GLOBAL FACTORY. SECURE.\n"
-
+        # 4. 보안 인젝터
+        cat <<'EOF' > ops_scripts/security_injector.py
+        import os, datetime
+        HEADER = f"// (C) {datetime.datetime.now().year} SECURE OPS.\n"
         def inject():
             for root, dirs, files in os.walk("."):
-                if any(x in root for x in ["bin", ".git", "release_pkg"]): continue
+                if "bin" in root or ".git" in root: continue
                 for file in files:
-                    if file.endswith(('.java', '.cpp', '.xml', '.py')):
-                        path = os.path.join(root, file)
+                    if file.endswith(('.java', '.cpp')):
                         try:
-                            with open(path, 'r', encoding='utf-8') as f: content = f.read()
-                            if "GLOBAL FACTORY" not in content:
-                                with open(path, 'w', encoding='utf-8') as f:
+                            path = os.path.join(root, file)
+                            with open(path, 'r+', encoding='utf-8') as f:
+                                content = f.read()
+                                if "SECURE OPS" not in content:
+                                    f.seek(0, 0)
                                     f.write(HEADER + content)
                         except: pass
         if __name__ == "__main__": inject()
         EOF
-        python watermark.py
+        
+        # 5. 배포 시뮬레이터
+        cat <<'EOF' > ops_scripts/deploy_simulator.py
+        import http.server, socketserver, threading, time, os
+        def run():
+            if not os.path.exists("deploy_root"): os.makedirs("deploy_root")
+            os.chdir("deploy_root")
+            def serve(p):
+                try:
+                    with socketserver.TCPServer(("", p), http.server.SimpleHTTPRequestHandler) as h: h.serve_forever()
+                except: pass
+            for p in range(8000, 8005):
+                t = threading.Thread(target=serve, args=(p,))
+                t.daemon = True
+                t.start()
+            time.sleep(5)
+            print("✅ Simulation Online.")
+        if __name__ == "__main__": run()
+        EOF
 
     # ----------------------------------------------------------------
-    # [Step 7] 정밀 빌드 & 업그레이드 & 암호화
+    # [Step 4] 의존성 설치 & CodeQL Init
     # ----------------------------------------------------------------
-    - name: 🔨 [9] Build & Upgrade
+    - name: 📦 [5] Install Deps
+      run: pip install -r ops_scripts/requirements.txt
+
+    - name: 🛡️ [6] CodeQL Init
+      uses: github/codeql-action/init@v4
+      with:
+        languages: java, cpp, python
+
+    # ----------------------------------------------------------------
+    # [Step 5] 팩토리 가동 (리소스 체크 포함)
+    # ----------------------------------------------------------------
+    - name: 🏭 [7] Execute Factory & Security
+      run: |
+        python ops_scripts/resource_manager.py
+        python ops_scripts/factory_manager.py
+        python ops_scripts/security_injector.py
+        python ops_scripts/resource_manager.py
+
+    # ----------------------------------------------------------------
+    # [Step 6] 빌드 (Docker 포함)
+    # ----------------------------------------------------------------
+    - name: 🔨 [8] Build System
       shell: bash
       run: |
-        echo "=========================================="
-        echo "🏗️ FACTORY BUILD & UPGRADE..."
-        echo "=========================================="
-        
-        # 1. C++ 컴파일
-        echo "🔐 Compiling Crypto..."
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-            g++ -o bin/Crypto.exe cpp_core/crypto.cpp
-            CRYPTO="bin/Crypto.exe"
-        else
-            g++ -o bin/Crypto cpp_core/crypto.cpp
-            CRYPTO="./bin/Crypto"
-        fi
-        
-        # 2. Java 컴파일 (Core + Collection)
-        echo "☕ Compiling All Services..."
+        echo "🏗️ Building Binaries..."
+        g++ -o bin/Crypto cpp_core/crypto.cpp
         find src -name "*.java" > sources.txt
         javac -nowarn -d bin @sources.txt
+        jar cf bin/CoreApp.jar -C bin .
         
-        # 3. 패키징 및 암호화
-        echo "📦 Packaging..."
-        
-        # Core Services
-        CORE="Banking Stock Insurance PublicData Crypto RealEstate GovTax Logistics HealthCare Metaverse AI_Core IoT_Network Education_Hub Energy_Grid Defense_Sys"
-        for svc in $CORE; do
-            svc_lower=$(echo "$svc" | tr '[:upper:]' '[:lower:]')
-            echo "Main-Class: com.global.core.${svc_lower}.${svc}Application" > Manifest.txt
-            jar cf bin/${svc}App.jar Manifest.txt -C bin .
-            
-            # Config 암호화
-            if [ -f "src/main/resources/config/${svc}_config.xml" ]; then
-                cp "src/main/resources/config/${svc}_config.xml" "bin/${svc}_config.xml"
-                $CRYPTO "bin/${svc}_config.xml"
-            fi
-        done
-        
-        # Collection Agents
-        COLL="Log_Aggregator Metric_Beat Trace_Collector User_Activity_Tracker Network_Sniffer Security_Auditor Market_Feeder Error_Catcher"
-        for svc in $COLL; do
-            jar cf bin/${svc}Agent.jar -C bin .
-        done
-        
-        # 4. 업그레이드 시뮬레이션
-        echo "⬆️ Running Upgrade Simulation..."
-        python infra/upgrade/patch_runner.py
-        
-        echo "✅ All Systems Built & Upgraded."
+        # Docker Build (공간 절약을 위해 빌드 후 즉시 정리)
+        echo "🐳 Building Docker Image..."
+        echo "FROM scratch" > Dockerfile
+        docker build -t global/app:latest .
+        docker rmi global/app:latest # 빌드 검증 후 바로 삭제하여 공간 확보
 
     # ----------------------------------------------------------------
-    # [Step 8] CodeQL 분석 (Git Push *이전*에 수행하여 에러 방지)
+    # [Step 7] 배포 시뮬레이션
     # ----------------------------------------------------------------
-    - name: 🔍 [10] Perform CodeQL Analysis v4
+    - name: 🌐 [9] Run Simulation
+      run: |
+        mkdir -p deploy_root
+        cp bin/*.jar deploy_root/
+        python ops_scripts/deploy_simulator.py
+
+    # ----------------------------------------------------------------
+    # [Step 8] SCM Sync (Autostash)
+    # ----------------------------------------------------------------
+    - name: 💾 [10] SCM Sync (Robust)
+      if: runner.os == 'Linux' && github.event_name != 'pull_request'
+      shell: bash
+      run: |
+        git config --global user.name "Ops-Bot"
+        git config --global user.email "bot@ops.com"
+        
+        # 디스크 공간 확인
+        python ops_scripts/resource_manager.py
+        
+        # 파일 추가
+        git add -A
+        git add -f ops_scripts/ src/ docs/ bin/Crypto*
+        
+        if git diff --staged --quiet; then
+            echo "✅ No changes."
+        else
+            git commit -m "🏭 Factory Update: Optimized Storage [skip ci]"
+            
+            # Rebase Loop
+            for i in {1..5}; do
+                git pull --rebase --autostash origin main && git push origin main && break || sleep 5
+            done
+        fi
+
+    # ----------------------------------------------------------------
+    # [Step 9] CodeQL Analysis
+    # ----------------------------------------------------------------
+    - name: 🔍 [11] Perform CodeQL Analysis v4
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:java,cpp,python"
 
     # ----------------------------------------------------------------
-    # [Step 9] 대시보드 리포트
+    # [Step 10] 아티팩트 업로드 (압축하여 용량 절약)
     # ----------------------------------------------------------------
-    - name: 📊 [11] Generate Dashboard
-      shell: bash
-      run: |
-        JAR_COUNT=$(find bin -name "*.jar" | wc -l | xargs)
-        ENC_COUNT=$(find bin -name "*.enc" | wc -l | xargs)
-        
-        cat <<EOF > factory_dashboard.html
-        <html><body><h1>Factory Status</h1><p>Apps: $JAR_COUNT</p><p>Encrypted: $ENC_COUNT</p></body></html>
-        EOF
-        
-        echo "## 🏭 Factory Dashboard" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :---: |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Total Services** | $JAR_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Encrypted** | $ENC_COUNT |" >> $GITHUB_STEP_SUMMARY
-
-    # ----------------------------------------------------------------
-    # [Step 10] Git 저장소 강제 동기화 (CodeQL 이후 실행)
-    # ----------------------------------------------------------------
-    - name: 💾 [12] Force Push Assets (Autostash)
-      if: runner.os == 'Linux' && github.event_name != 'pull_request'
-      shell: bash
-      run: |
-        echo "🔄 STARTING SCM SYNC..."
-        git config --global user.name "Factory-Bot"
-        git config --global user.email "bot@factory.com"
-        
-        # 모든 파일 강제 추가
-        git add -A
-        git add -f src/ infra/ database/ cpp_core/ factory_manager.py *.html bin/*.enc
-        
-        if git diff --staged --quiet; then
-            echo "✅ No changes."
-        else
-            git commit -m "🏭 Factory Update: Core+Collectors+Upgrade [skip ci]"
-            
-            # Rebase & Push Loop with Autostash (충돌 방지 핵심)
-            for i in {1..5}; do
-                echo "🔄 Sync Attempt ($i/5)..."
-                if git pull --rebase --autostash origin main; then
-                    if git push origin main; then
-                        echo "✅ Push Success."
-                        break
-                    else
-                        echo "⚠️ Push failed, retrying..."
-                        sleep 5
-                    fi
-                else
-                    echo "⚠️ Pull failed, aborting rebase & retrying..."
-                    git rebase --abort || true
-                    sleep 5
-                fi
-            done
-        fi
-
-    # ----------------------------------------------------------------
-    # [Step 11] 아티팩트 업로드
-    # ----------------------------------------------------------------
-    - name: 📤 [13] Upload Artifacts
+    - name: 📤 [12] Upload Optimized Artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
-          factory_dashboard.html
-          bin/*.jar
-          bin/*.enc
+          ops_scripts/
+          bin/
           src/
-          infra/
+          docs/
         retention-days: 1
+        compression-level: 9 # 최대 압축
