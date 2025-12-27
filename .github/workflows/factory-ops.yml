@@ -1,8 +1,8 @@
-name: 🌍 Galaxy Ops:Global Command (Cache-Free)
+name: 🪐 Galaxy Ops:Omni-Command (Shell & Security)
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 갱신 (최대 빈도)
+    - cron: '*/5 * * * *' # 5분마다 데이터 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,13 +13,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "galaxy-ops-final"
+  group: "galaxy-ops-omni"
   cancel-in-progress: true
 
 jobs:
-  # ==============================================================================
-  # [Job 1] 데이터 생성, 웹 빌드, 배포 준비
-  # ==============================================================================
   build-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -30,94 +27,121 @@ jobs:
 
     - name: 🛠️ Setup Python
       uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      with: { python-version: '3.10' }
 
     - name: 📦 Install Deps
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 데이터 엔진 (지역 정보 및 좌표 추가)
+    # [Step 1] 🏭 옴니 데이터 엔진 (보안, 비용, 쉘 데이터 생성)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Global Data Engine
+    - name: 🏭 Run Omni Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import json, random, datetime
+        import json, random, datetime, uuid
         from faker import Faker
         fake = Faker()
         
-        NODE_COUNT = 100
+        NODE_COUNT = 80
         
-        # 지역별 좌표 및 클러스터 정의
         REGIONS = {
-            "US-EAST": {"lat": 30, "lon": 20, "code": "USE"},
-            "EU-WEST": {"lat": 30, "lon": 50, "code": "EUW"},
-            "AP-NORT": {"lat": 35, "lon": 80, "code": "APN"},
-            "SA-EAST": {"lat": 70, "lon": 25, "code": "SAE"}
+            "US-EAST": {"lat": 38, "lon": 25, "c": "USE"},
+            "EU-CENT": {"lat": 35, "lon": 52, "c": "EUC"},
+            "AP-SEOUL": {"lat": 40, "lon": 82, "c": "APS"},
+            "SA-BRAZ": {"lat": 75, "lon": 30, "c": "SAB"}
         }
         
-        TECH_STACK = {
-            "PAYMENT": { "db": "PostgreSQL", "store": "Block-NVMe" },
-            "AUTH":    { "db": "Redis-Cluster", "store": "Mem-Only" },
-            "AI":      { "db": "Vector-DB", "store": "Obj-Store" },
-            "CDN":     { "db": "Edge-KV", "store": "SSD-Raid" }
-        }
+        THREAT_ORIGINS = [
+            {"lat": 35, "lon": 20}, # Unknown Proxy
+            {"lat": 45, "lon": 90}, # Botnet A
+            {"lat": 60, "lon": 40}, # Botnet B
+            {"lat": 80, "lon": 10}  # Dark Web Node
+        ]
+        
+        ATTACK_TYPES = ["DDoS Volumetric", "SQL Injection", "XSS Attempt", "Brute Force SSH", "Ransomware Scan"]
+
+        def gen_finops():
+            return {
+                "budget": 50000,
+                "current_spend": round(random.uniform(20000, 35000), 2),
+                "burn_rate_per_sec": round(random.uniform(0.05, 0.25), 4),
+                "forecast": "OVER_BUDGET" if random.random() > 0.7 else "OPTIMAL"
+            }
+
+        def gen_threats():
+            threats = []
+            for _ in range(20):
+                target = random.choice(list(REGIONS.values()))
+                origin = random.choice(THREAT_ORIGINS)
+                threats.append({
+                    "id": str(uuid.uuid4())[:8],
+                    "type": random.choice(ATTACK_TYPES),
+                    "src_coords": {"top": f"{origin['lat']}%", "left": f"{origin['lon']}%"},
+                    "dst_coords": {"top": f"{target['lat']}%", "left": f"{target['lon']}%"},
+                    "severity": random.choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+                })
+            return threats
 
         def gen_nodes():
             nodes = []
             for i in range(NODE_COUNT):
                 r_key = random.choice(list(REGIONS.keys()))
-                region = REGIONS[r_key]
-                svc = random.choice(list(TECH_STACK.keys()))
+                reg = REGIONS[r_key]
                 
-                # 좌표 미세 조정 (군집 효과)
-                lat = region['lat'] + random.randint(-5, 5)
-                lon = region['lon'] + random.randint(-5, 5)
+                # 가상 파일시스템 및 쉘 환경 데이터
+                files = ["config.yaml", "app.py", "error.log", "id_rsa.pub"]
                 
                 nodes.append({
-                    "id": f"{svc}-{region['code']}-{i:03d}",
-                    "type": svc,
+                    "id": f"{reg['c']}-{i:03d}",
                     "region": r_key,
-                    "pos": {"top": f"{lat}%", "left": f"{lon}%"},
+                    "role": random.choice(["WEB", "WAS", "DB", "CACHE"]),
+                    "ip": fake.ipv4_private(),
                     "status": "ACTIVE" if random.random() > 0.1 else "CRITICAL",
-                    "tech": TECH_STACK[svc],
-                    "metrics": {
-                        "cpu": random.randint(5, 90),
-                        "tps": random.randint(100, 5000),
-                        "latency": random.randint(10, 200)
+                    "pos": {
+                        "top": f"{reg['lat'] + random.randint(-5,5)}%", 
+                        "left": f"{reg['lon'] + random.randint(-5,5)}%"
                     },
-                    "tokens": [fake.sha256()[:8] for _ in range(3)]
+                    "metrics": {
+                        "cpu": random.randint(5, 95),
+                        "mem": random.randint(10, 90)
+                    },
+                    "shell_env": {
+                        "user": "devops",
+                        "files": files,
+                        "uptime": f"{random.randint(1, 100)} days"
+                    }
                 })
-            
-            return {
-                "generated_at": datetime.datetime.now().isoformat(),
-                "nodes": nodes
-            }
+            return nodes
 
         if __name__ == "__main__":
-            data = gen_nodes()
+            data = {
+                "generated_at": datetime.datetime.now().isoformat(),
+                "finops": gen_finops(),
+                "threats": gen_threats(),
+                "nodes": gen_nodes()
+            }
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print("✅ Global Data Generated.")
+            print("✅ Omni Data Generated.")
         EOF
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 커밋 (저장소 반영)
+    # [Step 2] 데이터 커밋
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "Ops-Bot"
+        git config --global user.name "Shell-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🌍 Global Ops Update [$(date)]" || echo "No changes"
+        git commit -m "🪐 Omni-Ops Update [$(date)]" || echo "No changes"
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 (Cache Busting & Map)
+    # [Step 3] 프론트엔드 (Shell, Canvas Map, FinOps)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Command Center
+    - name: 🎨 Build Omni Interface
       shell: bash
       run: |
         mkdir -p _site
@@ -129,197 +153,332 @@ jobs:
         <head>
             <meta charset="UTF-8">
             <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-            <meta http-equiv="Pragma" content="no-cache">
-            <meta http-equiv="Expires" content="0">
-            
-            <title>GALAXY COMMAND</title>
+            <title>GALAXY OMNI-COMMAND</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
             <style>
-                body { background-color: #020617; color: #94a3b8; font-family: 'Courier New', monospace; overflow: hidden; }
+                @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
                 
-                /* Grid Layout */
-                .layout { display: grid; grid-template-rows: 60px 1fr 200px 30px; height: 100vh; }
+                body { background-color: #050505; color: #a3a3a3; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
                 
-                /* Map Area */
-                .map-container { position: relative; background: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 80%); overflow: hidden; border-bottom: 1px solid #334155; }
-                .map-grid { 
-                    position: absolute; width: 100%; height: 100%; 
-                    background-image: linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px);
-                    background-size: 40px 40px; opacity: 0.1;
-                }
-                .node-point { 
-                    position: absolute; width: 8px; height: 8px; border-radius: 50%; 
-                    background: #3b82f6; box-shadow: 0 0 10px #3b82f6; cursor: pointer; transition: all 0.3s; 
-                }
-                .node-point:hover { transform: scale(2); z-index: 100; background: #fff; }
-                .node-point.crit { background: #ef4444; box-shadow: 0 0 15px #ef4444; animation: pulse 1s infinite; }
+                /* Layout */
+                .main-layout { display: grid; grid-template-rows: 50px 1fr 250px 25px; height: 100vh; }
+                .middle-section { display: grid; grid-template-columns: 1fr 300px; overflow: hidden; }
                 
-                /* Server List Area */
-                .server-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; padding: 10px; overflow-y: auto; background: #0f172a; }
-                .card { background: #1e293b; padding: 8px; border: 1px solid #334155; font-size: 10px; cursor: pointer; }
-                .card:hover { border-color: #60a5fa; background: #334155; }
+                /* Header FinOps */
+                .ticker { font-variant-numeric: tabular-nums; letter-spacing: 1px; }
                 
-                /* Animations */
-                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+                /* Map & Canvas */
+                .map-wrapper { position: relative; background: radial-gradient(circle at 50% 50%, #171717 0%, #000 90%); overflow: hidden; border-right: 1px solid #333; }
+                #threat-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+                .node-dot { position: absolute; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; box-shadow: 0 0 8px #3b82f6; transition: all 0.5s; cursor: pointer; }
+                .node-dot:hover { transform: scale(2); background: #fff; z-index: 50; }
+                .node-dot.crit { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
                 
-                /* DR Mode */
-                body.dr-mode { border: 4px solid #ef4444; }
-                body.dr-mode .map-container { filter: sepia(1) hue-rotate(-50deg) saturate(3); }
+                /* Right Panel (Threats) */
+                .threat-panel { background: #0a0a0a; border-left: 1px solid #333; display: flex; flex-direction: column; }
+                .log-item { font-size: 10px; padding: 4px 8px; border-bottom: 1px solid #1a1a1a; }
+                .log-item.high { border-left: 2px solid #ef4444; color: #fca5a5; }
+                
+                /* Terminal / Shell Area */
+                .terminal-container { background: #0c0c0c; border-top: 1px solid #333; padding: 10px; font-size: 12px; display: flex; flex-direction: column; overflow: hidden; }
+                .term-output { flex: 1; overflow-y: auto; color: #d4d4d4; margin-bottom: 5px; white-space: pre-wrap; }
+                .term-input-line { display: flex; color: #22c55e; font-weight: bold; align-items: center; }
+                .term-input { background: transparent; border: none; color: #fff; flex: 1; outline: none; margin-left: 8px; font-family: inherit; font-weight: normal; }
+                
+                /* Scrollbar */
+                ::-webkit-scrollbar { width: 6px; }
+                ::-webkit-scrollbar-thumb { background: #333; }
             </style>
         </head>
-        <body class="layout">
+        <body class="main-layout">
             
-            <header class="flex justify-between items-center px-6 bg-slate-950 border-b border-slate-800">
+            <header class="flex justify-between items-center px-4 bg-black border-b border-[#333]">
                 <div class="flex items-center gap-4">
-                    <i class="fas fa-globe-americas text-2xl text-blue-600"></i>
-                    <div>
-                        <h1 class="text-xl font-bold text-white tracking-widest">GLOBAL <span class="text-blue-500">COMMAND</span></h1>
-                        <div class="text-[10px]">SYNC: <span id="sync-time" class="text-green-400">CONNECTING...</span></div>
-                    </div>
+                    <span class="text-2xl animate-pulse">🪐</span>
+                    <h1 class="text-lg font-bold text-white tracking-widest">OMNI <span class="text-blue-500">COMMAND</span></h1>
+                    <div class="px-2 py-0.5 rounded border border-red-900 bg-red-900/20 text-red-500 text-xs font-bold" id="defcon-badge">DEFCON 4</div>
                 </div>
-                <div class="flex gap-4 items-center">
-                    <button onclick="toggleDR()" class="border border-red-900 bg-red-900/20 text-red-500 px-4 py-2 hover:bg-red-900 hover:text-white transition font-bold text-xs rounded">
-                        <i class="fas fa-biohazard mr-2"></i> DR MODE
-                    </button>
-                    <button onclick="forceRefresh()" class="border border-blue-900 bg-blue-900/20 text-blue-500 px-4 py-2 hover:bg-blue-900 hover:text-white transition font-bold text-xs rounded">
-                        <i class="fas fa-sync mr-2"></i> REFRESH DATA
-                    </button>
+                
+                <div class="flex items-center gap-6 text-xs">
+                    <div class="text-right">
+                        <div class="text-gray-500">CURRENT SPEND</div>
+                        <div class="text-yellow-400 font-bold text-lg ticker">$<span id="fin-spend">0.00</span></div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-gray-500">BURN RATE</div>
+                        <div class="text-gray-300 font-bold ticker">+$<span id="fin-rate">0.0000</span>/s</div>
+                    </div>
                 </div>
             </header>
 
-            <div class="map-container" id="world-map">
-                <div class="map-grid"></div>
-                <div class="absolute top-4 left-4 text-xs text-slate-500 font-mono">
-                    <div>> USEAST CLUSTER: ONLINE</div>
-                    <div>> EUWEST CLUSTER: ONLINE</div>
-                    <div>> APNORT CLUSTER: DEGRADED</div>
-                </div>
-            </div>
+            <section class="middle-section">
+                <div class="map-wrapper" id="map-root">
+                    <canvas id="threat-canvas"></canvas>
+                    <div class="absolute top-4 left-4 text-[10px] text-gray-500">
+                        > THREAT_VISUALIZER_V8.0<br>
+                        > INTERCEPTING PACKETS...
+                    </div>
+                    </div>
 
-            <div class="server-list custom-scroll" id="grid-list">
+                <div class="threat-panel">
+                    <div class="p-2 bg-[#111] text-[10px] font-bold text-gray-400 border-b border-[#333] flex justify-between">
+                        <span>🛡️ WAF EVENT LOGS</span>
+                        <span id="threat-count" class="text-red-500">0 DETECTED</span>
+                    </div>
+                    <div id="waf-logs" class="flex-1 overflow-y-auto custom-scroll"></div>
                 </div>
+            </section>
 
-            <footer class="bg-black border-t border-slate-800 flex items-center px-4 text-[10px] font-mono text-slate-500">
-                <span class="mr-2 text-green-500">root@global-ops:~#</span>
-                <span id="term-log">tail -f /var/log/syslog</span>
+            <section class="terminal-container" onclick="document.getElementById('cmd').focus()">
+                <div class="term-output" id="term-out">
+                    <div class="text-blue-400">Welcome to Galaxy Omni-Shell v8.0.2 LTS</div>
+                    <div class="text-gray-500">Type 'help' for available commands. Try 'connect [ID]' to SSH into a node.</div>
+                    <br>
+                </div>
+                <div class="term-input-line">
+                    <span id="prompt-user">devops@galaxy-ops:~$</span>
+                    <input type="text" id="cmd" class="term-input" autocomplete="off" spellcheck="false">
+                </div>
+            </section>
+
+            <footer class="bg-black text-[10px] text-gray-600 flex items-center px-4">
+                <span class="mr-4">CONNECTED: TLS v1.3</span>
+                <span>LATENCY: 24ms</span>
             </footer>
 
             <script>
-                let nodes = [];
-                let drMode = false;
-
+                // Data State
+                let globalData = { nodes: [], threats: [], finops: {} };
+                let sshSession = null; // Current SSH context
+                
+                // --- INIT ---
                 async function init() {
                     await loadData();
-                    // Auto-refresh data every 60s (without page reload)
-                    setInterval(loadData, 60000);
-                    // Live Physics
-                    setInterval(updatePhysics, 1000);
+                    setInterval(loadData, 60000); // Data Refresh
+                    
+                    // Start Animation Loops
+                    requestAnimationFrame(animateThreats);
+                    setInterval(updateFinOps, 1000);
+                    setInterval(autoLog, 2000);
+
+                    // Setup Shell
+                    document.getElementById('cmd').addEventListener('keydown', handleShellInput);
                 }
 
-                // [핵심] Cache Busting Fetcher
                 async function loadData() {
-                    const statusEl = document.getElementById('sync-time');
-                    statusEl.innerText = "FETCHING...";
-                    
                     try {
-                        // URL 끝에 타임스탬프(?v=...)를 붙여서 캐시 무시
                         const res = await fetch('dashboard_data.json?v=' + Date.now());
-                        if(!res.ok) throw new Error("Network error");
-                        
                         const data = await res.json();
-                        nodes = data.nodes;
-                        
+                        globalData = data;
                         renderMap();
-                        renderList();
+                        renderThreatLogs();
                         
-                        const genTime = new Date(data.generated_at);
-                        const now = new Date();
-                        const diff = Math.floor((now - genTime) / 1000);
-                        statusEl.innerText = `UPDATED ${diff}s AGO`;
-                        statusEl.classList.replace('text-red-500', 'text-green-400');
-                        
+                        // Set Initial FinOps
+                        document.getElementById('fin-spend').innerText = data.finops.current_spend.toFixed(2);
+                        document.getElementById('fin-rate').innerText = data.finops.burn_rate_per_sec;
                     } catch(e) {
-                        console.error(e);
-                        // Fallback (빈 화면 방지)
-                        if(nodes.length === 0) generateFallback();
-                        statusEl.innerText = "OFFLINE MODE (LOCAL DATA)";
-                        statusEl.classList.replace('text-green-400', 'text-red-500');
+                        console.log("Offline Mode");
                     }
                 }
 
-                function generateFallback() {
-                    nodes = Array.from({length: 50}, (_, i) => ({
-                        id: `LOCAL-${i}`, type: "FALLBACK", region: "US-EAST", status: "ACTIVE",
-                        pos: { top: Math.random()*80+10+"%", left: Math.random()*80+10+"%" },
-                        tech: { db: "LocalDB" }, metrics: { cpu: 50, tps: 100 }
-                    }));
-                    renderMap();
-                    renderList();
-                }
-
+                // --- MAP & VISUALS ---
                 function renderMap() {
-                    const map = document.getElementById('world-map');
-                    // Keep grid, remove nodes
-                    const grid = map.querySelector('.map-grid');
-                    map.innerHTML = ''; 
-                    map.appendChild(grid); 
-
-                    nodes.forEach((n, i) => {
+                    const map = document.getElementById('map-root');
+                    // Remove old dots only (keep canvas)
+                    document.querySelectorAll('.node-dot').forEach(e => e.remove());
+                    
+                    globalData.nodes.forEach(n => {
                         const el = document.createElement('div');
-                        el.className = `node-point ${n.status === 'CRITICAL' ? 'crit' : ''}`;
+                        el.className = `node-dot ${n.status==='CRITICAL'?'crit':''}`;
                         el.style.top = n.pos.top;
                         el.style.left = n.pos.left;
-                        el.title = `${n.id} [${n.status}]`;
-                        el.onclick = () => alert(`Node: ${n.id}\nDB: ${n.tech.db}\nCPU: ${n.metrics.cpu}%`);
+                        el.title = `${n.id} (${n.ip})`;
+                        el.onclick = () => {
+                            document.getElementById('cmd').value = `connect ${n.id}`;
+                            document.getElementById('cmd').focus();
+                        };
                         map.appendChild(el);
                     });
                 }
 
-                function renderList() {
-                    const list = document.getElementById('grid-list');
-                    list.innerHTML = nodes.map(n => `
-                        <div class="card ${n.status === 'CRITICAL' ? 'border-red-500' : ''}">
-                            <div class="flex justify-between font-bold text-white mb-1">
-                                <span>${n.id}</span>
-                                <span class="${n.status==='CRITICAL'?'text-red-500':'text-green-500'}">●</span>
-                            </div>
-                            <div class="text-slate-400">${n.tech.db}</div>
-                            <div class="flex justify-between mt-2 text-slate-500">
-                                <span>CPU: <span id="cpu-${n.id}">${n.metrics.cpu}%</span></span>
-                                <span>TPS: ${n.metrics.tps}</span>
-                            </div>
-                        </div>
-                    `).join('');
+                const canvas = document.getElementById('threat-canvas');
+                const ctx = canvas.getContext('2d');
+                let threatsAnim = [];
+
+                function animateThreats() {
+                    // Resize
+                    canvas.width = canvas.parentElement.offsetWidth;
+                    canvas.height = canvas.parentElement.offsetHeight;
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Add new threats randomly
+                    if(Math.random() > 0.95 && globalData.threats.length > 0) {
+                        const t = globalData.threats[Math.floor(Math.random() * globalData.threats.length)];
+                        threatsAnim.push({
+                            x: parseFloat(t.src_coords.left) / 100 * canvas.width,
+                            y: parseFloat(t.src_coords.top) / 100 * canvas.height,
+                            tx: parseFloat(t.dst_coords.left) / 100 * canvas.width,
+                            ty: parseFloat(t.dst_coords.top) / 100 * canvas.height,
+                            progress: 0,
+                            speed: Math.random() * 0.02 + 0.01,
+                            color: t.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b'
+                        });
+                    }
+
+                    // Draw lines
+                    threatsAnim.forEach((t, i) => {
+                        t.progress += t.speed;
+                        
+                        const curX = t.x + (t.tx - t.x) * t.progress;
+                        const curY = t.y + (t.ty - t.y) * t.progress;
+                        
+                        // Trail
+                        ctx.beginPath();
+                        ctx.moveTo(t.x, t.y);
+                        ctx.lineTo(curX, curY);
+                        ctx.strokeStyle = `rgba(${t.color === '#ef4444' ? '239,68,68' : '245,158,11'}, ${1-t.progress})`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        
+                        // Head
+                        ctx.beginPath();
+                        ctx.arc(curX, curY, 2, 0, Math.PI*2);
+                        ctx.fillStyle = '#fff';
+                        ctx.fill();
+
+                        if(t.progress >= 1) threatsAnim.splice(i, 1);
+                    });
+
+                    requestAnimationFrame(animateThreats);
                 }
 
-                function updatePhysics() {
-                    nodes.forEach(n => {
-                        // Live Jitter
-                        n.metrics.cpu = Math.max(0, Math.min(100, n.metrics.cpu + Math.floor(Math.random()*5-2)));
-                        const el = document.getElementById(`cpu-${n.id}`);
-                        if(el) el.innerText = n.metrics.cpu + "%";
-                    });
+                // --- FINOPS ENGINE ---
+                function updateFinOps() {
+                    if(!globalData.finops) return;
                     
-                    // Random Logs
-                    if(Math.random() > 0.9) {
-                        const logs = ["Syncing replica...", "Health check OK", "Auth token refreshed", "Packet loss detected"];
-                        const logEl = document.getElementById('term-log');
-                        logEl.innerText = `> ${logs[Math.floor(Math.random()*logs.length)]} [${new Date().toLocaleTimeString()}]`;
+                    let spend = parseFloat(document.getElementById('fin-spend').innerText);
+                    let rate = globalData.finops.burn_rate_per_sec;
+                    
+                    // Increment
+                    spend += rate;
+                    document.getElementById('fin-spend').innerText = spend.toFixed(2);
+                }
+
+                // --- SHELL / TERMINAL LOGIC (THE BRAIN) ---
+                function handleShellInput(e) {
+                    if(e.key === 'Enter') {
+                        const input = e.target.value.trim();
+                        const out = document.getElementById('term-out');
+                        const prompt = document.getElementById('prompt-user').innerText;
+                        
+                        // Echo input
+                        out.innerHTML += `<div><span class="text-green-500">${prompt}</span> ${input}</div>`;
+                        
+                        // Process Command
+                        processCommand(input, out);
+                        
+                        // Scroll & Clear
+                        e.target.value = '';
+                        out.scrollTop = out.scrollHeight;
                     }
                 }
 
-                window.forceRefresh = function() {
-                    loadData();
+                function processCommand(cmd, out) {
+                    const args = cmd.split(' ');
+                    const main = args[0].toLowerCase();
+                    
+                    if(sshSession) {
+                        // SSH Context Commands
+                        if(main === 'exit') {
+                            sshSession = null;
+                            document.getElementById('prompt-user').innerText = "devops@galaxy-ops:~$";
+                            out.innerHTML += `<div class="text-gray-400">Connection closed.</div>`;
+                            return;
+                        }
+                        if(main === 'ls') {
+                            out.innerHTML += `<div class="text-blue-300">${sshSession.shell_env.files.join('  ')}</div>`;
+                            return;
+                        }
+                        if(main === 'whoami') {
+                            out.innerHTML += `<div>${sshSession.shell_env.user}</div>`;
+                            return;
+                        }
+                        if(main === 'top') {
+                            out.innerHTML += `
+                            <div>Tasks: 12 total, 1 running, 11 sleeping</div>
+                            <div>%Cpu(s): ${sshSession.metrics.cpu}.0 us,  2.1 sy,  0.0 ni</div>
+                            <div>MiB Mem : ${sshSession.metrics.mem * 64} total,  ${sshSession.metrics.mem * 32} free</div>
+                            `;
+                            return;
+                        }
+                    } 
+                    
+                    // Global Context Commands
+                    if(main === 'help') {
+                        out.innerHTML += `
+                        <div class="text-gray-400">Available Commands:</div>
+                        <div>  help          Show this help</div>
+                        <div>  status        Global system status</div>
+                        <div>  list          List all active nodes</div>
+                        <div>  cost          Show detailed FinOps report</div>
+                        <div>  connect [ID]  SSH into a specific server</div>
+                        <div>  clear         Clear terminal</div>
+                        `;
+                    } else if (main === 'clear') {
+                        out.innerHTML = '';
+                    } else if (main === 'status') {
+                        const crit = globalData.nodes.filter(n => n.status === 'CRITICAL').length;
+                        out.innerHTML += `<div>System Status: ${crit > 0 ? 'DEGRADED' : 'OPERATIONAL'} | Active Nodes: ${globalData.nodes.length}</div>`;
+                    } else if (main === 'list') {
+                        const list = globalData.nodes.map(n => `${n.id} [${n.ip}]`).join('\n');
+                        out.innerHTML += `<div class="text-gray-500">${list}</div>`;
+                    } else if (main === 'cost') {
+                         out.innerHTML += `<div>Budget: $${globalData.finops.budget} | Forecast: ${globalData.finops.forecast}</div>`;
+                    } else if (main === 'connect') {
+                        const targetId = args[1];
+                        const node = globalData.nodes.find(n => n.id === targetId);
+                        if(node) {
+                            sshSession = node;
+                            out.innerHTML += `<div class="text-gray-400">Authenticating to ${node.ip}...</div>`;
+                            setTimeout(() => {
+                                out.innerHTML += `<div>Welcome to Ubuntu 22.04.2 LTS (${node.id})</div>`;
+                                document.getElementById('prompt-user').innerText = `${node.shell_env.user}@${node.id}:~$`;
+                                out.scrollTop = out.scrollHeight;
+                            }, 500);
+                        } else {
+                            out.innerHTML += `<div class="text-red-400">Error: Node '${targetId}' not found. Try 'list'.</div>`;
+                        }
+                    } else if (cmd === '') {
+                        // do nothing
+                    } else {
+                        out.innerHTML += `<div class="text-red-400">Command not found: ${main}</div>`;
+                    }
                 }
 
-                window.toggleDR = function() {
-                    drMode = !drMode;
-                    if(drMode) {
-                        document.body.classList.add('dr-mode');
-                        alert("⚠️ DISASTER RECOVERY PROTOCOL INITIATED ⚠️\nRerouting global traffic...");
-                    } else {
-                        document.body.classList.remove('dr-mode');
+                function renderThreatLogs() {
+                    const el = document.getElementById('waf-logs');
+                    el.innerHTML = '';
+                    globalData.threats.forEach(t => {
+                        const div = document.createElement('div');
+                        div.className = `log-item ${t.severity === 'CRITICAL' ? 'high' : ''}`;
+                        div.innerHTML = `<span class="text-gray-500">[BLOCK]</span> ${t.type} from unknown <span class="text-gray-600">(${t.id})</span>`;
+                        el.appendChild(div);
+                    });
+                    document.getElementById('threat-count').innerText = globalData.threats.length + " BLOCKED";
+                }
+
+                function autoLog() {
+                    // Random logs in the WAF panel to make it feel alive
+                    const el = document.getElementById('waf-logs');
+                    if(Math.random() > 0.7) {
+                        const attacks = ["SQLi", "XSS", "Path Traversal"];
+                        const div = document.createElement('div');
+                        div.className = 'log-item';
+                        div.innerHTML = `<span class="text-blue-400">[INFO]</span> Rate limit triggered for IP 10.23.${Math.floor(Math.random()*255)}.x`;
+                        el.prepend(div);
+                        if(el.children.length > 20) el.lastChild.remove();
                     }
                 }
 
@@ -329,24 +488,16 @@ jobs:
         </html>
         EOF
 
-    - name: 🚀 Deploy to Pages Artifact
+    - name: 🚀 Deploy Pages
       uses: actions/upload-pages-artifact@v3
-      with:
-        path: _site/
+      with: { path: _site/ }
 
-  # ==============================================================================
-  # [Job 2] 배포 (구문 오류 수정됨)
-  # ==============================================================================
   deploy:
     needs: build-deploy
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: ${{ steps.deployment.outputs.page_url }} }
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Deploy to Pages
+      - name: 🚀 Deploy
         id: deployment
         uses: actions/deploy-pages@v4
