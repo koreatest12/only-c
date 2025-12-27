@@ -1,8 +1,8 @@
-name: 🌌 Galaxy Ops:Quantum AI & Deployment
+name: 🌌 Galaxy Ops:Final Frontier (v10.0)
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 데이터 갱신
+    - cron: '*/5 * * * *' # 5분마다 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,12 +13,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "galaxy-ops-quantum"
+  group: "galaxy-ops-final-v10"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 데이터 생성 및 웹 빌드
+  # [Job 1] 대규모 데이터 생성 및 홀로그래픽 UI 빌드
   # ==============================================================================
   build-deploy:
     runs-on: ubuntu-latest
@@ -36,9 +36,9 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 Quantum 데이터 엔진 (버전 정보 및 AI 로그 생성)
+    # [Step 1] 🏭 행성급 데이터 엔진 (Planetary Data Engine)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Quantum Data Engine
+    - name: 🏭 Run Planetary Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
@@ -46,58 +46,69 @@ jobs:
         from faker import Faker
         fake = Faker()
         
-        NODE_COUNT = 60
-        CLUSTERS = ["Alpha", "Beta", "Gamma", "Delta"]
-        VERSIONS = ["v1.8.2", "v1.9.0", "v1.9.5"] # 구 버전들
+        # 설정: 120개 이상의 노드, 5개 행성 섹터
+        SECTORS = [
+            {"name": "EARTH-CORE", "code": "TER", "color": "blue"},
+            {"name": "LUNAR-BASE", "code": "LUN", "color": "gray"},
+            {"name": "MARS-COLONY", "code": "MRS", "color": "red"},
+            {"name": "TITAN-OUTPOST", "code": "TTN", "color": "yellow"},
+            {"name": "ORBITAL-STATION", "code": "ORB", "color": "cyan"}
+        ]
+        
+        SERVICES = ["Life-Support", "Quantum-Net", "Fusion-Reactor", "Defense-Grid", "AI-Cortex"]
 
-        def gen_ai_logs():
-            logs = []
+        def gen_radar_blips():
+            # 레이더에 잡히는 미확인 물체
+            blips = []
             for _ in range(5):
-                logs.append({
-                    "ts": fake.time(),
-                    "msg": random.choice([
-                        "Anomaly detected in cluster Beta",
-                        "Optimizing query execution plans",
-                        "Predictive scaling initiated (+20 nodes)",
-                        "Security pattern matched: Safe"
-                    ]),
-                    "type": "INFO"
+                blips.append({
+                    "angle": random.randint(0, 360),
+                    "dist": random.randint(10, 90),
+                    "type": random.choice(["FRIENDLY", "HOSTILE", "UNKNOWN"])
                 })
+            return blips
+
+        def gen_system_logs():
+            logs = []
+            for _ in range(20):
+                logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {fake.uri_path()} process_id={random.randint(1000,9999)} status=SYNC")
             return logs
 
         def gen_nodes():
             nodes = []
-            for i in range(NODE_COUNT):
-                cluster = random.choice(CLUSTERS)
-                
-                nodes.append({
-                    "id": f"{cluster}-{i:03d}",
-                    "cluster": cluster,
-                    "version": random.choice(VERSIONS), # 현재 버전
-                    "status": "ACTIVE" if random.random() > 0.1 else "WARNING",
-                    "metrics": {
-                        "cpu": random.randint(10, 80),
-                        "mem": random.randint(20, 70),
-                        "req_sec": random.randint(100, 5000)
-                    },
-                    "upgrading": False # 업그레이드 진행중 여부
-                })
+            for sector in SECTORS:
+                # 섹터당 20~30개 노드 생성
+                count = random.randint(20, 30)
+                for i in range(count):
+                    svc = random.choice(SERVICES)
+                    is_crit = random.random() < 0.05
+                    
+                    nodes.append({
+                        "id": f"{sector['code']}-{svc[:3].upper()}-{i:03d}",
+                        "sector": sector['name'],
+                        "color": sector['color'],
+                        "service": svc,
+                        "status": "CRITICAL" if is_crit else "ACTIVE",
+                        "metrics": {
+                            "integrity": random.randint(50, 100) if is_crit else random.randint(90, 100),
+                            "energy": random.randint(100, 5000),
+                            "temp": random.randint(100, 900)
+                        },
+                        "fw_version": f"v{random.randint(10,12)}.{random.randint(0,9)}"
+                    })
             return nodes
 
         if __name__ == "__main__":
             data = {
                 "generated_at": datetime.datetime.now().isoformat(),
-                "ai_insight": gen_ai_logs(),
+                "radar": gen_radar_blips(),
+                "logs": gen_system_logs(),
                 "nodes": gen_nodes(),
-                "deployment": {
-                    "current_ver": "v1.9.5",
-                    "target_ver": "v2.0.0-quantum",
-                    "progress": 0
-                }
+                "global_integrity": random.randint(92, 99)
             }
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print("✅ Quantum Data Generated.")
+            print("✅ Planetary Data Generated.")
         EOF
         python db_engine.py
 
@@ -106,16 +117,16 @@ jobs:
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "AI-Ops-Bot"
+        git config --global user.name "Commander-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🤖 AI & Deployment Update [$(date)]" || echo "No changes"
+        git commit -m "🚀 Galaxy Status Update [$(date)]" || echo "No changes"
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 (AI Copilot & Deployment UI)
+    # [Step 3] 프론트엔드 (Holographic HUD & Radar)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Quantum Interface
+    - name: 🎨 Build Holographic Interface
       shell: bash
       run: |
         mkdir -p _site
@@ -127,278 +138,307 @@ jobs:
         <head>
             <meta charset="UTF-8">
             <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-            <title>GALAXY QUANTUM OPS</title>
+            <title>GALAXY FINAL FRONTIER</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
                 
-                body { background-color: #030712; color: #e2e8f0; font-family: 'Roboto Mono', monospace; overflow: hidden; }
+                body { 
+                    background-color: #000; 
+                    color: #0ff; 
+                    font-family: 'Share Tech Mono', monospace; 
+                    overflow: hidden; 
+                    background-image: 
+                        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+                    background-size: 30px 30px;
+                }
                 
-                /* Layout */
-                .layout { display: grid; grid-template-rows: 60px 1fr; grid-template-columns: 1fr 350px; height: 100vh; }
+                /* Layout: Sci-Fi HUD Grid */
+                .hud-layout {
+                    display: grid;
+                    grid-template-columns: 300px 1fr 300px;
+                    grid-template-rows: 60px 1fr 200px;
+                    height: 100vh;
+                    gap: 10px;
+                    padding: 10px;
+                }
                 
-                /* Header */
-                .header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background: #0b0f19; border-bottom: 1px solid #1f2937; }
+                /* Panels */
+                .panel {
+                    border: 1px solid rgba(0, 255, 255, 0.3);
+                    background: rgba(0, 10, 20, 0.8);
+                    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+                    position: relative;
+                    overflow: hidden;
+                }
+                .panel::before {
+                    content: ''; position: absolute; top: 0; left: 0; width: 10px; height: 10px;
+                    border-top: 2px solid #0ff; border-left: 2px solid #0ff;
+                }
+                .panel::after {
+                    content: ''; position: absolute; bottom: 0; right: 0; width: 10px; height: 10px;
+                    border-bottom: 2px solid #0ff; border-right: 2px solid #0ff;
+                }
+                .panel-header {
+                    background: rgba(0, 255, 255, 0.1);
+                    padding: 5px 10px;
+                    font-weight: bold;
+                    letter-spacing: 2px;
+                    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+                    display: flex; justify-content: space-between;
+                }
+
+                /* Radar Animation */
+                .radar-scope {
+                    width: 200px; height: 200px;
+                    border: 2px solid rgba(0, 255, 255, 0.5);
+                    border-radius: 50%;
+                    position: relative;
+                    margin: 20px auto;
+                    background: radial-gradient(circle, rgba(0,255,255,0.1) 0%, transparent 70%);
+                }
+                .radar-sweep {
+                    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                    border-radius: 50%;
+                    background: conic-gradient(from 0deg, transparent 0deg, rgba(0, 255, 255, 0.4) 360deg);
+                    animation: radar-spin 2s linear infinite;
+                    clip-path: polygon(50% 50%, 100% 0, 100% 0, 50% 0);
+                }
+                .blip {
+                    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+                    background: #f00; box-shadow: 0 0 5px #f00;
+                    animation: blink 1s infinite;
+                }
                 
                 /* Main Grid */
-                .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 10px; overflow-y: auto; background: radial-gradient(circle at center, #111827 0%, #030712 100%); }
+                .sector-grid {
+                    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                    gap: 5px; padding: 10px; overflow-y: auto;
+                }
+                .node-card {
+                    border: 1px solid #033; background: #011; padding: 5px; font-size: 10px; cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .node-card:hover { border-color: #0ff; background: #022; transform: scale(1.05); z-index: 10; }
+                .node-card.crit { border-color: #f00; background: #200; animation: flash 1s infinite; }
                 
-                /* AI Sidebar */
-                .sidebar { background: #0b0f19; border-left: 1px solid #1f2937; display: flex; flex-direction: column; }
-                .chat-window { flex: 1; padding: 10px; overflow-y: auto; font-size: 11px; }
-                .chat-input-area { padding: 10px; border-top: 1px solid #1f2937; background: #111827; }
+                /* Log Stream */
+                .log-stream {
+                    font-size: 11px; line-height: 1.4; color: #0f0;
+                    text-shadow: 0 0 2px #0f0;
+                    overflow-y: hidden;
+                }
                 
-                /* Card */
-                .card { background: #1f2937; border: 1px solid #374151; padding: 10px; position: relative; transition: all 0.3s; }
-                .card.upgrading { border-color: #f59e0b; background: #312e81; animation: pulse 1s infinite; }
-                .card.done { border-color: #10b981; background: #064e3b; }
+                /* Keyframes */
+                @keyframes radar-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes blink { 50% { opacity: 0; } }
+                @keyframes flash { 0%, 100% { border-color: #f00; } 50% { border-color: #fff; } }
                 
-                /* Visuals */
-                .version-badge { position: absolute; top: 5px; right: 5px; font-size: 9px; padding: 2px 4px; background: #374151; border-radius: 4px; }
-                .msg-ai { color: #60a5fa; margin-bottom: 8px; border-left: 2px solid #60a5fa; padding-left: 5px; }
-                .msg-user { color: #fff; text-align: right; margin-bottom: 8px; border-right: 2px solid #fff; padding-right: 5px; }
-                
-                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-                
-                /* Progress Bar */
-                .progress-container { width: 100%; background: #374151; height: 4px; margin-top: 5px; border-radius: 2px; overflow: hidden; }
-                .progress-fill { height: 100%; background: #f59e0b; width: 0%; transition: width 0.3s; }
+                /* Scrollbar */
+                ::-webkit-scrollbar { width: 5px; }
+                ::-webkit-scrollbar-thumb { background: #0ff; }
             </style>
         </head>
-        <body class="layout">
+        <body class="hud-layout">
             
-            <header class="header">
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-atom text-2xl text-purple-500 animate-spin-slow"></i>
-                    <div>
-                        <h1 class="text-xl font-bold tracking-widest" style="font-family: 'Orbitron', sans-serif;">QUANTUM <span class="text-purple-500">OPS</span></h1>
-                    </div>
-                </div>
-                
+            <header class="col-span-3 panel flex items-center justify-between px-6 bg-black">
                 <div class="flex items-center gap-4">
-                    <div class="text-xs text-right">
-                        <div class="text-gray-500">TARGET VERSION</div>
-                        <div class="font-bold text-green-400">v2.0.0-quantum</div>
-                    </div>
-                    <button onclick="startDeployment()" id="deploy-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-xs font-bold transition flex items-center gap-2">
-                        <i class="fas fa-rocket"></i> DEPLOY v2.0
-                    </button>
-                    <div class="w-32">
-                        <div class="flex justify-between text-[9px] mb-1">
-                            <span>ROLLOUT</span>
-                            <span id="rollout-pct">0%</span>
-                        </div>
-                        <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-                            <div id="global-progress" class="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-0 transition-all duration-500"></div>
-                        </div>
+                    <i class="fas fa-satellite-dish text-3xl text-cyan-400 animate-pulse"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-[0.3em]">GALAXY <span class="text-white">OPS</span></h1>
+                        <div class="text-xs text-cyan-600">SECTOR CONTROL // V10.0 FINAL</div>
                     </div>
                 </div>
+                <div class="flex gap-8 text-xl font-bold">
+                    <div class="text-center">
+                        <div class="text-[10px] text-gray-500">INTEGRITY</div>
+                        <div id="integrity-val" class="text-green-400">98%</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-[10px] text-gray-500">ACTIVE NODES</div>
+                        <div id="active-val">--</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-[10px] text-gray-500">THREAT LEVEL</div>
+                        <div class="text-red-500 animate-pulse">ELEVATED</div>
+                    </div>
+                </div>
+                <button onclick="window.location.reload()" class="border border-cyan-500 px-4 py-2 hover:bg-cyan-900 transition text-xs">
+                    SYSTEM REFRESH
+                </button>
             </header>
 
-            <main class="node-grid custom-scroll" id="grid">
-                </main>
-
-            <aside class="sidebar">
-                <div class="p-3 bg-gray-900 border-b border-gray-700 font-bold text-xs flex justify-between items-center">
-                    <span><i class="fas fa-robot mr-2 text-purple-400"></i> AI COPILOT</span>
-                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                </div>
-                
-                <div id="chat-window" class="chat-window custom-scroll">
-                    <div class="msg-ai">
-                        <div>System initialized. Monitoring 60 nodes.</div>
-                        <div class="text-gray-500 text-[9px]">Just now</div>
-                    </div>
-                    <div class="msg-ai">
-                        <div>Ready for v2.0 deployment. Waiting for command.</div>
+            <aside class="panel flex flex-col">
+                <div class="panel-header"><span>SECTOR RADAR</span> <span>LIVE</span></div>
+                <div class="flex-1 flex flex-col items-center justify-center relative">
+                    <div class="radar-scope" id="radar">
+                        <div class="radar-sweep"></div>
+                        </div>
+                    <div class="text-xs text-center mt-2">
+                        SCANNING SECTOR 4...<br>
+                        <span class="text-red-500" id="radar-count">0 CONTACTS</span>
                     </div>
                 </div>
-                
-                <div class="chat-input-area">
-                    <input type="text" id="ai-input" placeholder="Type 'deploy', 'status', or 'fix'..." 
-                           class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
-                           onkeydown="handleAI(event)">
+                <div class="h-1/3 border-t border-cyan-900 p-2 overflow-y-auto">
+                    <div class="text-[10px] font-bold mb-1">> ALERT QUEUE</div>
+                    <div id="alert-box" class="space-y-1 text-[10px] text-red-400"></div>
                 </div>
             </aside>
 
+            <main class="panel flex flex-col">
+                <div class="panel-header">
+                    <span>SERVICE FLEET</span>
+                    <div class="flex gap-2 text-[10px]">
+                        <span class="text-blue-400">■ EARTH</span>
+                        <span class="text-gray-400">■ MOON</span>
+                        <span class="text-red-400">■ MARS</span>
+                    </div>
+                </div>
+                <div id="node-grid" class="sector-grid custom-scroll flex-1">
+                    </div>
+            </main>
+
+            <aside class="panel flex flex-col">
+                <div class="panel-header"><span>COMMAND</span></div>
+                <div class="p-4 space-y-4">
+                    <button onclick="deployEffect()" class="w-full border border-green-500 text-green-500 py-3 hover:bg-green-900/50 transition font-bold">
+                        <i class="fas fa-upload mr-2"></i> DEPLOY FIRMWARE
+                    </button>
+                    <button onclick="purgeEffect()" class="w-full border border-yellow-500 text-yellow-500 py-3 hover:bg-yellow-900/50 transition font-bold">
+                        <i class="fas fa-broom mr-2"></i> PURGE CACHE
+                    </button>
+                    <button onclick="emergencyEffect()" class="w-full border border-red-500 text-red-500 py-3 hover:bg-red-900/50 transition font-bold animate-pulse">
+                        <i class="fas fa-radiation-alt mr-2"></i> EMERGENCY SHUTDOWN
+                    </button>
+                </div>
+                <div class="flex-1 border-t border-cyan-900 p-2">
+                    <div class="text-[10px] text-cyan-600 mb-1">> SYSTEM STATUS</div>
+                    <div class="h-full bg-black border border-cyan-900 p-1 relative overflow-hidden">
+                        <div class="absolute bottom-0 w-full h-1 bg-green-500" id="cpu-bar" style="height: 40%"></div>
+                    </div>
+                </div>
+            </aside>
+
+            <footer class="col-span-3 panel flex flex-col">
+                <div class="panel-header"><span>GLOBAL EVENT STREAM</span> <span>ENCRYPTED</span></div>
+                <div id="log-stream" class="log-stream p-2 flex-1"></div>
+            </footer>
+
             <script>
-                let globalData = { nodes: [] };
-                let isDeploying = false;
+                let globalData = {};
 
                 async function init() {
-                    await loadData();
-                    // Live jitter
-                    setInterval(updateMetrics, 1000);
-                }
-
-                async function loadData() {
                     try {
                         const res = await fetch('dashboard_data.json?v=' + Date.now());
-                        const data = await res.json();
+                        globalData = await res.json();
                         
-                        // If we are deploying, preserve local state, otherwise load new
-                        if(!isDeploying) {
-                            globalData = data;
-                            renderGrid();
-                        }
+                        renderRadar();
+                        renderNodes();
+                        renderLogs();
+                        
+                        document.getElementById('integrity-val').innerText = globalData.global_integrity + "%";
+                        document.getElementById('active-val').innerText = globalData.nodes.length;
+                        
+                        // Physics Loop
+                        setInterval(visualPhysics, 100);
+                        setInterval(addRandomLog, 500);
+                        
                     } catch(e) { console.error("Offline"); }
                 }
 
-                function renderGrid() {
-                    const grid = document.getElementById('grid');
-                    grid.innerHTML = globalData.nodes.map((n, i) => `
-                        <div class="card" id="card-${i}">
-                            <div class="flex justify-between items-center mb-2">
-                                <div class="font-bold text-xs text-white">${n.id}</div>
-                                <div class="w-2 h-2 rounded-full ${n.status==='ACTIVE'?'bg-green-500':'bg-yellow-500'}"></div>
-                            </div>
-                            <div class="version-badge text-gray-400" id="ver-${i}">${n.version}</div>
-                            
-                            <div class="text-[10px] text-gray-500 mt-2">
-                                <div>CPU: <span id="cpu-${i}">${n.metrics.cpu}%</span></div>
-                                <div>MEM: <span id="mem-${i}">${n.metrics.mem}%</span></div>
-                            </div>
+                function renderRadar() {
+                    const radar = document.getElementById('radar');
+                    // Clear old blips (keep sweep)
+                    const oldBlips = radar.querySelectorAll('.blip');
+                    oldBlips.forEach(b => b.remove());
+                    
+                    globalData.radar.forEach(b => {
+                        const blip = document.createElement('div');
+                        blip.className = 'blip';
+                        // Convert Polar to Cartesian for CSS
+                        const r = b.dist; 
+                        const theta = b.angle * (Math.PI / 180);
+                        const x = 100 + r * Math.cos(theta);
+                        const y = 100 + r * Math.sin(theta);
+                        
+                        blip.style.left = x + 'px';
+                        blip.style.top = y + 'px';
+                        if(b.type === 'HOSTILE') blip.style.backgroundColor = '#f00';
+                        else if(b.type === 'FRIENDLY') blip.style.backgroundColor = '#0f0';
+                        
+                        radar.appendChild(blip);
+                    });
+                    document.getElementById('radar-count').innerText = globalData.radar.length + " CONTACTS";
+                }
 
-                            <div class="progress-container opacity-0" id="prog-con-${i}">
-                                <div class="progress-fill" id="prog-bar-${i}"></div>
+                function renderNodes() {
+                    const grid = document.getElementById('node-grid');
+                    grid.innerHTML = globalData.nodes.map((n, i) => `
+                        <div class="node-card ${n.status==='CRITICAL'?'crit':''}" id="node-${i}">
+                            <div class="flex justify-between text-[9px] mb-1">
+                                <span class="font-bold text-${getColor(n.color)}-400">${n.sector}</span>
+                                <span>${n.fw_version}</span>
                             </div>
-                            <div class="text-[9px] text-center mt-1 h-3 text-yellow-400 font-bold" id="status-text-${i}"></div>
+                            <div class="text-white font-bold truncate">${n.id}</div>
+                            <div class="flex justify-between mt-1 text-gray-400">
+                                <span>NRG: ${n.metrics.energy}</span>
+                                <span>TMP: ${n.metrics.temp}</span>
+                            </div>
+                            <div class="w-full bg-gray-800 h-1 mt-1">
+                                <div class="h-full ${n.status==='CRITICAL'?'bg-red-500':'bg-cyan-500'}" style="width:${n.metrics.integrity}%"></div>
+                            </div>
                         </div>
                     `).join('');
                 }
+                
+                function getColor(c) {
+                    // Tailwind mapping
+                    if(c==='blue') return 'blue';
+                    if(c==='red') return 'red';
+                    if(c==='yellow') return 'yellow';
+                    return 'gray';
+                }
 
-                function updateMetrics() {
-                    globalData.nodes.forEach((n, i) => {
-                        // Random fluctuation
-                        const cpu = Math.min(100, Math.max(0, n.metrics.cpu + Math.floor(Math.random()*6-3)));
-                        document.getElementById(`cpu-${i}`).innerText = cpu + "%";
-                        
-                        // If deploying, ignore status updates
+                function renderLogs() {
+                    const div = document.getElementById('log-stream');
+                    globalData.logs.forEach(l => {
+                        div.innerHTML += `<div>${l}</div>`;
                     });
                 }
-
-                // --- DEPLOYMENT LOGIC ---
-                window.startDeployment = function() {
-                    if(isDeploying) return;
-                    isDeploying = true;
-                    
-                    document.getElementById('deploy-btn').disabled = true;
-                    document.getElementById('deploy-btn').innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> DEPLOYING...`;
-                    addAIMessage("Initiating Blue/Green deployment sequence for v2.0.0-quantum...");
-                    
-                    let doneCount = 0;
-                    const total = globalData.nodes.length;
-                    
-                    // Shuffle indices for random rollout effect
-                    const indices = Array.from({length: total}, (_, i) => i).sort(() => Math.random() - 0.5);
-                    
-                    // Process nodes in batches
-                    let cursor = 0;
-                    const batchSize = 5;
-                    
-                    const interval = setInterval(() => {
-                        if(cursor >= total) {
-                            clearInterval(interval);
-                            addAIMessage("Deployment Complete. All systems operational on v2.0.");
-                            document.getElementById('deploy-btn').innerHTML = `<i class="fas fa-check"></i> COMPLETE`;
-                            isDeploying = false;
-                            return;
-                        }
-
-                        // Upgrade batch
-                        for(let b=0; b<batchSize && cursor < total; b++) {
-                            const idx = indices[cursor];
-                            upgradeNode(idx, () => {
-                                doneCount++;
-                                updateGlobalProgress(doneCount, total);
-                            });
-                            cursor++;
-                        }
-                        
-                    }, 800); // Start a new batch every 800ms
+                
+                function addRandomLog() {
+                    const div = document.getElementById('log-stream');
+                    const lines = [
+                        "Decrypting incoming transmission...",
+                        "Packets dropped on sector 7",
+                        "AI Cortex rerouting power...",
+                        "Handshake successful [Titan-Outpost]",
+                        "Scanning for unauthorized access..."
+                    ];
+                    const line = document.createElement('div');
+                    line.innerText = `> ${lines[Math.floor(Math.random()*lines.length)]}`;
+                    div.prepend(line);
+                    if(div.children.length > 15) div.lastChild.remove();
                 }
 
-                function upgradeNode(idx, onComplete) {
-                    const card = document.getElementById(`card-${idx}`);
-                    const progCon = document.getElementById(`prog-con-${idx}`);
-                    const progBar = document.getElementById(`prog-bar-${idx}`);
-                    const statusTxt = document.getElementById(`status-text-${idx}`);
-                    const verBadge = document.getElementById(`ver-${idx}`);
-                    
-                    card.classList.add('upgrading');
-                    progCon.classList.remove('opacity-0');
-                    
-                    const steps = ["Downloading...", "Unpacking...", "Stopping...", "Installing...", "Rebooting..."];
-                    let step = 0;
-                    
-                    const stepInt = setInterval(() => {
-                        if(step >= steps.length) {
-                            clearInterval(stepInt);
-                            // Complete
-                            card.classList.remove('upgrading');
-                            card.classList.add('done');
-                            statusTxt.innerText = "ONLINE";
-                            statusTxt.classList.replace('text-yellow-400', 'text-green-400');
-                            verBadge.innerText = "v2.0.0";
-                            verBadge.classList.replace('text-gray-400', 'text-green-300');
-                            progCon.classList.add('opacity-0');
-                            onComplete();
-                        } else {
-                            statusTxt.innerText = steps[step];
-                            progBar.style.width = ((step + 1) / steps.length * 100) + "%";
-                            step++;
-                        }
-                    }, 500 + Math.random() * 500); // Random duration per step
+                function visualPhysics() {
+                    // Randomly fluctuate CPU bar
+                    const h = Math.random() * 100;
+                    document.getElementById('cpu-bar').style.height = h + "%";
                 }
 
-                function updateGlobalProgress(done, total) {
-                    const pct = Math.floor((done / total) * 100);
-                    document.getElementById('rollout-pct').innerText = pct + "%";
-                    document.getElementById('global-progress').style.width = pct + "%";
+                // --- EFFECTS ---
+                window.deployEffect = function() {
+                    alert("INITIATING GLOBAL FIRMWARE UPDATE...\nThis will affect all 5 sectors.");
                 }
-
-                // --- AI COPILOT LOGIC ---
-                window.handleAI = function(e) {
-                    if(e.key === 'Enter') {
-                        const input = e.target.value;
-                        addUserMessage(input);
-                        e.target.value = '';
-                        
-                        setTimeout(() => {
-                            processAICommand(input.toLowerCase());
-                        }, 600);
-                    }
+                window.purgeEffect = function() {
+                    alert("PURGING CACHE...\nTemp files deleted.");
                 }
-
-                function addUserMessage(msg) {
-                    const win = document.getElementById('chat-window');
-                    win.innerHTML += `<div class="msg-user"><div>${msg}</div></div>`;
-                    win.scrollTop = win.scrollHeight;
-                }
-
-                function addAIMessage(msg) {
-                    const win = document.getElementById('chat-window');
-                    win.innerHTML += `<div class="msg-ai"><div>${msg}</div></div>`;
-                    win.scrollTop = win.scrollHeight;
-                }
-
-                function processAICommand(cmd) {
-                    if(cmd.includes('deploy') || cmd.includes('upgrade')) {
-                        if(isDeploying) addAIMessage("Deployment is already in progress.");
-                        else {
-                            addAIMessage("Understood. Starting global rollout.");
-                            startDeployment();
-                        }
-                    } else if (cmd.includes('status')) {
-                        const active = globalData.nodes.filter(n=>n.status==='ACTIVE').length;
-                        addAIMessage(`System Report: ${active}/${globalData.nodes.length} nodes active. No critical threats.`);
-                    } else if (cmd.includes('fix') || cmd.includes('repair')) {
-                        addAIMessage("Auto-remediation started. Restarting unhealthy pods...");
-                        setTimeout(() => addAIMessage("Fixed 3 issues in cluster Gamma."), 1500);
-                    } else {
-                        addAIMessage("I can help with 'deploy', 'status', or 'fix'.");
-                    }
+                window.emergencyEffect = function() {
+                    document.body.style.filter = "sepia(1) hue-rotate(-50deg) saturate(5)";
+                    setTimeout(() => { document.body.style.filter = "none"; }, 2000);
                 }
 
                 init();
@@ -412,7 +452,7 @@ jobs:
       with: { path: _site/ }
 
   # ==============================================================================
-  # [Job 2] 배포 (구문 오류 수정됨)
+  # [Job 2] 배포 (구문 에러 완벽 수정)
   # ==============================================================================
   deploy:
     needs: build-deploy
