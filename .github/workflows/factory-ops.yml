@@ -1,355 +1,394 @@
-name: 🏭 FINAL PERFECT FACTORY:SELF-HEALING & FUTURE TECH
+name: 🛡️ Ops Control Center (Hardened Security)
 
 on:
-  push:
-    branches: [ "main", "master" ]
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 무한 가동 (주의: GitHub Action 사용량 증가)
+    - cron: '0 */6 * * *'
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
-env:
-  PYTHONIOENCODING: utf-8
-  LC_ALL: en_US.UTF-8
-  DOCKER_BUILDKIT: 1 # Docker 빌드 최적화
+# [보안 핵심 1] 최상위 권한을 '읽기 전용'으로 잠금 (Default Deny)
+permissions: read-all
 
-permissions:
-  contents: write
-  packages: write
-  deployments: write
-  security-events: write
-  actions: write
-  checks: write
-  statuses: write
+concurrency:
+  group: "ops-control-secure"
+  cancel-in-progress: true
 
 jobs:
-  perfect-ops:
-    name: 💎 Perfect Ops on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest] # 디스크 최적화를 위해 Ubuntu 집중
-        include:
-          - os: ubuntu-latest
-            artifact_name: linux-perfect-pack
+  # ==============================================================================
+  # [Job 1] 데이터 생산, 보안 검사, 저장
+  # ==============================================================================
+  secure-ops-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # 이 Job에만 쓰기 권한 부여 (최소 권한 원칙)
+    permissions:
+      contents: write 
 
     steps:
-    # ----------------------------------------------------------------
-    # [Step 0] 디스크 공간 대량 확보 (No Space Error 방지)
-    # ----------------------------------------------------------------
-    - name: 🧹 [0] Deep Disk Cleanup
-      if: runner.os == 'Linux'
-      run: |
-        echo "🧹 Cleaning up disk space..."
-        # .NET, Android, Haskell, CodeQL 등 거대 프레임워크 삭제
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache/CodeQL
-        # Docker 정리
-        docker system prune -af
-        echo "✅ Disk Space Freed."
+    # [보안 핵심 2] Action 버전을 SHA 해시로 고정 (변조 방지)
+    # actions/checkout@v4 -> b4ffde65f46336ab88eb53be808477a3936bae11
+    - name: 📥 Checkout Repo (Secure Pinning)
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-    # ----------------------------------------------------------------
-    # [Step 1] 공장 초기화
-    # ----------------------------------------------------------------
-    - name: 📥 [1] Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    # ----------------------------------------------------------------
-    # [Step 2] 생산 도구 준비 (Java 17, Python 3.10)
-    # ----------------------------------------------------------------
-    - name: 🛠️ [2] Setup Runtimes
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: 🐍 [3] Setup Python
-      uses: actions/setup-python@v5
+    - name: 🛠️ Setup Python
+      uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
       with:
         python-version: '3.10'
-        cache: 'pip'
+
+    # [보안 핵심 3] 보안 스캐너(Bandit) 설치
+    - name: 📦 Install Deps & Security Tools
+      run: |
+        pip install --no-cache-dir flask flask-cors gunicorn faker pandas requests jinja2 psutil pymongo redis bandit
+        # pip 캐시를 사용하지 않아 오염된 캐시 공격 방지
 
     # ----------------------------------------------------------------
-    # [Step 3] 관리형 스크립트 엔진 (대량 서비스 및 자가 치유 로직 생성)
+    # [Step 3] 🏭 Secure Data Engine (secrets 모듈 적용)
     # ----------------------------------------------------------------
-    - name: 📂 [4] Bootstrap Scripts
+    - name: 🏭 Run Secure Data Engine
       shell: bash
       run: |
-        mkdir -p ops_scripts
+        mkdir -p _data_warehouse
         
-        # 1. 의존성 파일 생성
-        cat <<'EOF' > ops_scripts/requirements.txt
-        colorama
-        requests
-        tqdm
-        jinja2
-        Pillow
-        psutil
-        EOF
+        cat <<'EOF' > db_engine.py
+        import os, shutil, json, uuid, sqlite3, secrets
+        from datetime import datetime, date
+        from decimal import Decimal
+        from faker import Faker
         
-        # 2. 팩토리 매니저 (미래 기술 서비스 포함)
-        cat <<'EOF' > ops_scripts/factory_manager.py
-        import os, sys, random, datetime
-        from PIL import Image, ImageDraw
-        sys.stdout.reconfigure(encoding='utf-8')
+        # [Security] 암호학적으로 안전한 난수 생성기 사용
+        secure_rng = secrets.SystemRandom()
+        fake = Faker()
+        OUTPUT_DIR = "_data_warehouse"
+        
+        def json_serial(obj):
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            if isinstance(obj, Decimal):
+                return float(obj)
+            raise TypeError (f"Type {type(obj)} not serializable")
 
-        # 기존 엔터프라이즈 + 미래 기술 + 수집 서버
-        SERVICES = [
-            "Banking", "Stock", "Insurance", "PublicData", "Crypto", "RealEstate", "GovTax",
-            "Logistics", "HealthCare", "Metaverse", "AI_Core", "IoT_Network", 
-            "Education_Hub", "Energy_Grid", "Defense_Sys",
-            "Quantum_Compute", "Bio_Tech", "Space_Ops", "Nano_Bot", "Fusion_Energy",
-            "Genomic_Seq", "Autonomous_Vehicle", "Smart_City", "Drone_Delivery", "Robotics"
-        ]
-        COLLECTORS = ["Log_Aggregator", "Metric_Beat", "Trace_Collector", "Security_Auditor", "Deep_Packet_Inspector"]
+        def gen_rdb():
+            path = "data/rdb/finance"
+            os.makedirs(path, exist_ok=True)
+            conn = sqlite3.connect(f"{path}/ledger.db")
+            c = conn.cursor()
+            c.execute('''CREATE TABLE txs (id text, date text, amount real, user text)''')
+            # prepared statement 사용 (SQL Injection 방지 패턴 준수)
+            for _ in range(100):
+                c.execute("INSERT INTO txs VALUES (?,?,?,?)",
+                           (str(uuid.uuid4()), str(datetime.now()), secure_rng.uniform(10,9999), fake.name()))
+            conn.commit()
+            conn.close()
+            return {"type": "RDB", "count": 100, "status": "Online"}
 
-        def safe_makedirs(path):
-            if not os.path.exists(path): os.makedirs(path, exist_ok=True)
-
-        def produce_assets():
-            print(f"🚀 [FACTORY] Generating {len(SERVICES) + len(COLLECTORS)} Systems...")
+        def gen_nosql():
+            path = "data/nosql/users"
+            os.makedirs(path, exist_ok=True)
+            docs = []
+            for _ in range(100):
+                profile = fake.profile()
+                doc = {
+                    "_id": str(uuid.uuid4()),
+                    "profile": profile, 
+                    "history": [fake.url() for _ in range(3)]
+                }
+                docs.append(doc)
             
-            # 1. 디렉토리 구조 확보
-            safe_makedirs("src/main/java/com/global/core")
-            safe_makedirs("src/main/java/com/global/future")
-            safe_makedirs("src/main/java/com/global/collection")
-            safe_makedirs("docs/images")
-            safe_makedirs("cpp_core")
-            safe_makedirs("bin") # [중요] 빌드 오류 방지
+            with open(f"{path}/collection.json", "w") as f: 
+                 json.dump(docs, f, default=json_serial)
+            return {"type": "NoSQL", "count": 100, "status": "Active"}
 
-            # 2. Java 코드 생성
-            all_svcs = SERVICES + COLLECTORS
-            for svc in all_svcs:
-                # 분류
-                if svc in SERVICES:
-                    kind = 'future' if svc in ["Quantum_Compute", "Bio_Tech", "Space_Ops"] else 'core'
-                else:
-                    kind = 'collection'
-                
-                base = f"src/main/java/com/global/{kind}/{svc.lower()}"
-                safe_makedirs(base)
-                
-                with open(f"{base}/{svc}Application.java", "w") as f:
-                    f.write(f"package com.global.{kind}.{svc.lower()};\npublic class {svc}Application {{ public static void main(String[] args) {{ System.out.println(\"{svc} Active\"); }} }}")
+        def gen_others():
+            return [{"type": "Graph", "count": 50, "status": "Mapped"}, 
+                     {"type": "TSDB", "count": 500, "status": "Collecting"}]
 
-            # 3. 아키텍처 시각화 (이미지 생성)
+        def gen_services_with_events():
+            services = []
+            regions = ["KR-Seoul", "US-East", "EU-West"]
+            domains = ["Payment", "Auth", "Order", "Delivery"]
+            errors = ["Connection Timeout", "Heap OOM", "Disk Full"]
+
+            for r in regions:
+                for d in domains:
+                    # secrets 모듈을 사용한 안전한 확률 계산
+                    is_down = secure_rng.random() < 0.2
+                    status = "CRITICAL" if is_down else "ACTIVE"
+                    svc_id = f"{d}-{r}-{secure_rng.randint(100,999)}"
+                    
+                    events = []
+                    for _ in range(3):
+                        events.append({"ts": str(fake.date_time_this_month()), "level": "INFO", "msg": "Health check ok"})
+                    
+                    if is_down:
+                        events.append({"ts": str(datetime.now()), "level": "ERROR", "msg": secure_rng.choice(errors)})
+                    
+                    services.append({
+                        "id": svc_id, "region": r, "domain": d, "status": status, 
+                        "events": sorted(events, key=lambda x: x['ts'], reverse=True)
+                    })
+            return services
+
+        if __name__ == "__main__":
+            print("🚀 Generating Secure Data...")
             try:
-                img = Image.new('RGB', (600, 300), color=(10, 20, 40))
-                d = ImageDraw.Draw(img)
-                d.rectangle([(20, 20), (580, 280)], outline="cyan", width=2)
-                d.text((50, 50), f"Global System v{datetime.datetime.now().year}", fill="white")
-                d.text((50, 100), f"Active Nodes: {len(all_svcs)}", fill="green")
-                d.text((50, 150), "Status: SELF-HEALING ACTIVE", fill="yellow")
-                img.save("docs/images/architecture_v2.png")
-            except: pass
-
-            # 4. C++ 엔진 소스
-            with open("cpp_core/crypto.cpp", "w") as f:
-                f.write('#include <iostream>\n#include <string>\n')
-                f.write('int main(int argc, char* argv[]) { std::cout << "Crypto Engine v2.0 Online" << std::endl; return 0; }')
-
-        if __name__ == "__main__":
-            produce_assets()
+                db_stats = [gen_rdb(), gen_nosql()] + gen_others()
+                services = gen_services_with_events()
+                
+                if os.path.exists("data"):
+                    shutil.make_archive(f"{OUTPUT_DIR}/db_backup", 'zip', "data")
+                    shutil.rmtree("data")
+                
+                data = {
+                    "generated_at": str(datetime.now()),
+                    "databases": db_stats,
+                    "services": services
+                }
+                
+                with open("dashboard_data.json", "w") as f:
+                    json.dump(data, f, default=json_serial)
+                print("✅ Engine Finished Successfully.")
+            except Exception as e:
+                print(f"⚠️ Failure: {e}")
         EOF
 
-        # 3. 자가 복구형 배포 시뮬레이터
-        cat <<'EOF' > ops_scripts/deploy_simulator.py
-        import http.server, socketserver, threading, time, os, sys
+    # [보안 핵심 4] 정적 코드 분석 (SAST) 실행
+    # 생성된 파이썬 코드가 보안상 안전한지 검사합니다. (B101은 assert문 무시)
+    - name: 🕵️ Run Security Audit (Bandit)
+      run: |
+        echo "🛡️ Running Security Scan on Engine..."
+        bandit -r db_engine.py -s B101
+        python db_engine.py
+
+    # ----------------------------------------------------------------
+    # 💾 데이터 영구 저장 (Commit & Push)
+    # ----------------------------------------------------------------
+    - name: 💾 Commit & Push Data
+      run: |
+        git config --global user.name "Security-Bot"
+        git config --global user.email "bot@noreply.github.com"
+        git add dashboard_data.json
+        git commit -m "🔒 Secure Auto-update: [$(date)]" || exit 0
+        git push
+
+    # ----------------------------------------------------------------
+    # [Step 4] 🌐 프론트엔드 빌드
+    # ----------------------------------------------------------------
+    - name: 🎨 Build Control Center UI
+      shell: bash
+      run: |
+        mkdir -p _web_portal/static
+        mkdir -p _web_portal/templates
         
-        def run_sim():
-            print("🌐 [DEPLOY] Starting Self-Healing Server Farm...")
-            if not os.path.exists("deploy_root"): os.makedirs("deploy_root")
-            os.chdir("deploy_root")
-            
-            # 포트 충돌 시 자동 우회 로직 (Self-Healing)
-            def start_node(p):
-                retries = 3
-                current_port = p
-                while retries > 0:
-                    try:
-                        with socketserver.TCPServer(("", current_port), http.server.SimpleHTTPRequestHandler) as h:
-                            h.serve_forever()
-                        break
-                    except OSError:
-                        print(f"⚠️ Port {current_port} busy, healing...")
-                        current_port += 100 # 포트 변경하여 재시도
-                        retries -= 1
-            
-            # 20개 노드 동시 기동
-            for p in range(8000, 8020):
-                t = threading.Thread(target=start_node, args=(p,))
-                t.daemon = True
-                t.start()
-            
-            time.sleep(5)
-            print("✅ [DEPLOY] 20+ Nodes Active.")
-
-        if __name__ == "__main__":
-            run_sim()
+        # HTML 생성 (내용은 이전과 동일하므로 생략하지 않고 보안상 안전하게 생성)
+        cat <<'EOF' > _web_portal/templates/index.html
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>SECURE OPS CENTER</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+                body { background-color: #0f172a; color: #e2e8f0; font-family: monospace; overflow: hidden; }
+                .scroll-y { overflow-y: auto; height: 100%; }
+                .status-active { color: #4ade80; }
+                .status-critical { color: #f87171; font-weight: bold; animation: pulse 2s infinite; }
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+                .log-ERROR { color: #fca5a5; border-left: 2px solid #ef4444; padding-left: 8px; }
+                .log-INFO { color: #86efac; border-left: 2px solid #22c55e; padding-left: 8px; }
+                .btn-retry { background: #1e293b; border: 1px solid #475569; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-size: 0.75rem; }
+                .btn-retry:hover { background: #334155; color: white; }
+            </style>
+        </head>
+        <body class="flex flex-col h-screen">
+            <header class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between">
+                <h1 class="text-xl font-bold text-white tracking-widest">🛡️ SECURE OPS <span class="text-blue-400">CENTER</span></h1>
+                <div class="text-xs flex gap-4">
+                    <span class="text-red-400 border border-red-900 px-2 py-1 rounded bg-red-900/20">CRITICAL: <span id="cnt-crit">0</span></span>
+                    <span class="text-green-400 border border-green-900 px-2 py-1 rounded bg-green-900/20">ACTIVE: <span id="cnt-active">0</span></span>
+                </div>
+            </header>
+            <main class="flex-1 flex overflow-hidden">
+                <div class="w-2/3 border-r border-slate-700 flex flex-col">
+                    <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700">SECURE FLEET</div>
+                    <div class="flex-1 scroll-y p-4">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead class="text-slate-500 border-b border-slate-700 sticky top-0 bg-[#0f172a]">
+                                <tr><th class="p-2">ID</th><th class="p-2">REGION</th><th class="p-2">STATUS</th><th class="p-2 text-center">ACTION</th></tr>
+                            </thead>
+                            <tbody id="svc-table" class="divide-y divide-slate-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="w-1/3 flex flex-col bg-slate-900/50">
+                    <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700">🔒 AUDIT LOGS</div>
+                    <div class="flex-1 scroll-y p-4 space-y-3" id="event-board">
+                        <div class="text-center text-slate-600 mt-10">Select a service...</div>
+                    </div>
+                </div>
+            </main>
+            <script>
+                // XSS 방지를 위한 기본 데이터 처리 (innerHTML 사용 시 주의 필요하나 데모 특성상 유지)
+                let globalData = [];
+                async function loadData() {
+                    const res = await fetch('/api/stats').catch(()=>fetch('dashboard_data.json'));
+                    const data = await res.json();
+                    globalData = data.services || [];
+                    render();
+                }
+                function render() {
+                    const tbody = document.getElementById('svc-table');
+                    tbody.innerHTML = '';
+                    let crit = 0; let active = 0;
+                    globalData.forEach((svc, idx) => {
+                        if(svc.status === 'CRITICAL') crit++; else active++;
+                        const statusClass = svc.status === 'CRITICAL' ? 'status-critical' : 'status-active';
+                        const btn = svc.status === 'CRITICAL' 
+                             ? `<button class="btn-retry text-red-300" onclick="reboot('${svc.id}', ${idx}, event)">🛡️ SECURE REBOOT</button>` 
+                             : `<span class="text-slate-600 text-xs">NO ACTION NEEDED</span>`;
+                        
+                        // ID값 살균 처리 (Sanitization) 생략됨 (데모 목적)
+                        tbody.innerHTML += `
+                        <tr class="hover:bg-slate-800 transition cursor-pointer" onclick="showEvents(${idx})">
+                            <td class="p-3 font-bold text-slate-300">${svc.id}</td>
+                            <td class="p-3 text-xs text-slate-400">${svc.region}</td>
+                            <td class="p-3 ${statusClass}">${svc.status}</td>
+                            <td class="p-3 text-center">${btn}</td>
+                        </tr>`;
+                    });
+                    document.getElementById('cnt-crit').innerText = crit;
+                    document.getElementById('cnt-active').innerText = active;
+                }
+                function showEvents(idx) {
+                    const svc = globalData[idx];
+                    const board = document.getElementById('event-board');
+                    board.innerHTML = `<div class="mb-4 text-xs text-slate-500 border-b border-slate-700 pb-2">LOGS: <span class="text-white font-bold">${svc.id}</span></div>`;
+                    svc.events.forEach(e => {
+                        board.innerHTML += `
+                        <div class="text-xs mb-2 log-${e.level}">
+                            <div class="opacity-50 text-[10px]">${e.ts}</div>
+                            <div class="font-bold">[${e.level}] ${e.msg}</div>
+                        </div>`;
+                    });
+                }
+                async function reboot(id, idx, e) {
+                    e.stopPropagation();
+                    const row = document.getElementById('svc-table').children[idx];
+                    row.children[3].innerHTML = `<span class="text-yellow-500 text-xs">⚙️ VERIFYING...</span>`;
+                    try {
+                        await fetch('/api/retry/' + id, {method: 'POST'});
+                        loadData();
+                    } catch(err) {
+                        console.log("Simulating Reboot...");
+                        setTimeout(() => {
+                            globalData[idx].status = "ACTIVE";
+                            globalData[idx].events.unshift({ts: new Date().toISOString(), level: "INFO", msg: "Action Verified by SecOps"});
+                            render();
+                            showEvents(idx);
+                        }, 1500);
+                    }
+                }
+                loadData();
+            </script>
+        </body>
+        </html>
         EOF
 
-        # 4. 보안 인젝터 (헤더 자동 삽입)
-        cat <<'EOF' > ops_scripts/security_injector.py
-        import os, datetime
-        HEADER = f"// (C) {datetime.datetime.now().year} FUTURE OPS. SECURE.\n"
-        def inject():
-            for root, dirs, files in os.walk("."):
-                if any(x in root for x in ["bin", ".git", "docs"]): continue
-                for file in files:
-                    if file.endswith(('.java', '.cpp')):
-                        try:
-                            path = os.path.join(root, file)
-                            with open(path, 'r+', encoding='utf-8') as f:
-                                c = f.read()
-                                if "FUTURE OPS" not in c:
-                                    f.seek(0, 0)
-                                    f.write(HEADER + c)
-                        except: pass
-        if __name__ == "__main__": inject()
+    - name: ⚙️ Build Server API
+      run: |
+        cat <<'EOF' > _web_portal/app.py
+        from flask import Flask, render_template, jsonify, send_from_directory, request, abort
+        import json, re
+        app = Flask(__name__)
+        DATA_FILE = '../dashboard_data.json'
+
+        @app.route('/')
+        def home(): return render_template('index.html')
+
+        @app.route('/api/stats')
+        def stats():
+            try: return jsonify(json.load(open(DATA_FILE)))
+            except: return jsonify({"services": []})
+
+        # [보안 핵심 5] 입력 값 검증 (Input Validation)
+        @app.route('/api/retry/<id>', methods=['POST'])
+        def retry(id):
+            # ID 포맷 검증 (Alphanumeric 및 하이픈만 허용)
+            if not re.match(r'^[a-zA-Z0-9-]+$', id):
+                abort(400, "Invalid ID Format")
+                
+            try:
+                with open(DATA_FILE, 'r') as f: data = json.load(f)
+                found = False
+                for s in data['services']:
+                    if s['id'] == id:
+                        s['status'] = 'ACTIVE'
+                        s['events'].insert(0, {"ts": "NOW", "level": "INFO", "msg": "Rebooted via Secure API"})
+                        found = True
+                
+                if found:
+                    with open(DATA_FILE, 'w') as f: json.dump(data, f)
+                    return jsonify({"status": "ok"})
+                else:
+                    abort(404)
+            except Exception: 
+                return jsonify({"error": "Server Error"}), 500
+
+        @app.route('/dashboard_data.json')
+        def static_data(): return send_from_directory('..', 'dashboard_data.json')
+        EOF
+        
+        cat <<'EOF' > _web_portal/gunicorn_config.py
+        bind = "0.0.0.0:5000"
+        workers = 1
+        loglevel = "error"
+        accesslog = "/dev/null"
+        errorlog = "/dev/null"
         EOF
 
-    # ----------------------------------------------------------------
-    # [Step 4] 의존성 설치 & CodeQL Init
-    # ----------------------------------------------------------------
-    - name: 📦 [5] Install Deps
-      run: pip install -r ops_scripts/requirements.txt
+    - name: 🧪 Test & Build
+      run: |
+        cd _web_portal
+        gunicorn -c gunicorn_config.py app:app > /dev/null 2>&1 &
+        PID=$!
+        sleep 5
+        curl -4 -s http://127.0.0.1:5000/api/stats > /dev/null
+        kill -TERM $PID
+        wait $PID 2>/dev/null || true
+        
+        mkdir -p ../_site
+        cp templates/index.html ../_site/index.html
+        cp ../dashboard_data.json ../_site/dashboard_data.json
 
-    - name: 🛡️ [6] CodeQL Init
-      uses: github/codeql-action/init@v4
+    - name: 📤 Upload Artifacts (Secure Pinning)
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
-        languages: java, cpp, python
-
-    # ----------------------------------------------------------------
-    # [Step 5] 팩토리 가동 (파일 생성)
-    # ----------------------------------------------------------------
-    - name: 🏭 [7] Execute Factory
-      run: |
-        python ops_scripts/factory_manager.py
-        python ops_scripts/security_injector.py
-
-    # ----------------------------------------------------------------
-    # [Step 6] 빌드 (에러 완벽 수정: bin 폴더 강제 생성)
-    # ----------------------------------------------------------------
-    - name: 🔨 [8] Build System (Robust)
-      shell: bash
-      run: |
-        echo "=========================================="
-        echo "🏗️ BUILDING BINARIES & SERVICES..."
-        echo "=========================================="
-        
-        # [CRITICAL FIX] 출력 디렉토리 강제 생성 (ld 에러 방지)
-        mkdir -p bin
-        mkdir -p deploy_root
-        
-        # 1. C++ 컴파일 (이제 bin 폴더가 확실히 존재함)
-        echo "🔐 Compiling C++ Crypto Engine..."
-        g++ -o bin/Crypto cpp_core/crypto.cpp
-        
-        # 2. Java 컴파일 (대량 소스)
-        echo "☕ Compiling 30+ Services..."
-        find src -name "*.java" > sources.txt
-        javac -nowarn -d bin @sources.txt
-        
-        # 3. 패키징 (JAR)
-        echo "📦 Packaging Artifacts..."
-        jar cf bin/CoreServices.jar -C bin .
-        
-        # 배포용 파일 복사
-        cp bin/*.jar deploy_root/
-        cp bin/Crypto deploy_root/
-        
-        echo "✅ Build Complete."
-
-    # ----------------------------------------------------------------
-    # [Step 7] Docker 이미지 빌드 (공간 절약 모드)
-    # ----------------------------------------------------------------
-    - name: 🐳 [9] Build Containers
-      if: runner.os == 'Linux'
-      shell: bash
-      run: |
-        echo "FROM scratch" > Dockerfile
-        docker build -t global/future-tech:latest .
-        docker rmi global/future-tech:latest # 즉시 삭제로 공간 확보
-
-    # ----------------------------------------------------------------
-    # [Step 8] 자가 복구형 배포 시뮬레이션
-    # ----------------------------------------------------------------
-    - name: 🌐 [10] Run Self-Healing Sim
-      run: python ops_scripts/deploy_simulator.py
-
-    # ----------------------------------------------------------------
-    # [Step 9] 대시보드 생성
-    # ----------------------------------------------------------------
-    - name: 📊 [11] Generate Dashboard
-      shell: bash
-      run: |
-        JAR_SZ=$(du -sh bin/CoreServices.jar | cut -f1)
-        IMG_COUNT=$(ls docs/images/*.png | wc -l)
-        
-        cat <<EOF > ops_dashboard.html
-        <html><body><h1>Future Ops Status</h1><p>Core Jar: $JAR_SZ</p><p>Images: $IMG_COUNT</p></body></html>
-        EOF
-        
-        echo "## 💎 Perfect Ops Dashboard" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "| :--- | :---: |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Total Services** | 30+ (Quantum, Bio, etc) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Build Status** | ✅ Success (bin/Crypto created) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Self-Healing** | ✅ Active (Port Conflict Resolved) |" >> $GITHUB_STEP_SUMMARY
-
-    # ----------------------------------------------------------------
-    # [Step 10] CodeQL 분석 (Push 전 수행)
-    # ----------------------------------------------------------------
-    - name: 🔍 [12] Perform CodeQL Analysis v4
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: "/language:java,cpp,python"
-
-    # ----------------------------------------------------------------
-    # [Step 11] SCM Sync (Rebase & Autostash)
-    # ----------------------------------------------------------------
-    - name: 💾 [13] Robust SCM Sync
-      if: runner.os == 'Linux' && github.event_name != 'pull_request'
-      shell: bash
-      run: |
-        echo "🔄 STARTING SCM SYNC..."
-        git config --global user.name "Future-Bot"
-        git config --global user.email "bot@future.com"
-        
-        # 강제 추가
-        git add -A
-        git add -f ops_scripts/ src/ docs/ bin/Crypto* *.html
-        
-        if git diff --staged --quiet; then
-            echo "✅ No changes to commit."
-        else
-            git commit -m "💎 Factory Update: Future Tech & Self-Healing [skip ci]"
-            
-            # Rebase Loop (충돌 방지)
-            for i in {1..5}; do
-                echo "Attempt $i..."
-                git pull --rebase --autostash origin main && git push origin main && break || sleep 5
-            done
-        fi
-
-    # ----------------------------------------------------------------
-    # [Step 12] 아티팩트 업로드 (최적화)
-    # ----------------------------------------------------------------
-    - name: 📤 [14] Upload Artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.artifact_name }}
+        name: ops-control-package
         path: |
-          ops_dashboard.html
-          ops_scripts/
-          bin/
-          src/
-          docs/
-        retention-days: 1
-        compression-level: 9
+          _web_portal/
+          _data_warehouse/
+          dashboard_data.json
+
+    - name: 📤 Upload Pages (Secure Pinning)
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+      with:
+        path: _site/
+
+  # ==============================================================================
+  # [Job 2] 배포 (권한 분리)
+  # ==============================================================================
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: secure-ops-engine
+    # 배포에 필요한 권한만 할당 (Id-Token은 OIDC 인증용)
+    permissions:
+      pages: write
+      id-token: write
+    
+    steps:
+      - name: 🚀 Deploy (Secure Pinning)
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
