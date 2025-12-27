@@ -1,52 +1,50 @@
-name: 🛡️ Ops Control Center (Visualized & Persistent)
+name: 👁️ Ops Control Center (Full Process Visibility)
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # 6시간마다 실행
+    - cron: '0 */6 * * *' # 6시간마다 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-# [보안] 최상위 권한 잠금
 permissions: read-all
 
 concurrency:
-  group: "ops-control-secure"
+  group: "ops-control-visual"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 데이터 엔진 실행, 보안 감사, 시각화 데이터 구축
+  # [Job 1] 전체 프로세스 실행 및 시각화 데이터 생성
   # ==============================================================================
-  secure-ops-engine:
+  process-visualizer:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
-      contents: write # 커밋을 위해 쓰기 권한 필수
+      contents: write
 
     steps:
-    # 1. 소스 체크아웃 (보안 태그 고정)
+    # 1. 소스 체크아웃
     - name: 📥 Checkout Repo
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-    # 2. 파이썬 설정
+    # 2. 파이썬 환경 설정
     - name: 🛠️ Setup Python
       uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
       with:
         python-version: '3.10'
 
-    # 3. 의존성 설치 (보안 툴 + 데이터 분석 툴)
-    - name: 📦 Install Deps
-      run: |
-        pip install --no-cache-dir flask flask-cors gunicorn faker pandas requests jinja2 bandit
-    
-    # 4. 🏭 고급 데이터 엔진 (히스토리 누적 기능 추가)
-    - name: 🏭 Run Smart Data Engine
+    # 3. 필수 도구 설치
+    - name: 📦 Install Tools
+      run: pip install --no-cache-dir flask flask-cors gunicorn faker pandas requests bandit
+
+    # 4. 🏭 데이터 엔진 (파이프라인 추적 데이터 추가)
+    - name: 🏭 Run Process Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import os, json, uuid, secrets
-        from datetime import datetime, date
+        import os, json, uuid, secrets, time
+        from datetime import datetime, date, timedelta
         from decimal import Decimal
         from faker import Faker
         
@@ -54,7 +52,6 @@ jobs:
         fake = Faker()
         DATA_FILE = "dashboard_data.json"
         
-        # JSON 직렬화
         def json_serial(obj):
             if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
@@ -62,38 +59,41 @@ jobs:
                 return float(obj)
             raise TypeError (f"Type {type(obj)} not serializable")
 
-        # 기존 데이터 로드 (히스토리 유지를 위해)
         def load_existing_data():
             if os.path.exists(DATA_FILE):
                 try:
-                    with open(DATA_FILE, 'r') as f:
-                        return json.load(f)
-                except:
-                    return None
+                    with open(DATA_FILE, 'r') as f: return json.load(f)
+                except: return None
             return None
 
-        # 서비스 생성 로직
+        # [NEW] 파이프라인 단계별 상태 생성
+        def gen_pipeline_steps():
+            now = datetime.now()
+            return [
+                {"step": "DATA GEN", "status": "SUCCESS", "time": (now - timedelta(seconds=45)).strftime("%H:%M:%S")},
+                {"step": "SECURITY SCAN", "status": "PASSED", "time": (now - timedelta(seconds=30)).strftime("%H:%M:%S")},
+                {"step": "UNIT TEST", "status": "PASSED", "time": (now - timedelta(seconds=15)).strftime("%H:%M:%S")},
+                {"step": "DEPLOYMENT", "status": "PENDING", "time": "IN PROGRESS"} 
+            ]
+
         def gen_services():
             services = []
             regions = ["KR-Seoul", "US-East", "EU-West"]
             domains = ["Payment", "Auth", "Order", "Delivery"]
-            
             critical_count = 0
             active_count = 0
-
+            
             for r in regions:
                 for d in domains:
-                    is_down = secure_rng.random() < 0.15 # 15% 확률로 장애
+                    is_down = secure_rng.random() < 0.15
                     status = "CRITICAL" if is_down else "ACTIVE"
                     if is_down: critical_count += 1
                     else: active_count += 1
                     
                     svc_id = f"{d}-{r}-{secure_rng.randint(100,999)}"
                     events = []
-                    
-                    # 로그 생성
                     if is_down:
-                        events.append({"ts": str(datetime.now()), "level": "ERROR", "msg": "Connection Timeout"})
+                        events.append({"ts": str(datetime.now()), "level": "ERROR", "msg": "Latency > 2000ms"})
                     else:
                         events.append({"ts": str(datetime.now()), "level": "INFO", "msg": "Health check ok"})
                     
@@ -101,80 +101,61 @@ jobs:
                         "id": svc_id, "region": r, "domain": d, "status": status, 
                         "events": events
                     })
-            
             return services, active_count, critical_count
 
         if __name__ == "__main__":
-            print("🚀 Generating Smart Data...")
-            
-            # 1. 기존 데이터 불러오기
+            print("🚀 Starting Process Engine...")
             old_data = load_existing_data()
-            if old_data is None:
-                old_data = {"history": [], "services": []}
+            if old_data is None: old_data = {"history": []}
             
-            # 2. 새로운 상태 생성
             services, active, critical = gen_services()
+            pipeline = gen_pipeline_steps() # 파이프라인 데이터 생성
             
-            # 3. 히스토리 기록 (최근 20개 포인트만 유지)
-            new_history_point = {
+            # 히스토리 기록
+            history = old_data.get("history", [])
+            history.append({
                 "ts": datetime.now().strftime("%H:%M"),
                 "active": active,
                 "critical": critical
-            }
-            
-            history = old_data.get("history", [])
-            history.append(new_history_point)
-            if len(history) > 20: 
-                history = history[-20:] # 꼬리 자르기
+            })
+            if len(history) > 20: history = history[-20:]
             
             final_data = {
                 "generated_at": str(datetime.now()),
+                "pipeline": pipeline, # 시각화용 파이프라인 데이터 포함
                 "history": history,
                 "services": services
             }
             
             with open(DATA_FILE, "w") as f:
                 json.dump(final_data, f, default=json_serial, indent=2)
-            
-            print("✅ Data Updated with History.")
+            print("✅ Process Completed.")
         EOF
         
-        # 엔진 실행
         python db_engine.py
 
     # 5. 보안 감사 (SAST)
     - name: 🕵️ Run Security Audit
       run: bandit -r db_engine.py -s B101,B311 || true
 
-    # ----------------------------------------------------------------
-    # [FIXED & IMPROVED] 💾 데이터 영구 저장 (강제 추가 및 충돌 방지)
-    # ----------------------------------------------------------------
+    # 6. 데이터 저장 (강제 추가 및 Rebase)
     - name: 💾 Commit & Push Data
       run: |
-        git config --global user.name "Security-Bot"
+        git config --global user.name "Process-Bot"
         git config --global user.email "bot@noreply.github.com"
-        
-        # [핵심 수정 1] .gitignore 무시하고 강제로 파일 스테이징 (-f 옵션)
         git add -f dashboard_data.json
-        
-        # 변경사항 확인
         if git diff --staged --quiet; then
-          echo "No changes to commit."
+          echo "No changes."
         else
-          git commit -m "📊 Auto-update: Ops Data & History [$(date)]"
-          
-          # [핵심 수정 2] 리모트 변경사항을 먼저 당겨와서 충돌 방지 (Rebase)
+          git commit -m "UPDATE: System Process Log [$(date)]"
           git pull --rebase --autostash
           git push
         fi
 
-    # ----------------------------------------------------------------
-    # [Step 6] 🌐 프론트엔드 (Chart.js 시각화 추가)
-    # ----------------------------------------------------------------
-    - name: 🎨 Build Dashboard UI
+    # 7. UI 빌드 (파이프라인 시각화 포함)
+    - name: 🎨 Build Visual Dashboard
       shell: bash
       run: |
-        mkdir -p _web_portal/static
         mkdir -p _web_portal/templates
         
         cat <<'EOF' > _web_portal/templates/index.html
@@ -182,134 +163,162 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>SECURE OPS DASHBOARD</title>
+            <title>OPS PROCESS VISUALIZER</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
-                body { background-color: #0f172a; color: #e2e8f0; font-family: monospace; overflow: hidden; }
+                body { background-color: #0b1121; color: #e2e8f0; font-family: 'Courier New', monospace; overflow: hidden; }
                 .scroll-y { overflow-y: auto; height: 100%; }
-                .status-critical { color: #f87171; font-weight: bold; }
-                .status-active { color: #4ade80; }
-                /* Custom Scrollbar */
-                ::-webkit-scrollbar { width: 8px; }
-                ::-webkit-scrollbar-track { background: #1e293b; }
-                ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+                
+                /* Status Colors */
+                .st-active { color: #4ade80; text-shadow: 0 0 5px #4ade80; }
+                .st-critical { color: #f87171; text-shadow: 0 0 5px #f87171; animation: blink 1s infinite; }
+                @keyframes blink { 50% { opacity: 0.5; } }
+                
+                /* Process Step Bar */
+                .step-box { border: 1px solid #334155; padding: 10px; flex: 1; text-align: center; background: #0f172a; }
+                .step-success { border-bottom: 3px solid #4ade80; color: #4ade80; }
+                .step-pending { border-bottom: 3px solid #fbbf24; color: #fbbf24; }
+                
+                /* Scrollbar */
+                ::-webkit-scrollbar { width: 6px; }
+                ::-webkit-scrollbar-thumb { background: #334155; }
             </style>
         </head>
         <body class="flex flex-col h-screen">
-            <header class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <h1 class="text-xl font-bold tracking-widest text-white">🛡️ OPS <span class="text-blue-500">DASHBOARD</span></h1>
-                    <span class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400">LIVE MODE</span>
+            <div id="pipeline-container" class="flex justify-between gap-2 p-2 bg-slate-900 border-b border-slate-700 h-24">
                 </div>
-                <div class="text-xs text-slate-500">Secure Connection: TLS 1.3</div>
-            </header>
 
-            <main class="flex-1 flex overflow-hidden">
-                <div class="w-1/2 border-r border-slate-700 flex flex-col">
-                    <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700 flex justify-between">
-                        <span>SERVICE FLEET STATUS</span>
-                        <button onclick="loadData()" class="hover:text-white">↻ REFRESH</button>
+            <div class="flex flex-1 overflow-hidden">
+                <div class="w-3/4 flex flex-col border-r border-slate-700">
+                    <header class="p-4 flex justify-between items-center bg-slate-800/50">
+                        <h1 class="text-2xl font-bold tracking-widest">SYSTEM <span class="text-blue-500">VISUALIZER</span></h1>
+                        <div class="text-xs text-slate-400">LAST UPDATE: <span id="last-update" class="text-white">...</span></div>
+                    </header>
+                    
+                    <div class="h-1/3 p-4 border-b border-slate-700">
+                        <canvas id="trendChart"></canvas>
                     </div>
+                    
                     <div class="flex-1 scroll-y p-4">
                         <table class="w-full text-left text-sm">
-                            <thead class="text-slate-500 border-b border-slate-700 sticky top-0 bg-[#0f172a]">
-                                <tr><th class="p-2">ID</th><th class="p-2">REGION</th><th class="p-2">STATUS</th></tr>
+                            <thead class="text-slate-500 sticky top-0 bg-[#0b1121] border-b border-slate-700">
+                                <tr><th class="p-3">SERVICE ID</th><th class="p-3">REGION</th><th class="p-3">PROCESS STATE</th></tr>
                             </thead>
                             <tbody id="svc-table" class="divide-y divide-slate-800"></tbody>
                         </table>
                     </div>
                 </div>
 
-                <div class="w-1/2 flex flex-col bg-slate-900/50">
-                    <div class="h-1/2 border-b border-slate-700 flex flex-col">
-                        <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700">📈 SYSTEM TRENDS (Active vs Critical)</div>
-                        <div class="flex-1 p-4 relative">
-                            <canvas id="trendChart"></canvas>
-                        </div>
+                <div class="w-1/4 flex flex-col bg-slate-900">
+                    <div class="p-3 bg-slate-800 font-bold text-xs text-slate-400 border-b border-slate-700">🖥️ SYSTEM BOOT LOGS</div>
+                    <div class="flex-1 scroll-y p-3 font-mono text-[10px] space-y-1" id="boot-logs">
+                        <div class="text-slate-500">Waiting for data stream...</div>
                     </div>
                     
-                    <div class="h-1/2 flex flex-col">
-                         <div class="p-3 bg-slate-800 text-xs text-slate-400 font-bold border-b border-slate-700">🚨 LIVE INCIDENT LOGS</div>
-                         <div class="flex-1 scroll-y p-4 space-y-2" id="log-board"></div>
-                    </div>
+                    <div class="p-3 bg-slate-800 font-bold text-xs text-slate-400 border-y border-slate-700">🚨 ERROR ALERTS</div>
+                    <div class="h-1/3 scroll-y p-3 space-y-2" id="error-logs"></div>
                 </div>
-            </main>
+            </div>
 
             <script>
-                let chartInstance = null;
-
                 async function loadData() {
                     const res = await fetch('/api/stats').catch(()=>fetch('dashboard_data.json'));
                     const data = await res.json();
+                    
+                    document.getElementById('last-update').innerText = data.generated_at;
+                    
+                    renderPipeline(data.pipeline);
                     renderTable(data.services);
                     renderChart(data.history);
-                    renderLogs(data.services);
+                    renderLogs(data.services, data.pipeline);
                 }
 
+                // 1. Render Pipeline Steps (Top Bar)
+                function renderPipeline(steps) {
+                    const container = document.getElementById('pipeline-container');
+                    container.innerHTML = '';
+                    if(!steps) return;
+                    
+                    steps.forEach(s => {
+                        const style = s.status === 'SUCCESS' || s.status === 'PASSED' ? 'step-success' : 'step-pending';
+                        const icon = s.status === 'SUCCESS' || s.status === 'PASSED' ? '✔' : '⚡';
+                        container.innerHTML += `
+                        <div class="step-box ${style} flex flex-col justify-center">
+                            <div class="text-xs opacity-70">${s.step}</div>
+                            <div class="text-lg font-bold">${icon} ${s.status}</div>
+                            <div class="text-[10px] opacity-50">${s.time}</div>
+                        </div>`;
+                    });
+                }
+
+                // 2. Render Service Table
                 function renderTable(services) {
                     const tbody = document.getElementById('svc-table');
                     tbody.innerHTML = '';
                     services.forEach(svc => {
-                        const color = svc.status === 'CRITICAL' ? 'status-critical' : 'status-active';
+                        const color = svc.status === 'CRITICAL' ? 'st-critical' : 'st-active';
                         tbody.innerHTML += `
-                        <tr class="hover:bg-slate-800 transition">
-                            <td class="p-2 font-mono text-slate-300">${svc.id}</td>
+                        <tr class="hover:bg-slate-800/50 transition">
+                            <td class="p-2 text-slate-300 font-bold">${svc.id}</td>
                             <td class="p-2 text-xs text-slate-500">${svc.region}</td>
-                            <td class="p-2 ${color} text-xs">${svc.status}</td>
+                            <td class="p-2 ${color} text-xs">[ ${svc.status} ]</td>
                         </tr>`;
                     });
                 }
 
-                function renderLogs(services) {
-                    const board = document.getElementById('log-board');
-                    board.innerHTML = '';
-                    const criticals = services.filter(s => s.status === 'CRITICAL');
+                // 3. Render Logs (Boot & Error)
+                function renderLogs(services, pipeline) {
+                    const bootBox = document.getElementById('boot-logs');
+                    const errBox = document.getElementById('error-logs');
                     
-                    if(criticals.length === 0) {
-                        board.innerHTML = '<div class="text-center text-green-500 text-sm mt-10">✅ All Systems Operational</div>';
-                        return;
-                    }
-
-                    criticals.forEach(svc => {
-                        svc.events.forEach(e => {
-                            if(e.level === 'ERROR') {
-                                board.innerHTML += `
-                                <div class="bg-red-900/20 border-l-2 border-red-500 p-2 text-xs text-red-200">
-                                    <span class="opacity-50">[${e.ts.split(' ')[1]}]</span> 
-                                    <span class="font-bold">${svc.id}</span>: ${e.msg}
-                                </div>`;
-                            }
+                    // Boot Logs (Simulated from pipeline data)
+                    bootBox.innerHTML = '';
+                    if(pipeline) {
+                        pipeline.forEach(p => {
+                            bootBox.innerHTML += `<div class="text-green-400"> > [${p.time}] PROCESS: ${p.step} initialized... OK</div>`;
                         });
+                    }
+                    bootBox.innerHTML += `<div class="text-blue-400"> > [NOW] Dashboard rendering complete.</div>`;
+                    
+                    // Error Logs
+                    errBox.innerHTML = '';
+                    const errs = services.filter(s => s.status === 'CRITICAL');
+                    if(errs.length === 0) errBox.innerHTML = '<div class="text-center text-slate-600 mt-4">No Active Alerts</div>';
+                    
+                    errs.forEach(s => {
+                        errBox.innerHTML += `
+                        <div class="bg-red-900/10 border-l-2 border-red-500 p-2 text-[10px] text-red-200">
+                            <div class="font-bold">${s.id}</div>
+                            <div>${s.events[0].msg}</div>
+                        </div>`;
                     });
                 }
 
+                // 4. Render Chart
                 function renderChart(history) {
-                    if(!history || history.length === 0) return;
-                    
+                    if(!history) return;
                     const ctx = document.getElementById('trendChart').getContext('2d');
-                    const labels = history.map(h => h.ts);
-                    const activeData = history.map(h => h.active);
-                    const critData = history.map(h => h.critical);
-
-                    if(chartInstance) chartInstance.destroy();
-
-                    chartInstance = new Chart(ctx, {
+                    new Chart(ctx, {
                         type: 'line',
                         data: {
-                            labels: labels,
-                            datasets: [
-                                { label: 'Active', data: activeData, borderColor: '#4ade80', tension: 0.4 },
-                                { label: 'Critical', data: critData, borderColor: '#f87171', tension: 0.4 }
-                            ]
+                            labels: history.map(h => h.ts),
+                            datasets: [{
+                                label: 'System Load',
+                                data: history.map(h => h.active),
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
+                                tension: 0.4
+                            }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { display: true, labels: { color: '#94a3b8' } } },
+                            plugins: { legend: { display: false } },
                             scales: {
-                                y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                                x: { display: false },
+                                y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
                             }
                         }
                     });
@@ -321,8 +330,8 @@ jobs:
         </html>
         EOF
 
-    # 7. 서버 빌드 및 아티팩트 업로드
-    - name: 🧪 Build & Test
+    # 8. 빌드 및 배포 준비
+    - name: 🧪 Build & Publish
       run: |
         cat <<'EOF' > _web_portal/app.py
         from flask import Flask, render_template, jsonify, send_from_directory
@@ -336,7 +345,6 @@ jobs:
         def static_data(): return send_from_directory('..', 'dashboard_data.json')
         EOF
         
-        # Static Build
         mkdir -p _site
         cp _web_portal/templates/index.html _site/index.html
         cp dashboard_data.json _site/dashboard_data.json
@@ -347,14 +355,14 @@ jobs:
         path: _site/
 
   # ==============================================================================
-  # [Job 2] 배포 (Pages)
+  # [Job 2] 배포
   # ==============================================================================
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: secure-ops-engine
+    needs: process-visualizer
     permissions:
       pages: write
       id-token: write
