@@ -1,8 +1,8 @@
-name: 🌌 Galaxy Ops:DB, Backup & Snapshot
+name: 🌌 Galaxy Ops:Ultimate Edition (SQL & Restore)
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # 15분마다 전체 데이터 갱신
+    - cron: '*/10 * * * *' # 10분마다 데이터 재생성
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "galaxy-ops-full"
+  group: "galaxy-ops-ultimate"
   cancel-in-progress: true
 
 jobs:
@@ -34,9 +34,9 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 인프라 & DB 데이터 엔진
+    # [Step 1] 🏭 데이터 엔진 (에러 수정 & 데이터 고도화)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Full-Stack Data Engine
+    - name: 🏭 Run Ultimate Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
@@ -44,23 +44,26 @@ jobs:
         from faker import Faker
         fake = Faker()
         
-        NODE_COUNT = 60 # 화면 밀도를 위해 최적화
+        NODE_COUNT = 80
         
-        # 서비스별 DB 기술 스택 정의
         TECH_STACK = {
             "PAYMENT": { "db": "PostgreSQL 16", "store": "NVMe Block", "backup_type": "WAL Archive" },
             "AUTH":    { "db": "Redis Cluster", "store": "In-Memory", "backup_type": "RDB Snapshot" },
             "AI-CORE": { "db": "Milvus Vector", "store": "Object Store", "backup_type": "Embedding Dump" },
-            "DELIVERY":{ "db": "MongoDB 7.0",   "store": "SSD Raid-0", "backup_type": "Oplog Slice" }
+            "DELIVERY":{ "db": "MongoDB 7.0",   "store": "SSD Raid-0", "backup_type": "Oplog Slice" },
+            "LOGGING": { "db": "Elasticsearch", "store": "HDD Raid-6", "backup_type": "Index Snapshot" }
         }
         
-        CLUSTERS = ["Alpha", "Beta", "Gamma", "Delta"]
+        CLUSTERS = ["Alpha-Centauri", "Nebula-Edge", "Sirius-Main", "Orion-Backup", "Vega-Frontier"]
+
+        # [FIX] 에러가 발생했던 date_time_this_week 대체 함수
+        def safe_date():
+            return fake.date_time_between(start_date='-7d', end_date='now')
 
         def gen_backups():
-            # 과거 백업 기록 생성
             backups = []
-            for i in range(random.randint(2, 5)):
-                dt = fake.date_time_this_month()
+            for i in range(random.randint(2, 6)):
+                dt = safe_date()
                 size = random.randint(50, 5000)
                 backups.append({
                     "id": f"bk-{fake.hex_color()[1:]}-{i}",
@@ -71,14 +74,13 @@ jobs:
             return sorted(backups, key=lambda x: x['date'], reverse=True)
 
         def gen_snapshots():
-            # 스냅샷 기록 생성
             snaps = []
-            for i in range(random.randint(1, 3)):
-                dt = fake.date_time_this_week()
+            for i in range(random.randint(1, 4)):
+                dt = safe_date()
                 snaps.append({
-                    "id": f"snap-{random.randint(1000,9999)}",
+                    "id": f"snap-{random.randint(10000,99999)}",
                     "date": dt.strftime("%H:%M:%S"),
-                    "desc": random.choice(["Pre-deploy", "Hourly", "Manual"]),
+                    "desc": random.choice(["Pre-deploy", "Hourly", "Manual", "Post-Patch"]),
                     "size": f"{random.randint(1, 100)}GB"
                 })
             return snaps
@@ -91,9 +93,8 @@ jobs:
                 cluster = random.choice(CLUSTERS)
                 
                 # DB Metrics
-                db_size = random.randint(100, 9000) # GB
+                db_size = random.randint(100, 9000)
                 db_used = random.randint(10, db_size - 50)
-                connections = random.randint(50, 5000)
                 
                 nodes.append({
                     "id": f"{svc_type}-{cluster}-{i:03d}",
@@ -102,13 +103,14 @@ jobs:
                     "status": "ACTIVE",
                     "tech": tech,
                     "metrics": {
-                        "cpu": random.randint(10, 80),
+                        "cpu": random.randint(5, 60),
                         "mem": random.randint(20, 70),
-                        "temp": random.randint(40, 75),
+                        "temp": random.randint(40, 65),
                         "db_total": db_size,
                         "db_used": db_used,
-                        "conn": connections,
-                        "tps": random.randint(100, 20000)
+                        "conn": random.randint(50, 5000),
+                        "tps": random.randint(100, 20000),
+                        "latency": random.randint(1, 50)
                     },
                     "backups": gen_backups(),
                     "snapshots": gen_snapshots()
@@ -120,25 +122,25 @@ jobs:
             data = gen_nodes()
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print(f"✅ Generated Full-Stack Data for {NODE_COUNT} nodes.")
+            print(f"✅ Generated Ultimate Data for {NODE_COUNT} nodes.")
         EOF
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 커밋
+    # [Step 2] 데이터 저장
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "DBA-Bot"
+        git config --global user.name "Ops-Admin"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🗄️ DB & Backup State Update [$(date)]" || echo "No changes"
+        git commit -m "🚀 Ultimate Ops Update [$(date)]" || echo "No changes"
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 (모달, 탭, 기능 시뮬레이션 탑재)
+    # [Step 3] 프론트엔드 (SQL 콘솔, 복구 시뮬레이션, 차트 탑재)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Deep Ops UI
+    - name: 🎨 Build Ultimate UI
       shell: bash
       run: |
         mkdir -p _site
@@ -149,202 +151,182 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>GALAXY DEEP OPS</title>
+            <title>GALAXY OPS: ULTIMATE</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
             <style>
                 body { background-color: #020617; color: #cbd5e1; font-family: 'Courier New', monospace; overflow: hidden; }
                 
                 /* Layout */
                 .layout { display: grid; grid-template-rows: 60px 1fr 30px; height: 100vh; }
-                .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; padding: 10px; overflow-y: auto; }
+                .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; padding: 10px; overflow-y: auto; }
                 
                 /* Card */
                 .card { background: #0f172a; border: 1px solid #1e293b; padding: 10px; cursor: pointer; transition: all 0.2s; position: relative; }
-                .card:hover { border-color: #3b82f6; background: #1e293b; transform: translateY(-2px); }
+                .card:hover { border-color: #60a5fa; background: #1e293b; transform: translateY(-2px); z-index: 10; }
                 .card.active .status-dot { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
                 
                 /* Modal */
-                .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 50; backdrop-filter: blur(4px); }
+                .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 50; backdrop-filter: blur(5px); }
                 .modal-content { 
                     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                    width: 80%; height: 80%; background: #0f172a; border: 1px solid #3b82f6; 
-                    display: grid; grid-template-rows: 50px 1fr; 
-                    box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+                    width: 85%; height: 85%; background: #0f172a; border: 1px solid #3b82f6; 
+                    display: grid; grid-template-rows: 45px 1fr; 
+                    box-shadow: 0 0 50px rgba(59, 130, 246, 0.3);
                 }
                 
                 /* Tabs */
                 .tab-bar { display: flex; border-bottom: 1px solid #334155; background: #1e293b; }
-                .tab-btn { padding: 0 20px; height: 100%; display: flex; align-items: center; cursor: pointer; border-right: 1px solid #334155; color: #94a3b8; }
+                .tab-btn { padding: 0 20px; height: 100%; display: flex; align-items: center; cursor: pointer; border-right: 1px solid #334155; font-size: 11px; font-weight: bold; }
                 .tab-btn:hover { background: #334155; color: white; }
                 .tab-btn.active { background: #0f172a; color: #3b82f6; border-bottom: 2px solid #3b82f6; }
                 
-                .tab-content { display: none; padding: 20px; overflow-y: auto; height: 100%; }
+                .tab-content { display: none; padding: 0; height: 100%; }
                 .tab-content.active { display: block; }
                 
+                /* Terminal */
+                .terminal { background: #000; color: #22c55e; font-family: 'Courier New', monospace; padding: 10px; height: 100%; overflow-y: auto; font-size: 11px; }
+                .cmd-input { background: transparent; border: none; color: #fff; width: 80%; outline: none; }
+                
                 /* Visuals */
-                .bar-bg { width: 100%; background: #334155; height: 6px; border-radius: 3px; overflow: hidden; }
-                .bar-fill { height: 100%; transition: width 0.5s; }
-                .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block; margin-right: 5px; }
-
-                /* Animations */
-                .spin-slow { animation: spin 3s linear infinite; }
-                @keyframes spin { 100% { transform: rotate(360deg); } }
-                .blink { animation: blink 1s infinite; }
-                @keyframes blink { 50% { opacity: 0.5; } }
+                .bar-bg { width: 100%; background: #334155; height: 4px; overflow: hidden; }
+                .bar-fill { height: 100%; }
+                .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block; }
+                
+                /* Scrollbar */
+                ::-webkit-scrollbar { width: 6px; height: 6px; }
+                ::-webkit-scrollbar-thumb { background: #475569; }
             </style>
         </head>
         <body class="layout">
             
             <header class="flex justify-between items-center px-6 border-b border-slate-800 bg-slate-950">
                 <div class="flex items-center gap-3">
-                    <i class="fas fa-server text-blue-500 text-xl"></i>
-                    <h1 class="text-xl font-bold text-white tracking-widest">GALAXY <span class="text-blue-500">DEEP OPS</span></h1>
+                    <i class="fas fa-network-wired text-blue-500 text-lg"></i>
+                    <h1 class="text-lg font-bold text-white tracking-widest">GALAXY <span class="text-blue-500">OPS ULTIMATE</span></h1>
                 </div>
-                <div class="text-xs text-slate-500">
-                    <span class="mr-4"><i class="fas fa-database text-green-500"></i> DB LINKED: <span class="text-white" id="stat-db">--</span></span>
-                    <span><i class="fas fa-shield-alt text-yellow-500"></i> SECURITY LEVEL: <span class="text-white">MAX</span></span>
+                <div class="flex gap-4 text-xs font-mono">
+                    <div>NODES: <span class="text-white" id="stat-nodes">--</span></div>
+                    <div>STATUS: <span class="text-green-400">OPTIMAL</span></div>
                 </div>
             </header>
 
             <div id="grid-container" class="grid-view custom-scroll"></div>
 
             <footer class="flex items-center px-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-500">
-                <span>> SYSTEM READY. CLICK ANY NODE FOR DETAILS.</span>
+                <span class="animate-pulse mr-2">●</span> SYSTEM LIVE. CLICK NODES TO MANAGE.
             </footer>
 
             <div id="detail-modal" class="modal-overlay">
                 <div class="modal-content">
                     <div class="tab-bar">
-                        <div class="px-4 flex items-center font-bold text-white border-right border-slate-700 w-64 bg-slate-900">
-                            <i class="fas fa-terminal mr-2 text-blue-400"></i> <span id="modal-title">NODE-ID</span>
+                        <div class="px-4 flex items-center font-bold text-white border-r border-slate-700 w-48 bg-slate-900 text-xs">
+                            <i class="fas fa-cube mr-2 text-blue-400"></i> <span id="modal-title">ID</span>
                         </div>
-                        <div class="tab-btn active" onclick="switchTab('overview')">OVERVIEW</div>
-                        <div class="tab-btn" onclick="switchTab('database')">DATABASE</div>
-                        <div class="tab-btn" onclick="switchTab('backup')">BACKUPS</div>
-                        <div class="tab-btn" onclick="switchTab('snapshot')">SNAPSHOTS</div>
+                        <div class="tab-btn active" onclick="switchTab('overview')"><i class="fas fa-chart-line mr-2"></i> MONITOR</div>
+                        <div class="tab-btn" onclick="switchTab('db')"><i class="fas fa-database mr-2"></i> SQL CONSOLE</div>
+                        <div class="tab-btn" onclick="switchTab('backup')"><i class="fas fa-save mr-2"></i> BACKUP/RESTORE</div>
+                        <div class="tab-btn" onclick="switchTab('security')"><i class="fas fa-shield-alt mr-2"></i> SECURITY</div>
                         <div class="flex-1"></div>
-                        <div class="tab-btn text-red-400 hover:bg-red-900/50" onclick="closeModal()">CLOSE [X]</div>
+                        <div class="tab-btn text-red-400 hover:bg-red-900/50" onclick="closeModal()">CLOSE</div>
                     </div>
 
-                    <div id="tab-overview" class="tab-content active">
-                        <div class="grid grid-cols-2 gap-4 h-full">
-                            <div class="border border-slate-700 p-4 bg-slate-900/50">
-                                <h3 class="text-blue-400 font-bold mb-4 border-b border-slate-700 pb-2">SYSTEM METRICS</h3>
-                                <div class="space-y-4">
-                                    <div>
-                                        <div class="flex justify-between text-xs mb-1"><span>CPU LOAD</span><span id="ov-cpu">0%</span></div>
-                                        <div class="bar-bg"><div id="bar-ov-cpu" class="bar-fill bg-blue-500" style="width:0%"></div></div>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-xs mb-1"><span>MEMORY</span><span id="ov-mem">0%</span></div>
-                                        <div class="bar-bg"><div id="bar-ov-mem" class="bar-fill bg-purple-500" style="width:0%"></div></div>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-xs mb-1"><span>THERMAL</span><span id="ov-temp">0°C</span></div>
-                                        <div class="bar-bg"><div id="bar-ov-temp" class="bar-fill bg-red-500" style="width:0%"></div></div>
-                                    </div>
+                    <div id="tab-overview" class="tab-content active p-4">
+                        <div class="grid grid-cols-4 gap-4 h-full">
+                            <div class="col-span-1 space-y-4">
+                                <div class="bg-slate-800 p-3 border border-slate-700">
+                                    <div class="text-xs text-slate-400">CPU LOAD</div>
+                                    <div class="text-2xl font-bold text-white" id="ov-cpu">0%</div>
+                                    <div class="bar-bg mt-1"><div id="bar-ov-cpu" class="bar-fill bg-blue-500" style="width:0%"></div></div>
                                 </div>
-                                <div class="mt-8">
-                                    <button class="w-full py-2 bg-red-900/20 border border-red-800 text-red-400 hover:bg-red-800 hover:text-white transition text-xs font-bold" onclick="simulateAction('REBOOT')">
-                                        <i class="fas fa-power-off mr-2"></i> EMERGENCY REBOOT
-                                    </button>
+                                <div class="bg-slate-800 p-3 border border-slate-700">
+                                    <div class="text-xs text-slate-400">MEMORY</div>
+                                    <div class="text-2xl font-bold text-white" id="ov-mem">0%</div>
+                                    <div class="bar-bg mt-1"><div id="bar-ov-mem" class="bar-fill bg-purple-500" style="width:0%"></div></div>
+                                </div>
+                                <div class="bg-slate-800 p-3 border border-slate-700">
+                                    <div class="text-xs text-slate-400">DISK I/O</div>
+                                    <div class="text-2xl font-bold text-yellow-400" id="ov-io">0 MB/s</div>
                                 </div>
                             </div>
-                            <div class="border border-slate-700 p-4 bg-black font-mono text-xs overflow-y-auto text-green-400" id="ov-log">
-                                > Connection established.<br>
-                                > Monitoring daemon active.<br>
-                                > Waiting for user input...
+                            <div class="col-span-3 bg-slate-900 border border-slate-700 p-2 relative">
+                                <canvas id="liveChart"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <div id="tab-database" class="tab-content">
-                        <div class="flex justify-between items-start mb-6">
+                    <div id="tab-db" class="tab-content">
+                        <div class="flex flex-col h-full">
+                            <div class="bg-slate-800 p-2 border-b border-slate-700 flex justify-between items-center text-xs">
+                                <div><span class="text-green-400">●</span> Connected to <span id="db-name" class="font-bold text-white">DB</span></div>
+                                <div class="text-slate-400">Port: 5432 | SSL: On</div>
+                            </div>
+                            <div class="flex-1 terminal" id="sql-term" onclick="document.getElementById('sql-input').focus()">
+                                <div>Welcome to Galaxy SQL Monitor v5.2</div>
+                                <div>Type 'help' for commands.</div>
+                                <br>
+                                <div id="sql-history"></div>
+                                <div class="flex">
+                                    <span class="mr-2 text-blue-400">admin@db></span>
+                                    <input type="text" id="sql-input" class="cmd-input" autocomplete="off" onkeydown="handleSql(event)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-backup" class="tab-content p-4 overflow-y-auto">
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <h2 class="text-2xl font-bold text-white" id="db-engine">PostgreSQL</h2>
-                                <div class="text-sm text-slate-400">Storage Engine: <span id="db-store" class="text-blue-300">NVMe</span></div>
+                                <div class="flex justify-between mb-2">
+                                    <h3 class="font-bold text-white text-xs">INCREMENTAL BACKUPS</h3>
+                                    <button class="px-2 py-1 text-[10px] bg-blue-900 border border-blue-700 text-blue-300 hover:bg-blue-800" onclick="runProcess('BACKUP')">RUN BACKUP</button>
+                                </div>
+                                <table class="w-full text-xs text-left border border-slate-700">
+                                    <thead class="bg-slate-800 text-slate-300"><tr><th class="p-2">ID</th><th class="p-2">DATE</th><th class="p-2">SIZE</th><th class="p-2">ACTION</th></tr></thead>
+                                    <tbody id="bk-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
+                                </table>
                             </div>
-                            <div class="text-right">
-                                <div class="text-3xl font-bold text-green-400" id="db-tps">0</div>
-                                <div class="text-xs text-slate-500">TRANSACTIONS / SEC</div>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-3 gap-4 mb-6">
-                            <div class="bg-slate-800 p-3 rounded text-center">
-                                <div class="text-xs text-slate-400">TOTAL STORAGE</div>
-                                <div class="text-xl font-bold text-white" id="db-total">0 GB</div>
-                            </div>
-                            <div class="bg-slate-800 p-3 rounded text-center">
-                                <div class="text-xs text-slate-400">USED SPACE</div>
-                                <div class="text-xl font-bold text-yellow-400" id="db-used">0 GB</div>
-                            </div>
-                            <div class="bg-slate-800 p-3 rounded text-center">
-                                <div class="text-xs text-slate-400">ACTIVE CONNECTIONS</div>
-                                <div class="text-xl font-bold text-blue-400" id="db-conn">0</div>
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <h3 class="font-bold text-white text-xs">SYSTEM SNAPSHOTS</h3>
+                                    <button class="px-2 py-1 text-[10px] bg-purple-900 border border-purple-700 text-purple-300 hover:bg-purple-800" onclick="runProcess('SNAPSHOT')">NEW SNAPSHOT</button>
+                                </div>
+                                <table class="w-full text-xs text-left border border-slate-700">
+                                    <thead class="bg-slate-800 text-slate-300"><tr><th class="p-2">ID</th><th class="p-2">DESC</th><th class="p-2">ACTION</th></tr></thead>
+                                    <tbody id="snap-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
+                                </table>
                             </div>
                         </div>
-
-                        <div class="border border-slate-700 p-4 bg-black/50">
-                            <div class="flex justify-between mb-2 text-xs font-bold text-slate-400">
-                                <span>STORAGE UTILIZATION</span>
-                                <span id="db-util-text">0%</span>
-                            </div>
-                            <div class="h-4 w-full bg-slate-700 rounded overflow-hidden">
-                                <div id="db-util-bar" class="h-full bg-gradient-to-r from-blue-500 to-red-500 transition-all duration-1000" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-4 flex gap-2">
-                             <button class="px-4 py-2 bg-blue-900/30 border border-blue-700 text-blue-300 text-xs hover:bg-blue-800" onclick="simulateAction('VACUUM')">RUN VACUUM</button>
-                             <button class="px-4 py-2 bg-blue-900/30 border border-blue-700 text-blue-300 text-xs hover:bg-blue-800" onclick="simulateAction('REINDEX')">REINDEX</button>
+                        <div id="proc-overlay" class="hidden mt-4 bg-slate-800 p-3 border border-slate-600">
+                            <div class="flex justify-between text-xs mb-1"><span id="proc-name">PROCESSING...</span><span id="proc-pct">0%</span></div>
+                            <div class="bar-bg"><div id="proc-bar" class="bar-fill bg-green-500" style="width:0%"></div></div>
                         </div>
                     </div>
 
-                    <div id="tab-backup" class="tab-content">
-                        <div class="flex justify-between mb-4">
-                            <h3 class="font-bold text-white">BACKUP HISTORY</h3>
-                            <button class="px-3 py-1 bg-green-900/30 border border-green-700 text-green-400 text-xs hover:bg-green-800" onclick="runBackup()">
-                                <i class="fas fa-save mr-1"></i> RUN INCREMENTAL BACKUP
-                            </button>
+                    <div id="tab-security" class="tab-content p-4">
+                        <div class="grid grid-cols-3 gap-4 h-full">
+                            <div class="col-span-1 bg-slate-900 border border-red-900/30 p-4">
+                                <h3 class="text-red-400 font-bold mb-4 text-sm">THREAT LEVEL: LOW</h3>
+                                <div class="space-y-2 text-xs text-slate-400">
+                                    <div class="flex justify-between"><span>Firewall</span><span class="text-green-400">ACTIVE</span></div>
+                                    <div class="flex justify-between"><span>IPS/IDS</span><span class="text-green-400">SCANNING</span></div>
+                                    <div class="flex justify-between"><span>Vulnerability</span><span class="text-blue-400">0 FOUND</span></div>
+                                </div>
+                            </div>
+                            <div class="col-span-2 bg-black border border-slate-700 p-2 font-mono text-xs overflow-y-auto" id="sec-log">
+                                <div class="text-slate-500">Initializing Security Audit Daemon...</div>
+                            </div>
                         </div>
-                        <div id="backup-progress" class="hidden mb-4">
-                            <div class="text-xs text-green-400 mb-1">Backing up... <span id="bk-pct">0%</span></div>
-                            <div class="bar-bg"><div id="bk-bar" class="bar-fill bg-green-500" style="width:0%"></div></div>
-                        </div>
-                        <table class="w-full text-left text-xs text-slate-300 border border-slate-700">
-                            <thead class="bg-slate-800 font-bold">
-                                <tr><th class="p-2">BACKUP ID</th><th class="p-2">DATE</th><th class="p-2">SIZE</th><th class="p-2">STATUS</th></tr>
-                            </thead>
-                            <tbody id="backup-list" class="divide-y divide-slate-800 bg-slate-900"></tbody>
-                        </table>
-                    </div>
-
-                    <div id="tab-snapshot" class="tab-content">
-                        <div class="flex justify-between mb-4">
-                            <h3 class="font-bold text-white">SYSTEM SNAPSHOTS</h3>
-                            <button class="px-3 py-1 bg-purple-900/30 border border-purple-700 text-purple-400 text-xs hover:bg-purple-800" onclick="takeSnapshot()">
-                                <i class="fas fa-camera mr-1"></i> TAKE SNAPSHOT
-                            </button>
-                        </div>
-                        <div id="snap-flash" class="hidden fixed inset-0 bg-white/20 z-50"></div>
-                        <table class="w-full text-left text-xs text-slate-300 border border-slate-700">
-                            <thead class="bg-slate-800 font-bold">
-                                <tr><th class="p-2">SNAPSHOT ID</th><th class="p-2">TIME</th><th class="p-2">DESC</th><th class="p-2">SIZE</th><th class="p-2">ACTION</th></tr>
-                            </thead>
-                            <tbody id="snap-list" class="divide-y divide-slate-800 bg-slate-900"></tbody>
-                        </table>
                     </div>
                 </div>
             </div>
 
             <script>
-                // Data Storage
+                // --- GLOBAL VARS ---
                 let nodes = [];
                 let currentNodeIdx = null;
-
-                // Fallback Data
+                let chartInstance = null;
                 const FALLBACK = { "nodes": [] };
 
                 async function init() {
@@ -353,62 +335,77 @@ jobs:
                         if(!res.ok) throw new Error("Load fail");
                         const data = await res.json();
                         nodes = data.nodes;
-                    } catch(e) {
-                        nodes = FALLBACK.nodes;
-                    }
-                    renderGrid();
-                    document.getElementById('stat-db').innerText = nodes.length;
+                    } catch(e) { nodes = FALLBACK.nodes; }
                     
-                    // Live Update (Physics)
-                    setInterval(() => {
-                        nodes.forEach(n => {
-                            n.metrics.cpu = clamp(n.metrics.cpu + (Math.random()*4-2), 0, 100);
-                            n.metrics.tps = Math.max(0, Math.floor(n.metrics.tps + (Math.random()*100-50)));
-                        });
-                        // Update Modal if open
-                        if(currentNodeIdx !== null) updateModalMetrics(currentNodeIdx);
-                    }, 1000);
+                    document.getElementById('stat-nodes').innerText = nodes.length;
+                    renderGrid();
+                    
+                    // Live Logic
+                    setInterval(updatePhysics, 1000);
                 }
 
                 function renderGrid() {
                     const grid = document.getElementById('grid-container');
                     grid.innerHTML = nodes.map((n, i) => `
                         <div class="card active" onclick="openModal(${i})">
-                            <div class="flex justify-between items-center mb-2">
-                                <div class="font-bold text-xs text-white">${n.id}</div>
+                            <div class="flex justify-between items-center mb-1">
+                                <div class="font-bold text-xs text-white truncate w-32">${n.id}</div>
                                 <div class="status-dot"></div>
                             </div>
-                            <div class="text-[10px] text-slate-400 mb-2">${n.tech.db}</div>
-                            <div class="grid grid-cols-2 gap-2 text-[9px] text-slate-500">
-                                <div><i class="fas fa-hdd"></i> ${n.metrics.db_used}GB</div>
-                                <div><i class="fas fa-bolt"></i> ${n.metrics.tps} TPS</div>
+                            <div class="text-[9px] text-blue-400 mb-2">${n.tech.db}</div>
+                            <div class="flex justify-between text-[9px] text-slate-500">
+                                <span>CPU: ${n.metrics.cpu}%</span>
+                                <span>DB: ${n.metrics.db_used}GB</span>
                             </div>
                         </div>
                     `).join('');
                 }
 
-                // --- MODAL LOGIC ---
+                // --- MODAL ---
                 window.openModal = function(idx) {
                     currentNodeIdx = idx;
                     const n = nodes[idx];
-                    
                     document.getElementById('detail-modal').style.display = 'block';
                     document.getElementById('modal-title').innerText = n.id;
+                    document.getElementById('db-name').innerText = n.tech.db;
                     
-                    // Init Tabs
-                    switchTab('overview');
-                    
-                    // Populate Static Data
-                    // DB Tab
-                    document.getElementById('db-engine').innerText = n.tech.db;
-                    document.getElementById('db-store').innerText = n.tech.store;
-                    document.getElementById('db-total').innerText = n.metrics.db_total + " GB";
-                    
-                    // Lists
+                    switchTab('overview'); // Default tab
                     renderBackups(n.backups);
                     renderSnapshots(n.snapshots);
                     
-                    updateModalMetrics(idx);
+                    // Init Chart
+                    if(chartInstance) chartInstance.destroy();
+                    const ctx = document.getElementById('liveChart').getContext('2d');
+                    chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: Array(20).fill(''),
+                            datasets: [{
+                                label: 'TPS',
+                                data: Array(20).fill(0).map(()=>Math.random()*100),
+                                borderColor: '#3b82f6',
+                                tension: 0.4,
+                                borderWidth: 1,
+                                pointRadius: 0
+                            }, {
+                                label: 'Latency',
+                                data: Array(20).fill(0).map(()=>Math.random()*50),
+                                borderColor: '#a855f7',
+                                tension: 0.4,
+                                borderWidth: 1,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: { legend: { labels: { color: '#94a3b8', font:{size:10} } } },
+                            scales: { y: { grid: { color: '#1e293b' } }, x: { display: false } }
+                        }
+                    });
+
+                    startSecurityStream();
                 }
 
                 window.closeModal = function() {
@@ -416,123 +413,131 @@ jobs:
                     currentNodeIdx = null;
                 }
 
-                window.switchTab = function(tabName) {
-                    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-                    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-                    
-                    document.getElementById('tab-' + tabName).classList.add('active');
-                    // Find button (simple approximate match)
-                    event.target.classList.add('active');
+                window.switchTab = function(tab) {
+                    document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+                    document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
+                    document.getElementById('tab-' + tab).classList.add('active');
+                    event.currentTarget.classList.add('active');
                 }
 
-                function updateModalMetrics(idx) {
-                    const n = nodes[idx];
+                // --- TAB LOGIC ---
+                // 1. Overview Physics
+                function updatePhysics() {
+                    if(currentNodeIdx === null) return;
+                    const n = nodes[currentNodeIdx];
                     
-                    // Overview Tab
+                    // Update Values
+                    n.metrics.cpu = clamp(n.metrics.cpu + (Math.random()*6-3), 0, 100);
+                    n.metrics.tps = Math.max(0, Math.floor(n.metrics.tps + (Math.random()*200-100)));
+                    
+                    // DOM
                     document.getElementById('ov-cpu').innerText = Math.floor(n.metrics.cpu) + "%";
                     document.getElementById('bar-ov-cpu').style.width = n.metrics.cpu + "%";
-                    
                     document.getElementById('ov-mem').innerText = n.metrics.mem + "%";
                     document.getElementById('bar-ov-mem').style.width = n.metrics.mem + "%";
-                    
-                    document.getElementById('ov-temp').innerText = n.metrics.temp + "°C";
-                    document.getElementById('bar-ov-temp').style.width = (n.metrics.temp / 100 * 100) + "%";
+                    document.getElementById('ov-io').innerText = Math.floor(Math.random()*500) + " MB/s";
 
-                    // Database Tab
-                    document.getElementById('db-tps').innerText = n.metrics.tps.toLocaleString();
-                    document.getElementById('db-used').innerText = n.metrics.db_used + " GB";
-                    document.getElementById('db-conn').innerText = n.metrics.conn;
-                    
-                    const util = (n.metrics.db_used / n.metrics.db_total) * 100;
-                    document.getElementById('db-util-bar').style.width = util + "%";
-                    document.getElementById('db-util-text').innerText = util.toFixed(1) + "%";
+                    // Chart Update
+                    if(chartInstance) {
+                        const data0 = chartInstance.data.datasets[0].data;
+                        const data1 = chartInstance.data.datasets[1].data;
+                        data0.shift(); data0.push(n.metrics.tps / 100);
+                        data1.shift(); data1.push(n.metrics.latency + Math.random()*10);
+                        chartInstance.update();
+                    }
                 }
 
-                // --- ACTIONS ---
-                window.simulateAction = function(action) {
-                    const log = document.getElementById('ov-log');
-                    log.innerHTML += `> Command: ${action} initiated...<br>`;
-                    log.scrollTop = log.scrollHeight;
-                    setTimeout(() => {
-                        log.innerHTML += `> ${action} completed successfully.<br>`;
-                        log.scrollTop = log.scrollHeight;
-                    }, 1500);
+                // 2. SQL Console
+                window.handleSql = function(e) {
+                    if(e.key === 'Enter') {
+                        const val = e.target.value;
+                        const hist = document.getElementById('sql-history');
+                        hist.innerHTML += `<div><span class="text-blue-400">admin@db></span> ${val}</div>`;
+                        
+                        let resp = "";
+                        if(val.toLowerCase().includes('select')) {
+                            resp = `<div class="text-white mb-2">
+                                ID | STATUS | LOAD<br>
+                                ---+--------+-----<br>
+                                01 | ACTIVE | 23%<br>
+                                02 | ACTIVE | 45%<br>
+                                <span class="text-gray-500">(2 rows affected)</span>
+                            </div>`;
+                        } else if(val === 'help') {
+                            resp = `<div class="text-gray-400 mb-2">Available: SELECT, INSERT, UPDATE, DELETE, SHUTDOWN</div>`;
+                        } else {
+                            resp = `<div class="text-red-400 mb-2">Error: Syntax error near '${val}'</div>`;
+                        }
+                        
+                        hist.innerHTML += resp;
+                        e.target.value = '';
+                        document.getElementById('sql-term').scrollTop = document.getElementById('sql-term').scrollHeight;
+                    }
                 }
 
-                // Backup Logic
+                // 3. Backup & Snapshot
                 function renderBackups(list) {
-                    const tbody = document.getElementById('backup-list');
-                    tbody.innerHTML = list.map(b => `
-                        <tr class="hover:bg-slate-800">
+                    document.getElementById('bk-list').innerHTML = list.map(b => `
+                        <tr class="hover:bg-slate-800 border-b border-slate-800">
                             <td class="p-2 font-mono text-blue-300">${b.id}</td>
                             <td class="p-2">${b.date}</td>
                             <td class="p-2">${b.size}</td>
-                            <td class="p-2 text-green-400">${b.status}</td>
+                            <td class="p-2"><button onclick="runProcess('RESTORE')" class="text-green-400 hover:text-white underline">RESTORE</button></td>
                         </tr>
                     `).join('');
                 }
-
-                window.runBackup = function() {
-                    const progDiv = document.getElementById('backup-progress');
-                    const bar = document.getElementById('bk-bar');
-                    const txt = document.getElementById('bk-pct');
-                    
-                    progDiv.classList.remove('hidden');
-                    let width = 0;
-                    const intv = setInterval(() => {
-                        width += Math.random() * 5;
-                        if(width >= 100) {
-                            width = 100;
-                            clearInterval(intv);
-                            setTimeout(() => progDiv.classList.add('hidden'), 500);
-                            
-                            // Add dummy backup row
-                            const n = nodes[currentNodeIdx];
-                            n.backups.unshift({
-                                id: "bk-new-" + Math.floor(Math.random()*1000),
-                                date: "Just now",
-                                size: (n.metrics.db_used * 0.1).toFixed(1) + "GB (Inc)",
-                                status: "SUCCESS"
-                            });
-                            renderBackups(n.backups);
-                        }
-                        bar.style.width = width + "%";
-                        txt.innerText = Math.floor(width) + "%";
-                    }, 100);
-                }
-
-                // Snapshot Logic
                 function renderSnapshots(list) {
-                    const tbody = document.getElementById('snap-list');
-                    tbody.innerHTML = list.map(s => `
-                        <tr class="hover:bg-slate-800">
+                    document.getElementById('snap-list').innerHTML = list.map(s => `
+                        <tr class="hover:bg-slate-800 border-b border-slate-800">
                             <td class="p-2 font-mono text-purple-300">${s.id}</td>
-                            <td class="p-2">${s.date}</td>
                             <td class="p-2">${s.desc}</td>
-                            <td class="p-2">${s.size}</td>
-                            <td class="p-2"><button class="text-red-400 hover:text-white" onclick="alert('Simulated Delete')">[DEL]</button></td>
+                            <td class="p-2"><button onclick="runProcess('ROLLBACK')" class="text-yellow-400 hover:text-white underline">ROLLBACK</button></td>
                         </tr>
                     `).join('');
                 }
 
-                window.takeSnapshot = function() {
-                    // Flash effect
-                    const flash = document.getElementById('snap-flash');
-                    flash.classList.remove('hidden');
-                    setTimeout(() => flash.classList.add('hidden'), 100);
+                window.runProcess = function(type) {
+                    const div = document.getElementById('proc-overlay');
+                    const bar = document.getElementById('proc-bar');
+                    const txt = document.getElementById('proc-pct');
+                    const name = document.getElementById('proc-name');
                     
-                    const n = nodes[currentNodeIdx];
-                    n.snapshots.unshift({
-                        id: "snap-" + Math.floor(Math.random()*9999),
-                        date: new Date().toLocaleTimeString(),
-                        desc: "Manual User Snap",
-                        size: "0.5GB"
-                    });
-                    renderSnapshots(n.snapshots);
+                    div.classList.remove('hidden');
+                    name.innerText = type + " IN PROGRESS...";
+                    
+                    let w = 0;
+                    const iv = setInterval(() => {
+                        w += 2;
+                        bar.style.width = w + "%";
+                        txt.innerText = w + "%";
+                        if(w >= 100) {
+                            clearInterval(iv);
+                            name.innerText = "COMPLETED.";
+                            setTimeout(() => div.classList.add('hidden'), 1000);
+                        }
+                    }, 30);
+                }
+
+                // 4. Security Log
+                function startSecurityStream() {
+                    const log = document.getElementById('sec-log');
+                    log.innerHTML = '';
+                    const msgs = [
+                        "Scanning port 443... OK", "Checking SSL cert... VALID", 
+                        "Analyzing packet flow... NORMAL", "IPS: No signatures matched"
+                    ];
+                    msgs.forEach(m => log.innerHTML += `<div class="mb-1 text-green-500">> ${m}</div>`);
+                    
+                    setInterval(() => {
+                        if(Math.random() > 0.8 && document.getElementById('tab-security').classList.contains('active')) {
+                            const newMsg = `> Traffic analysis: ${Math.floor(Math.random()*1000)} packets/s`;
+                            log.innerHTML += `<div class="mb-1 text-blue-400">${newMsg}</div>`;
+                            log.scrollTop = log.scrollHeight;
+                        }
+                    }, 1000);
                 }
 
                 function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
-
                 init();
             </script>
         </body>
