@@ -1,8 +1,8 @@
-name: 🚀 GPU AI Data Center (Hyper-Scale & Live)
+name: 🌌 Hyper-Scale GPU Control Center (Fixed & Enhanced)
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # 10분마다 실행
+    - cron: '*/5 * * * *' # 5분마다 실행 (GitHub 허용 최대 빈도)
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,17 +13,19 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "gpu-ops-live"
+  group: "gpu-ops-hyper"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 데이터 생성 및 웹 페이지 빌드
+  # [Job 1] Build, Simulate & Deploy (All-in-One for Speed)
   # ==============================================================================
-  build-and-deploy:
+  build-simulate-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
     steps:
-    - name: 📥 Checkout
+    - name: 📥 Checkout Repo
       uses: actions/checkout@v4
 
     - name: 🛠️ Setup Python
@@ -35,9 +37,9 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 대량 GPU 데이터 생성 엔진 (Python)
+    # [Step 1] 🏭 고도화된 GPU 데이터 엔진 (에러 수정됨)
     # ----------------------------------------------------------------
-    - name: 🏭 Run GPU Data Engine
+    - name: 🏭 Run Physics-Based Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
@@ -46,81 +48,118 @@ jobs:
         from faker import Faker
         fake = Faker()
         
-        # 설정: 대량 노드 생성 (200개 이상)
-        NODE_COUNT = 200
-        GPU_MODELS = [
-            {"name": "NVIDIA H100", "vram": 80, "tdp": 700},
-            {"name": "NVIDIA A100", "vram": 40, "tdp": 400},
-            {"name": "RTX 4090",    "vram": 24, "tdp": 450},
-            {"name": "Tesla T4",    "vram": 16, "tdp": 70}
+        # [설정] 초대형 클러스터 시뮬레이션 (300개 노드)
+        NODE_COUNT = 300
+        
+        # GPU 스펙 정의 (TDP는 Watt 단위)
+        GPU_SPECS = [
+            {"model": "NVIDIA H100 SXM", "vram": 80, "tdp": 700, "arch": "Hopper"},
+            {"model": "NVIDIA A100 80G", "vram": 80, "tdp": 400, "arch": "Ampere"},
+            {"model": "NVIDIA L40S",     "vram": 48, "tdp": 350, "arch": "Ada"},
+            {"model": "RTX 6000 Ada",    "vram": 48, "tdp": 300, "arch": "Ada"},
+            {"model": "RTX 4090",        "vram": 24, "tdp": 450, "arch": "Ada"},
+            {"model": "Tesla T4",        "vram": 16, "tdp": 70,  "arch": "Turing"} 
         ]
-        CLUSTERS = ["US-AI-Lab", "KR-Busan-Edge", "EU-Research", "SG-FinTech"]
+        
+        CLUSTERS = ["US-East-HPC", "KR-Seoul-AI", "EU-Frankfurt-LLM", "JP-Tokyo-Edge"]
+        WORKLOADS = ["Training (LLM)", "Fine-tuning", "Inference", "Data Preprocessing", "Idle"]
 
-        def gen_gpu_fleet():
+        def gen_fleet():
             nodes = []
-            active = 0
-            critical = 0
+            stats = {"total": NODE_COUNT, "active": 0, "training": 0, "error": 0}
             
             for i in range(NODE_COUNT):
-                model = random.choice(GPU_MODELS)
+                spec = random.choice(GPU_SPECS)
                 cluster = random.choice(CLUSTERS)
+                workload = random.choice(WORKLOADS)
                 
-                # 상태 시뮬레이션
-                is_overheat = random.random() < 0.15 # 15% 과열
-                status = "CRITICAL" if is_overheat else "ACTIVE"
-                if is_overheat: critical += 1
-                else: active += 1
-                
-                # 온도 및 로드 계산
-                temp = random.randint(90, 105) if is_overheat else random.randint(40, 75)
-                util = random.randint(90, 100) if is_overheat else random.randint(10, 85)
-                fan = 100 if is_overheat else random.randint(30, 70)
-                
+                # [로직] 워크로드에 따른 부하 시뮬레이션
+                if workload == "Idle":
+                    util = random.randint(0, 10)
+                    mem_used = random.uniform(0.5, 2.0)
+                    temp = random.randint(30, 45)
+                    # [FIX] 에러 발생 원인이었던 하드코딩 제거 -> 스펙 기반 계산
+                    power_min = int(spec['tdp'] * 0.1) # 아이들 시 10% 전력
+                    power_max = int(spec['tdp'] * 0.3)
+                elif "Training" in workload:
+                    util = random.randint(90, 100)
+                    mem_used = spec['vram'] * random.uniform(0.8, 0.98)
+                    temp = random.randint(75, 88)
+                    power_min = int(spec['tdp'] * 0.8)
+                    power_max = spec['tdp']
+                    stats["training"] += 1
+                else: # Inference / Others
+                    util = random.randint(40, 80)
+                    mem_used = spec['vram'] * random.uniform(0.3, 0.7)
+                    temp = random.randint(50, 70)
+                    power_min = int(spec['tdp'] * 0.4)
+                    power_max = int(spec['tdp'] * 0.7)
+
+                # [FIX] 안전한 랜덤 범위 설정 (min이 max보다 클 수 없음)
+                if power_min >= power_max: power_max = power_min + 5
+                power = random.randint(power_min, power_max)
+
+                # 상태 결정 (과열 시뮬레이션)
+                status = "ACTIVE"
+                if temp > 85:
+                    status = "WARNING"
+                if temp > 90 or random.random() < 0.02: # 2% 확률로 랜덤 고장
+                    status = "CRITICAL"
+                    workload = "ERROR_STATE"
+                    stats["error"] += 1
+                else:
+                    stats["active"] += 1
+
                 nodes.append({
-                    "id": f"GPU-{cluster}-{i:04d}",
-                    "model": model['name'],
+                    "id": f"{spec['arch']}-{cluster}-{i:04d}",
+                    "model": spec['model'],
                     "cluster": cluster,
                     "status": status,
+                    "workload": workload,
                     "metrics": {
-                        "temp": temp,        # 온도 (C)
-                        "util": util,        # 사용률 (%)
-                        "vram_used": round(random.uniform(2, model['vram']), 1),
-                        "vram_total": model['vram'],
-                        "fan": fan,          # 팬 속도 (%)
-                        "power": random.randint(100, model['tdp']) # 전력 (W)
+                        "util": util,
+                        "temp": temp,
+                        "power": power,
+                        "fan": min(100, int((temp / 90) * 100)), # 온도 비례 팬 속도
+                        "vram_total": spec['vram'],
+                        "vram_used": round(mem_used, 1)
                     }
                 })
             
             return {
-                "updated_at": str(datetime.now()),
-                "summary": {"total": NODE_COUNT, "active": active, "critical": critical},
+                "timestamp": str(datetime.now()),
+                "summary": stats,
                 "nodes": nodes
             }
 
         if __name__ == "__main__":
-            data = gen_gpu_fleet()
-            with open("dashboard_data.json", "w") as f:
-                json.dump(data, f, indent=2)
-            print(f"✅ Generated {NODE_COUNT} GPU Nodes.")
+            try:
+                data = gen_fleet()
+                with open("dashboard_data.json", "w") as f:
+                    json.dump(data, f, indent=2)
+                print(f"✅ Physics Engine: Generated {NODE_COUNT} nodes without error.")
+            except Exception as e:
+                print(f"❌ Critical Error: {e}")
+                exit(1)
         EOF
         
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 커밋 (저장소 반영)
+    # [Step 2] 데이터 커밋 (히스토리 보존)
     # ----------------------------------------------------------------
-    - name: 💾 Commit & Push
+    - name: 💾 Commit Data
       run: |
-        git config --global user.name "GPU-Bot"
+        git config --global user.name "H100-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🔥 GPU Status Update [$(date)]" || echo "No changes"
-        git push origin main || echo "Push skipped"
+        git commit -m "🌌 GPU Matrix Update [$(date)]" || echo "No changes"
+        git push origin main || echo "Push skipped (concurrency)"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 빌드 (Live Simulation Engine 탑재)
+    # [Step 3] 프론트엔드 빌드 (999% Live Jitter Engine)
     # ----------------------------------------------------------------
-    - name: 🎨 Build UI with Live Engine
+    - name: 🎨 Build Dashboard
       shell: bash
       run: |
         mkdir -p _site
@@ -131,201 +170,230 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>GPU CONTROL TOWER</title>
+            <title>GPU HIVE MIND</title>
             <script src="https://cdn.tailwindcss.com"></script>
+            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                body { background-color: #050505; color: #a1a1aa; font-family: 'Courier New', monospace; overflow: hidden; }
+                :root { --neon-green: #00ff41; --neon-red: #ff003c; --bg-dark: #050505; }
+                body { background-color: var(--bg-dark); color: #e0e0e0; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
                 
                 /* Layout */
-                .layout { display: grid; grid-template-rows: 50px 100px 1fr 30px; height: 100vh; }
+                .main-layout { display: grid; grid-template-rows: 60px 80px 1fr 30px; height: 100vh; }
+                .gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1px; background: #222; overflow-y: scroll; }
                 
-                /* Grid Table */
-                .gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px; padding: 4px; overflow-y: auto; }
+                /* Card Design */
+                .card { background: #0a0a0a; border: 1px solid #222; padding: 10px; font-size: 10px; position: relative; transition: background 0.2s; }
+                .card:hover { background: #111; z-index: 10; border-color: #555; }
+                .card.crit { border: 1px solid var(--neon-red); box-shadow: inset 0 0 10px rgba(255,0,60,0.2); }
                 
-                /* Card Style */
-                .gpu-card { background: #0f0f0f; border: 1px solid #27272a; padding: 10px; font-size: 11px; position: relative; }
-                .gpu-card.critical { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
-                .gpu-card:hover { background: #18181b; }
+                /* Visuals */
+                .bar-track { background: #1a1a1a; height: 4px; width: 100%; margin-top: 2px; }
+                .bar-fill { height: 100%; transition: width 0.2s ease-out; }
+                .led { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+                .led-on { background: var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
+                .led-off { background: #333; }
+                .led-err { background: var(--neon-red); box-shadow: 0 0 5px var(--neon-red); animation: blink 0.5s infinite; }
                 
-                /* Visual Bars */
-                .bar-bg { width: 100%; background: #27272a; height: 4px; margin-top: 2px; }
-                .bar-fill { height: 100%; transition: width 0.5s; }
+                @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
                 
-                /* Animations */
-                .blink { animation: blinker 1s linear infinite; }
-                @keyframes blinker { 50% { opacity: 0; } }
+                /* Scrollbar */
+                ::-webkit-scrollbar { width: 6px; }
+                ::-webkit-scrollbar-thumb { background: #333; }
             </style>
         </head>
-        <body class="layout">
+        <body class="main-layout">
             
-            <header class="flex items-center justify-between px-4 border-b border-zinc-800 bg-black">
+            <header class="flex items-center justify-between px-6 border-b border-[#333] bg-[#080808]">
                 <div class="flex items-center gap-3">
-                    <span class="text-2xl">🔥</span>
-                    <h1 class="text-lg font-bold text-white tracking-[0.2em]">NVIDIA <span class="text-green-500">GPU OPS</span></h1>
+                    <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <h1 class="text-lg font-bold tracking-widest text-white">NVIDIA <span class="text-green-500">HIVE MIND</span></h1>
                 </div>
-                <div class="text-xs text-zinc-500">
-                    LIVE CONNECTION: <span class="text-green-500 font-bold">ESTABLISHED (99.9%)</span>
+                <div class="text-[10px] text-gray-500">
+                    SYNC RATE: <span class="text-green-400">10ms</span> | PROTOCOL: <span class="text-blue-400">WebSocket (Sim)</span>
                 </div>
             </header>
 
-            <div class="grid grid-cols-4 gap-4 p-4 border-b border-zinc-800 bg-[#0a0a0a]">
-                <div class="p-2 border border-zinc-800 bg-black text-center">
-                    <div class="text-[10px] text-zinc-500">TOTAL NODES</div>
-                    <div id="stat-total" class="text-2xl text-white font-bold">0</div>
+            <div class="grid grid-cols-5 gap-0 divide-x divide-[#333] bg-[#0a0a0a] border-b border-[#333]">
+                <div class="p-3 text-center">
+                    <div class="text-[9px] text-gray-500">TOTAL NODES</div>
+                    <div class="text-xl font-bold text-white" id="val-total">---</div>
                 </div>
-                <div class="p-2 border border-zinc-800 bg-black text-center">
-                    <div class="text-[10px] text-zinc-500">ACTIVE</div>
-                    <div id="stat-active" class="text-2xl text-green-500 font-bold">0</div>
+                <div class="p-3 text-center">
+                    <div class="text-[9px] text-gray-500">ACTIVE WORKERS</div>
+                    <div class="text-xl font-bold text-green-400" id="val-active">---</div>
                 </div>
-                <div class="p-2 border border-zinc-800 bg-black text-center">
-                    <div class="text-[10px] text-zinc-500">CRITICAL / OVERHEAT</div>
-                    <div id="stat-crit" class="text-2xl text-red-500 font-bold blink">0</div>
+                <div class="p-3 text-center">
+                    <div class="text-[9px] text-gray-500">TRAINING JOBS</div>
+                    <div class="text-xl font-bold text-blue-400" id="val-training">---</div>
                 </div>
-                <div class="p-2 border border-zinc-800 bg-black text-center">
-                    <div class="text-[10px] text-zinc-500">TOTAL POWER (kW)</div>
-                    <div id="stat-power" class="text-2xl text-yellow-500 font-bold">0</div>
+                <div class="p-3 text-center">
+                    <div class="text-[9px] text-gray-500">CRITICAL ALERTS</div>
+                    <div class="text-xl font-bold text-red-500" id="val-error">---</div>
+                </div>
+                <div class="p-3 text-center">
+                    <div class="text-[9px] text-gray-500">TOTAL POWER (kW)</div>
+                    <div class="text-xl font-bold text-yellow-500" id="val-power">---</div>
                 </div>
             </div>
 
-            <div id="gpu-container" class="gpu-grid custom-scroll">
+            <div id="grid-container" class="gpu-grid">
                 </div>
 
-            <div class="bg-black border-t border-zinc-800 flex items-center px-4 text-[10px] text-green-700 font-mono">
-                <span class="mr-2"> > SYSTEM_DAEMON:</span>
-                <span id="log-line">Initializing monitoring sequence...</span>
+            <div class="bg-black border-t border-[#333] flex items-center px-4 text-[10px] font-mono">
+                <span class="text-green-600 mr-2">root@h100-cluster:~#</span>
+                <span id="console-log" class="text-gray-400">tail -f /var/log/gpu_telemetry.log</span>
             </div>
 
             <script>
-                // [안전장치] 데이터 로드 실패 시 사용할 더미 데이터
+                // Fallback Data (빈 화면 방지)
                 const FALLBACK = {
-                    "summary": {"total": 4, "active": 3, "critical": 1},
-                    "nodes": [
-                        {"id": "GPU-FALLBACK-01", "model": "NVIDIA H100", "status": "ACTIVE", "metrics": {"temp": 65, "util": 80, "vram_used": 40, "vram_total": 80}},
-                        {"id": "GPU-FALLBACK-02", "model": "NVIDIA A100", "status": "CRITICAL", "metrics": {"temp": 98, "util": 99, "vram_used": 39, "vram_total": 40}},
-                        {"id": "GPU-FALLBACK-03", "model": "RTX 4090", "status": "ACTIVE", "metrics": {"temp": 55, "util": 10, "vram_used": 12, "vram_total": 24}},
-                        {"id": "GPU-FALLBACK-04", "model": "NVIDIA H100", "status": "ACTIVE", "metrics": {"temp": 70, "util": 92, "vram_used": 75, "vram_total": 80}}
-                    ]
+                    "summary": {"total": 4, "active": 4, "training": 2, "error": 0},
+                    "nodes": Array.from({length: 20}, (_, i) => ({
+                        id: `DEMO-NODE-${i}`, model: "NVIDIA H100", status: "ACTIVE", workload: "Initializing...",
+                        metrics: { util: 50, temp: 40, power: 100, fan: 30, vram_total: 80, vram_used: 10 }
+                    }))
                 };
 
-                let gpuNodes = [];
+                let nodes = [];
 
                 async function init() {
                     try {
                         const res = await fetch('dashboard_data.json');
-                        if(!res.ok) throw new Error("Load fail");
+                        if(!res.ok) throw new Error("404");
                         const data = await res.json();
-                        gpuNodes = data.nodes;
+                        nodes = data.nodes;
                     } catch(e) {
-                        gpuNodes = FALLBACK.nodes;
+                        nodes = FALLBACK.nodes;
                     }
-                    
-                    renderInitial();
-                    startLiveUpdate(); // 999% Update Logic Start
+                    renderOnce();
+                    startPhysicsEngine();
                 }
 
-                function renderInitial() {
-                    const container = document.getElementById('gpu-container');
-                    container.innerHTML = '';
-
-                    gpuNodes.forEach((node, idx) => {
-                        // 카드 HTML 생성
-                        const div = document.createElement('div');
-                        div.id = `card-${idx}`;
-                        div.className = `gpu-card ${node.status === 'CRITICAL' ? 'critical' : ''}`;
-                        div.innerHTML = getCardHTML(node);
-                        container.appendChild(div);
-                    });
+                function renderOnce() {
+                    const container = document.getElementById('grid-container');
+                    container.innerHTML = nodes.map((n, i) => createCardHTML(n, i)).join('');
                     updateStats();
                 }
 
-                function getCardHTML(node) {
-                    // Color Logic
-                    const tempColor = node.metrics.temp > 85 ? '#ef4444' : (node.metrics.temp > 70 ? '#eab308' : '#22c55e');
-                    const utilColor = node.metrics.util > 90 ? '#ef4444' : '#3b82f6';
+                function createCardHTML(n, i) {
+                    const ledClass = n.status === 'CRITICAL' ? 'led-err' : 'led-on';
+                    const borderClass = n.status === 'CRITICAL' ? 'crit' : '';
                     
                     return `
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-white">${node.id}</span>
-                            <span class="text-[9px] border px-1 border-zinc-700 rounded">${node.model}</span>
-                        </div>
-                        <div class="flex justify-between text-zinc-500 mb-2">
-                            <span>${node.cluster}</span>
-                            <span class="${node.status==='CRITICAL'?'text-red-500 font-bold':''}">${node.status}</span>
+                    <div class="card ${borderClass}" id="card-${i}">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="font-bold text-white truncate w-24">${n.id}</div>
+                            <div class="text-[9px] bg-[#222] px-1 rounded text-gray-400">${n.model}</div>
                         </div>
                         
-                        <div class="grid grid-cols-2 gap-2 mt-2">
-                            <div>
-                                <div class="flex justify-between"><span>TEMP</span> <span class="text-white" id="val-temp">${node.metrics.temp}°C</span></div>
-                                <div class="bar-bg"><div class="bar-fill" style="width:${node.metrics.temp/1.1}%; background:${tempColor}"></div></div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between"><span>UTIL</span> <span class="text-white" id="val-util">${node.metrics.util}%</span></div>
-                                <div class="bar-bg"><div class="bar-fill" style="width:${node.metrics.util}%; background:${utilColor}"></div></div>
-                            </div>
-                            <div class="col-span-2 mt-1">
-                                <div class="flex justify-between"><span>VRAM (${node.metrics.vram_total}GB)</span> <span class="text-zinc-400">${node.metrics.vram_used}GB</span></div>
-                                <div class="bar-bg"><div class="bar-fill" style="width:${(node.metrics.vram_used/node.metrics.vram_total)*100}%; background:#a855f7"></div></div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="led ${ledClass}" id="led-${i}"></div>
+                            <div class="text-[9px] truncate text-gray-300 w-full" id="work-${i}">${n.workload}</div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <div class="flex justify-between"><span>UTIL</span><span id="txt-util-${i}">${n.metrics.util}%</span></div>
+                            <div class="bar-track"><div class="bar-fill bg-blue-500" style="width: ${n.metrics.util}%" id="bar-util-${i}"></div></div>
+                            
+                            <div class="flex justify-between mt-1"><span>VRAM</span><span class="text-gray-500" id="txt-vram-${i}">${n.metrics.vram_used}/${n.metrics.vram_total}G</span></div>
+                            <div class="bar-track"><div class="bar-fill bg-purple-500" style="width: ${(n.metrics.vram_used/n.metrics.vram_total)*100}%" id="bar-vram-${i}"></div></div>
+
+                            <div class="flex justify-between mt-1"><span>TEMP</span><span id="txt-temp-${i}">${n.metrics.temp}°C</span></div>
+                            <div class="bar-track"><div class="bar-fill bg-green-500" style="width: ${(n.metrics.temp/100)*100}%" id="bar-temp-${i}"></div></div>
+                            
+                            <div class="flex justify-between mt-1 text-gray-600">
+                                <span>FAN</span>
+                                <span id="txt-fan-${i}">${n.metrics.fan}%</span>
                             </div>
                         </div>
-                    `;
+                    </div>`;
                 }
 
                 function updateStats() {
-                    const total = gpuNodes.length;
-                    const crit = gpuNodes.filter(n => n.status === 'CRITICAL').length;
-                    const active = total - crit;
-                    const power = gpuNodes.reduce((acc, curr) => acc + (curr.metrics.power || 0), 0) / 1000;
+                    const total = nodes.length;
+                    const err = nodes.filter(n => n.status === 'CRITICAL').length;
+                    const active = total - err;
+                    const training = nodes.filter(n => n.workload.includes('Training')).length;
+                    const power = nodes.reduce((a, b) => a + b.metrics.power, 0) / 1000;
 
-                    document.getElementById('stat-total').innerText = total;
-                    document.getElementById('stat-active').innerText = active;
-                    document.getElementById('stat-crit').innerText = crit;
-                    document.getElementById('stat-power').innerText = power.toFixed(1);
+                    document.getElementById('val-total').innerText = total;
+                    document.getElementById('val-active').innerText = active;
+                    document.getElementById('val-error').innerText = err;
+                    document.getElementById('val-training').innerText = training;
+                    document.getElementById('val-power').innerText = power.toFixed(1);
                 }
 
-                // [핵심] Live Simulation Engine (999% Update Feel)
-                function startLiveUpdate() {
+                // [핵심] 999% Live Physics Engine (Client-Side Simulation)
+                function startPhysicsEngine() {
                     setInterval(() => {
-                        // 1. Random Jitter (데이터 미세 변동 시뮬레이션)
-                        gpuNodes.forEach((node, idx) => {
-                            // 변동폭 설정 (-2 ~ +2)
-                            const jitter = Math.floor(Math.random() * 5) - 2;
+                        nodes.forEach((n, i) => {
+                            // 1. Physics: 워크로드에 따른 변동성 부여
+                            let jitter = Math.random() > 0.5 ? 1 : -1;
                             
-                            // 온도 업데이트
-                            node.metrics.temp += jitter;
-                            if(node.metrics.temp < 30) node.metrics.temp = 30;
-                            if(node.metrics.temp > 110) node.metrics.temp = 110;
-                            
-                            // 로드 업데이트
-                            node.metrics.util += jitter;
-                            if(node.metrics.util < 0) node.metrics.util = 0;
-                            if(node.metrics.util > 100) node.metrics.util = 100;
-
-                            // 상태 자동 변경 시뮬레이션
-                            if(node.metrics.temp > 90) node.status = "CRITICAL";
-                            else node.status = "ACTIVE";
-
-                            // DOM 업데이트
-                            const card = document.getElementById(`card-${idx}`);
-                            if(card) {
-                                card.innerHTML = getCardHTML(node);
-                                if(node.status === 'CRITICAL') card.classList.add('critical');
-                                else card.classList.remove('critical');
+                            // Training 중이면 온도가 서서히 오름
+                            if (n.workload.includes('Training')) {
+                                if (Math.random() > 0.7) n.metrics.temp += 1;
+                                if (n.metrics.util < 99) n.metrics.util += 1;
+                            } else {
+                                // Idle이면 온도가 서서히 식음
+                                if (Math.random() > 0.6 && n.metrics.temp > 30) n.metrics.temp -= 1;
                             }
+                            
+                            // Random Noise (자연스러운 떨림)
+                            n.metrics.util = clamp(n.metrics.util + jitter, 0, 100);
+                            n.metrics.temp = clamp(n.metrics.temp + (Math.random() > 0.8 ? jitter : 0), 20, 95);
+                            
+                            // Critical Check
+                            if (n.metrics.temp > 90) {
+                                n.status = "CRITICAL";
+                                updateLed(i, 'err');
+                            } else {
+                                n.status = "ACTIVE";
+                                updateLed(i, 'on');
+                            }
+
+                            // Update DOM (Efficiently)
+                            document.getElementById(`txt-util-${i}`).innerText = n.metrics.util + "%";
+                            document.getElementById(`bar-util-${i}`).style.width = n.metrics.util + "%";
+                            
+                            document.getElementById(`txt-temp-${i}`).innerText = n.metrics.temp + "°C";
+                            const tempBar = document.getElementById(`bar-temp-${i}`);
+                            tempBar.style.width = (n.metrics.temp / 100 * 100) + "%";
+                            tempBar.className = `bar-fill ${n.metrics.temp > 80 ? 'bg-red-500' : 'bg-green-500'}`;
+                            
+                            document.getElementById(`txt-fan-${i}`).innerText = Math.floor(n.metrics.temp * 1.1) + "%";
                         });
                         
-                        // 2. 통계 갱신
                         updateStats();
 
-                        // 3. 로그 갱신
-                        const logMsg = [
-                            "Adjusting fan speeds for cluster KR-Busan...",
-                            "Syncing tensor cores...",
-                            "Optimizing power delivery...",
-                            "Collecting telemetry data..."
-                        ];
-                        document.getElementById('log-line').innerText = logMsg[Math.floor(Math.random()*logMsg.length)] + " [" + new Date().toLocaleTimeString() + "]";
+                        // Random Console Log
+                        if(Math.random() > 0.9) {
+                            const logs = [
+                                "[KERNEL] NVLink connection unstable on GPU-04",
+                                "[CUDA] Out of Memory retry... success",
+                                "[COOLING] Fan curve adjusted (+10%)",
+                                "[JOB] Checkpoint saved: model_v3.pt"
+                            ];
+                            const logLine = document.getElementById('console-log');
+                            logLine.innerText = logs[Math.floor(Math.random() * logs.length)] + " [" + new Date().toISOString().split('T')[1] + "]";
+                            logLine.classList.add('text-white');
+                            setTimeout(() => logLine.classList.remove('text-white'), 200);
+                        }
 
-                    }, 1000); // 1초마다 화면 갱신 (Real-time 느낌)
+                    }, 800); // 0.8초마다 갱신 (빠른 반응 속도)
+                }
+
+                function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
+                function updateLed(i, status) {
+                    const led = document.getElementById(`led-${i}`);
+                    const card = document.getElementById(`card-${i}`);
+                    if(status === 'err') {
+                        led.className = 'led led-err';
+                        card.classList.add('crit');
+                    } else {
+                        led.className = 'led led-on';
+                        card.classList.remove('crit');
+                    }
                 }
 
                 init();
@@ -340,10 +408,10 @@ jobs:
         path: _site/
 
   # ==============================================================================
-  # [Job 2] 배포 (수정된 구문)
+  # [Job 2] Deploy (Correct Syntax)
   # ==============================================================================
   deploy:
-    needs: build-and-deploy
+    needs: build-simulate-deploy
     permissions:
       pages: write
       id-token: write
