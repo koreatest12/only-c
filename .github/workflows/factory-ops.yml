@@ -1,8 +1,8 @@
-name: 🪐 Galaxy Ops:Omni-Command (Shell & Security)
+name: 🌌 Galaxy Ops:Quantum AI & Deployment
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Update every 5 minutes
+    - cron: '*/5 * * * *' # 5분마다 데이터 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,12 +13,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "galaxy-ops-omni"
+  group: "galaxy-ops-quantum"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] Generate Data, Build Interface
+  # [Job 1] 데이터 생성 및 웹 빌드
   # ==============================================================================
   build-deploy:
     runs-on: ubuntu-latest
@@ -36,9 +36,9 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 Omni Data Engine (Generates Shell FS, Threats, FinOps)
+    # [Step 1] 🏭 Quantum 데이터 엔진 (버전 정보 및 AI 로그 생성)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Omni Data Engine
+    - name: 🏭 Run Quantum Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
@@ -46,105 +46,76 @@ jobs:
         from faker import Faker
         fake = Faker()
         
-        NODE_COUNT = 80
-        
-        REGIONS = {
-            "US-EAST": {"lat": 38, "lon": 25, "c": "USE"},
-            "EU-CENT": {"lat": 35, "lon": 52, "c": "EUC"},
-            "AP-SEOUL": {"lat": 40, "lon": 82, "c": "APS"},
-            "SA-BRAZ": {"lat": 75, "lon": 30, "c": "SAB"}
-        }
-        
-        THREAT_ORIGINS = [
-            {"lat": 35, "lon": 20}, # Unknown Proxy
-            {"lat": 45, "lon": 90}, # Botnet A
-            {"lat": 60, "lon": 40}, # Botnet B
-            {"lat": 80, "lon": 10}  # Dark Web Node
-        ]
-        
-        ATTACK_TYPES = ["DDoS Volumetric", "SQL Injection", "XSS Attempt", "Brute Force SSH", "Ransomware Scan"]
+        NODE_COUNT = 60
+        CLUSTERS = ["Alpha", "Beta", "Gamma", "Delta"]
+        VERSIONS = ["v1.8.2", "v1.9.0", "v1.9.5"] # 구 버전들
 
-        def gen_finops():
-            return {
-                "budget": 50000,
-                "current_spend": round(random.uniform(20000, 35000), 2),
-                "burn_rate_per_sec": round(random.uniform(0.05, 0.25), 4),
-                "forecast": "OVER_BUDGET" if random.random() > 0.7 else "OPTIMAL"
-            }
-
-        def gen_threats():
-            threats = []
-            for _ in range(20):
-                target = random.choice(list(REGIONS.values()))
-                origin = random.choice(THREAT_ORIGINS)
-                threats.append({
-                    "id": str(uuid.uuid4())[:8],
-                    "type": random.choice(ATTACK_TYPES),
-                    "src_coords": {"top": f"{origin['lat']}%", "left": f"{origin['lon']}%"},
-                    "dst_coords": {"top": f"{target['lat']}%", "left": f"{target['lon']}%"},
-                    "severity": random.choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+        def gen_ai_logs():
+            logs = []
+            for _ in range(5):
+                logs.append({
+                    "ts": fake.time(),
+                    "msg": random.choice([
+                        "Anomaly detected in cluster Beta",
+                        "Optimizing query execution plans",
+                        "Predictive scaling initiated (+20 nodes)",
+                        "Security pattern matched: Safe"
+                    ]),
+                    "type": "INFO"
                 })
-            return threats
+            return logs
 
         def gen_nodes():
             nodes = []
             for i in range(NODE_COUNT):
-                r_key = random.choice(list(REGIONS.keys()))
-                reg = REGIONS[r_key]
-                
-                # Virtual Filesystem for Shell Simulation
-                files = ["config.yaml", "app.py", "error.log", "id_rsa.pub", ".env"]
+                cluster = random.choice(CLUSTERS)
                 
                 nodes.append({
-                    "id": f"{reg['c']}-{i:03d}",
-                    "region": r_key,
-                    "role": random.choice(["WEB", "WAS", "DB", "CACHE"]),
-                    "ip": fake.ipv4_private(),
-                    "status": "ACTIVE" if random.random() > 0.1 else "CRITICAL",
-                    "pos": {
-                        "top": f"{reg['lat'] + random.randint(-5,5)}%", 
-                        "left": f"{reg['lon'] + random.randint(-5,5)}%"
-                    },
+                    "id": f"{cluster}-{i:03d}",
+                    "cluster": cluster,
+                    "version": random.choice(VERSIONS), # 현재 버전
+                    "status": "ACTIVE" if random.random() > 0.1 else "WARNING",
                     "metrics": {
-                        "cpu": random.randint(5, 95),
-                        "mem": random.randint(10, 90)
+                        "cpu": random.randint(10, 80),
+                        "mem": random.randint(20, 70),
+                        "req_sec": random.randint(100, 5000)
                     },
-                    "shell_env": {
-                        "user": "devops",
-                        "files": files,
-                        "uptime": f"{random.randint(1, 100)} days"
-                    }
+                    "upgrading": False # 업그레이드 진행중 여부
                 })
             return nodes
 
         if __name__ == "__main__":
             data = {
                 "generated_at": datetime.datetime.now().isoformat(),
-                "finops": gen_finops(),
-                "threats": gen_threats(),
-                "nodes": gen_nodes()
+                "ai_insight": gen_ai_logs(),
+                "nodes": gen_nodes(),
+                "deployment": {
+                    "current_ver": "v1.9.5",
+                    "target_ver": "v2.0.0-quantum",
+                    "progress": 0
+                }
             }
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print("✅ Omni Data Generated.")
+            print("✅ Quantum Data Generated.")
         EOF
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] Save Data
+    # [Step 2] 데이터 저장
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "Shell-Bot"
+        git config --global user.name "AI-Ops-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🪐 Omni-Ops Update [$(date)]" || echo "No changes"
+        git commit -m "🤖 AI & Deployment Update [$(date)]" || echo "No changes"
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] Frontend Build (Shell, Canvas Map, FinOps)
+    # [Step 3] 프론트엔드 (AI Copilot & Deployment UI)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Omni Interface
+    - name: 🎨 Build Quantum Interface
       shell: bash
       run: |
         mkdir -p _site
@@ -156,308 +127,277 @@ jobs:
         <head>
             <meta charset="UTF-8">
             <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-            <title>GALAXY OMNI-COMMAND</title>
+            <title>GALAXY QUANTUM OPS</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
                 
-                body { background-color: #050505; color: #a3a3a3; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+                body { background-color: #030712; color: #e2e8f0; font-family: 'Roboto Mono', monospace; overflow: hidden; }
                 
                 /* Layout */
-                .main-layout { display: grid; grid-template-rows: 50px 1fr 250px 25px; height: 100vh; }
-                .middle-section { display: grid; grid-template-columns: 1fr 300px; overflow: hidden; }
+                .layout { display: grid; grid-template-rows: 60px 1fr; grid-template-columns: 1fr 350px; height: 100vh; }
                 
-                /* Header FinOps */
-                .ticker { font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+                /* Header */
+                .header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background: #0b0f19; border-bottom: 1px solid #1f2937; }
                 
-                /* Map & Canvas */
-                .map-wrapper { position: relative; background: radial-gradient(circle at 50% 50%, #171717 0%, #000 90%); overflow: hidden; border-right: 1px solid #333; }
-                #threat-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-                .node-dot { position: absolute; width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; box-shadow: 0 0 8px #3b82f6; transition: all 0.5s; cursor: pointer; }
-                .node-dot:hover { transform: scale(2); background: #fff; z-index: 50; }
-                .node-dot.crit { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+                /* Main Grid */
+                .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 10px; overflow-y: auto; background: radial-gradient(circle at center, #111827 0%, #030712 100%); }
                 
-                /* Right Panel (Threats) */
-                .threat-panel { background: #0a0a0a; border-left: 1px solid #333; display: flex; flex-direction: column; }
-                .log-item { font-size: 10px; padding: 4px 8px; border-bottom: 1px solid #1a1a1a; }
-                .log-item.high { border-left: 2px solid #ef4444; color: #fca5a5; }
+                /* AI Sidebar */
+                .sidebar { background: #0b0f19; border-left: 1px solid #1f2937; display: flex; flex-direction: column; }
+                .chat-window { flex: 1; padding: 10px; overflow-y: auto; font-size: 11px; }
+                .chat-input-area { padding: 10px; border-top: 1px solid #1f2937; background: #111827; }
                 
-                /* Terminal / Shell Area */
-                .terminal-container { background: #0c0c0c; border-top: 1px solid #333; padding: 10px; font-size: 12px; display: flex; flex-direction: column; overflow: hidden; }
-                .term-output { flex: 1; overflow-y: auto; color: #d4d4d4; margin-bottom: 5px; white-space: pre-wrap; }
-                .term-input-line { display: flex; color: #22c55e; font-weight: bold; align-items: center; }
-                .term-input { background: transparent; border: none; color: #fff; flex: 1; outline: none; margin-left: 8px; font-family: inherit; font-weight: normal; }
+                /* Card */
+                .card { background: #1f2937; border: 1px solid #374151; padding: 10px; position: relative; transition: all 0.3s; }
+                .card.upgrading { border-color: #f59e0b; background: #312e81; animation: pulse 1s infinite; }
+                .card.done { border-color: #10b981; background: #064e3b; }
                 
-                /* Scrollbar */
-                ::-webkit-scrollbar { width: 6px; }
-                ::-webkit-scrollbar-thumb { background: #333; }
+                /* Visuals */
+                .version-badge { position: absolute; top: 5px; right: 5px; font-size: 9px; padding: 2px 4px; background: #374151; border-radius: 4px; }
+                .msg-ai { color: #60a5fa; margin-bottom: 8px; border-left: 2px solid #60a5fa; padding-left: 5px; }
+                .msg-user { color: #fff; text-align: right; margin-bottom: 8px; border-right: 2px solid #fff; padding-right: 5px; }
+                
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+                
+                /* Progress Bar */
+                .progress-container { width: 100%; background: #374151; height: 4px; margin-top: 5px; border-radius: 2px; overflow: hidden; }
+                .progress-fill { height: 100%; background: #f59e0b; width: 0%; transition: width 0.3s; }
             </style>
         </head>
-        <body class="main-layout">
+        <body class="layout">
             
-            <header class="flex justify-between items-center px-4 bg-black border-b border-[#333]">
-                <div class="flex items-center gap-4">
-                    <span class="text-2xl animate-pulse">🪐</span>
-                    <h1 class="text-lg font-bold text-white tracking-widest">OMNI <span class="text-blue-500">COMMAND</span></h1>
-                    <div class="px-2 py-0.5 rounded border border-red-900 bg-red-900/20 text-red-500 text-xs font-bold" id="defcon-badge">DEFCON 4</div>
+            <header class="header">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-atom text-2xl text-purple-500 animate-spin-slow"></i>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-widest" style="font-family: 'Orbitron', sans-serif;">QUANTUM <span class="text-purple-500">OPS</span></h1>
+                    </div>
                 </div>
                 
-                <div class="flex items-center gap-6 text-xs">
-                    <div class="text-right">
-                        <div class="text-gray-500">CURRENT SPEND</div>
-                        <div class="text-yellow-400 font-bold text-lg ticker">$<span id="fin-spend">0.00</span></div>
+                <div class="flex items-center gap-4">
+                    <div class="text-xs text-right">
+                        <div class="text-gray-500">TARGET VERSION</div>
+                        <div class="font-bold text-green-400">v2.0.0-quantum</div>
                     </div>
-                    <div class="text-right">
-                        <div class="text-gray-500">BURN RATE</div>
-                        <div class="text-gray-300 font-bold ticker">+$<span id="fin-rate">0.0000</span>/s</div>
+                    <button onclick="startDeployment()" id="deploy-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-xs font-bold transition flex items-center gap-2">
+                        <i class="fas fa-rocket"></i> DEPLOY v2.0
+                    </button>
+                    <div class="w-32">
+                        <div class="flex justify-between text-[9px] mb-1">
+                            <span>ROLLOUT</span>
+                            <span id="rollout-pct">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                            <div id="global-progress" class="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-0 transition-all duration-500"></div>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <section class="middle-section">
-                <div class="map-wrapper" id="map-root">
-                    <canvas id="threat-canvas"></canvas>
-                    <div class="absolute top-4 left-4 text-[10px] text-gray-500">
-                        > THREAT_VISUALIZER_V8.0<br>
-                        > INTERCEPTING PACKETS...
-                    </div>
-                    </div>
+            <main class="node-grid custom-scroll" id="grid">
+                </main>
 
-                <div class="threat-panel">
-                    <div class="p-2 bg-[#111] text-[10px] font-bold text-gray-400 border-b border-[#333] flex justify-between">
-                        <span>🛡️ WAF EVENT LOGS</span>
-                        <span id="threat-count" class="text-red-500">0 DETECTED</span>
+            <aside class="sidebar">
+                <div class="p-3 bg-gray-900 border-b border-gray-700 font-bold text-xs flex justify-between items-center">
+                    <span><i class="fas fa-robot mr-2 text-purple-400"></i> AI COPILOT</span>
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                </div>
+                
+                <div id="chat-window" class="chat-window custom-scroll">
+                    <div class="msg-ai">
+                        <div>System initialized. Monitoring 60 nodes.</div>
+                        <div class="text-gray-500 text-[9px]">Just now</div>
                     </div>
-                    <div id="waf-logs" class="flex-1 overflow-y-auto custom-scroll"></div>
+                    <div class="msg-ai">
+                        <div>Ready for v2.0 deployment. Waiting for command.</div>
+                    </div>
                 </div>
-            </section>
-
-            <section class="terminal-container" onclick="document.getElementById('cmd').focus()">
-                <div class="term-output" id="term-out">
-                    <div class="text-blue-400">Welcome to Galaxy Omni-Shell v8.0.2 LTS</div>
-                    <div class="text-gray-500">Type 'help' for available commands. Try 'connect [ID]' to SSH into a node.</div>
-                    <br>
+                
+                <div class="chat-input-area">
+                    <input type="text" id="ai-input" placeholder="Type 'deploy', 'status', or 'fix'..." 
+                           class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
+                           onkeydown="handleAI(event)">
                 </div>
-                <div class="term-input-line">
-                    <span id="prompt-user">devops@galaxy-ops:~$</span>
-                    <input type="text" id="cmd" class="term-input" autocomplete="off" spellcheck="false">
-                </div>
-            </section>
-
-            <footer class="bg-black text-[10px] text-gray-600 flex items-center px-4">
-                <span class="mr-4">CONNECTED: TLS v1.3</span>
-                <span>LATENCY: 24ms</span>
-            </footer>
+            </aside>
 
             <script>
-                // Data State
-                let globalData = { nodes: [], threats: [], finops: {} };
-                let sshSession = null; // Current SSH context
-                
-                // --- INIT ---
+                let globalData = { nodes: [] };
+                let isDeploying = false;
+
                 async function init() {
                     await loadData();
-                    setInterval(loadData, 60000); // Data Refresh
-                    
-                    // Start Animation Loops
-                    requestAnimationFrame(animateThreats);
-                    setInterval(updateFinOps, 1000);
-                    setInterval(autoLog, 2000);
-
-                    // Setup Shell
-                    document.getElementById('cmd').addEventListener('keydown', handleShellInput);
+                    // Live jitter
+                    setInterval(updateMetrics, 1000);
                 }
 
                 async function loadData() {
                     try {
                         const res = await fetch('dashboard_data.json?v=' + Date.now());
                         const data = await res.json();
-                        globalData = data;
-                        renderMap();
-                        renderThreatLogs();
                         
-                        // Set Initial FinOps
-                        document.getElementById('fin-spend').innerText = data.finops.current_spend.toFixed(2);
-                        document.getElementById('fin-rate').innerText = data.finops.burn_rate_per_sec;
-                    } catch(e) {
-                        console.log("Offline Mode");
-                    }
+                        // If we are deploying, preserve local state, otherwise load new
+                        if(!isDeploying) {
+                            globalData = data;
+                            renderGrid();
+                        }
+                    } catch(e) { console.error("Offline"); }
                 }
 
-                // --- MAP & VISUALS ---
-                function renderMap() {
-                    const map = document.getElementById('map-root');
-                    document.querySelectorAll('.node-dot').forEach(e => e.remove());
-                    
-                    globalData.nodes.forEach(n => {
-                        const el = document.createElement('div');
-                        el.className = `node-dot ${n.status==='CRITICAL'?'crit':''}`;
-                        el.style.top = n.pos.top;
-                        el.style.left = n.pos.left;
-                        el.title = `${n.id} (${n.ip})`;
-                        el.onclick = () => {
-                            document.getElementById('cmd').value = `connect ${n.id}`;
-                            document.getElementById('cmd').focus();
-                        };
-                        map.appendChild(el);
+                function renderGrid() {
+                    const grid = document.getElementById('grid');
+                    grid.innerHTML = globalData.nodes.map((n, i) => `
+                        <div class="card" id="card-${i}">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="font-bold text-xs text-white">${n.id}</div>
+                                <div class="w-2 h-2 rounded-full ${n.status==='ACTIVE'?'bg-green-500':'bg-yellow-500'}"></div>
+                            </div>
+                            <div class="version-badge text-gray-400" id="ver-${i}">${n.version}</div>
+                            
+                            <div class="text-[10px] text-gray-500 mt-2">
+                                <div>CPU: <span id="cpu-${i}">${n.metrics.cpu}%</span></div>
+                                <div>MEM: <span id="mem-${i}">${n.metrics.mem}%</span></div>
+                            </div>
+
+                            <div class="progress-container opacity-0" id="prog-con-${i}">
+                                <div class="progress-fill" id="prog-bar-${i}"></div>
+                            </div>
+                            <div class="text-[9px] text-center mt-1 h-3 text-yellow-400 font-bold" id="status-text-${i}"></div>
+                        </div>
+                    `).join('');
+                }
+
+                function updateMetrics() {
+                    globalData.nodes.forEach((n, i) => {
+                        // Random fluctuation
+                        const cpu = Math.min(100, Math.max(0, n.metrics.cpu + Math.floor(Math.random()*6-3)));
+                        document.getElementById(`cpu-${i}`).innerText = cpu + "%";
+                        
+                        // If deploying, ignore status updates
                     });
                 }
 
-                const canvas = document.getElementById('threat-canvas');
-                const ctx = canvas.getContext('2d');
-                let threatsAnim = [];
-
-                function animateThreats() {
-                    canvas.width = canvas.parentElement.offsetWidth;
-                    canvas.height = canvas.parentElement.offsetHeight;
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // --- DEPLOYMENT LOGIC ---
+                window.startDeployment = function() {
+                    if(isDeploying) return;
+                    isDeploying = true;
                     
-                    if(Math.random() > 0.95 && globalData.threats.length > 0) {
-                        const t = globalData.threats[Math.floor(Math.random() * globalData.threats.length)];
-                        threatsAnim.push({
-                            x: parseFloat(t.src_coords.left) / 100 * canvas.width,
-                            y: parseFloat(t.src_coords.top) / 100 * canvas.height,
-                            tx: parseFloat(t.dst_coords.left) / 100 * canvas.width,
-                            ty: parseFloat(t.dst_coords.top) / 100 * canvas.height,
-                            progress: 0,
-                            speed: Math.random() * 0.02 + 0.01,
-                            color: t.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b'
-                        });
-                    }
+                    document.getElementById('deploy-btn').disabled = true;
+                    document.getElementById('deploy-btn').innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> DEPLOYING...`;
+                    addAIMessage("Initiating Blue/Green deployment sequence for v2.0.0-quantum...");
+                    
+                    let doneCount = 0;
+                    const total = globalData.nodes.length;
+                    
+                    // Shuffle indices for random rollout effect
+                    const indices = Array.from({length: total}, (_, i) => i).sort(() => Math.random() - 0.5);
+                    
+                    // Process nodes in batches
+                    let cursor = 0;
+                    const batchSize = 5;
+                    
+                    const interval = setInterval(() => {
+                        if(cursor >= total) {
+                            clearInterval(interval);
+                            addAIMessage("Deployment Complete. All systems operational on v2.0.");
+                            document.getElementById('deploy-btn').innerHTML = `<i class="fas fa-check"></i> COMPLETE`;
+                            isDeploying = false;
+                            return;
+                        }
 
-                    threatsAnim.forEach((t, i) => {
-                        t.progress += t.speed;
-                        const curX = t.x + (t.tx - t.x) * t.progress;
-                        const curY = t.y + (t.ty - t.y) * t.progress;
+                        // Upgrade batch
+                        for(let b=0; b<batchSize && cursor < total; b++) {
+                            const idx = indices[cursor];
+                            upgradeNode(idx, () => {
+                                doneCount++;
+                                updateGlobalProgress(doneCount, total);
+                            });
+                            cursor++;
+                        }
                         
-                        ctx.beginPath();
-                        ctx.moveTo(t.x, t.y);
-                        ctx.lineTo(curX, curY);
-                        ctx.strokeStyle = `rgba(${t.color === '#ef4444' ? '239,68,68' : '245,158,11'}, ${1-t.progress})`;
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-                        
-                        ctx.beginPath();
-                        ctx.arc(curX, curY, 2, 0, Math.PI*2);
-                        ctx.fillStyle = '#fff';
-                        ctx.fill();
-
-                        if(t.progress >= 1) threatsAnim.splice(i, 1);
-                    });
-
-                    requestAnimationFrame(animateThreats);
+                    }, 800); // Start a new batch every 800ms
                 }
 
-                // --- FINOPS ENGINE ---
-                function updateFinOps() {
-                    if(!globalData.finops) return;
-                    let spend = parseFloat(document.getElementById('fin-spend').innerText);
-                    let rate = globalData.finops.burn_rate_per_sec;
-                    spend += rate;
-                    document.getElementById('fin-spend').innerText = spend.toFixed(2);
-                }
-
-                // --- SHELL / TERMINAL LOGIC ---
-                function handleShellInput(e) {
-                    if(e.key === 'Enter') {
-                        const input = e.target.value.trim();
-                        const out = document.getElementById('term-out');
-                        const prompt = document.getElementById('prompt-user').innerText;
-                        
-                        out.innerHTML += `<div><span class="text-green-500">${prompt}</span> ${input}</div>`;
-                        processCommand(input, out);
-                        e.target.value = '';
-                        out.scrollTop = out.scrollHeight;
-                    }
-                }
-
-                function processCommand(cmd, out) {
-                    const args = cmd.split(' ');
-                    const main = args[0].toLowerCase();
+                function upgradeNode(idx, onComplete) {
+                    const card = document.getElementById(`card-${idx}`);
+                    const progCon = document.getElementById(`prog-con-${idx}`);
+                    const progBar = document.getElementById(`prog-bar-${idx}`);
+                    const statusTxt = document.getElementById(`status-text-${idx}`);
+                    const verBadge = document.getElementById(`ver-${idx}`);
                     
-                    if(sshSession) {
-                        if(main === 'exit') {
-                            sshSession = null;
-                            document.getElementById('prompt-user').innerText = "devops@galaxy-ops:~$";
-                            out.innerHTML += `<div class="text-gray-400">Connection closed.</div>`;
-                            return;
-                        }
-                        if(main === 'ls') {
-                            out.innerHTML += `<div class="text-blue-300">${sshSession.shell_env.files.join('  ')}</div>`;
-                            return;
-                        }
-                        if(main === 'whoami') {
-                            out.innerHTML += `<div>${sshSession.shell_env.user}</div>`;
-                            return;
-                        }
-                        if(main === 'top') {
-                            out.innerHTML += `
-                            <div>Tasks: 12 total, 1 running, 11 sleeping</div>
-                            <div>%Cpu(s): ${sshSession.metrics.cpu}.0 us,  2.1 sy,  0.0 ni</div>
-                            <div>MiB Mem : ${sshSession.metrics.mem * 64} total,  ${sshSession.metrics.mem * 32} free</div>`;
-                            return;
-                        }
-                    } 
+                    card.classList.add('upgrading');
+                    progCon.classList.remove('opacity-0');
                     
-                    if(main === 'help') {
-                        out.innerHTML += `
-                        <div class="text-gray-400">Available Commands:</div>
-                        <div>  help          Show this help</div>
-                        <div>  status        Global system status</div>
-                        <div>  list          List all active nodes</div>
-                        <div>  cost          Show detailed FinOps report</div>
-                        <div>  connect [ID]  SSH into a specific server</div>
-                        <div>  clear         Clear terminal</div>`;
-                    } else if (main === 'clear') {
-                        out.innerHTML = '';
-                    } else if (main === 'status') {
-                        const crit = globalData.nodes.filter(n => n.status === 'CRITICAL').length;
-                        out.innerHTML += `<div>System Status: ${crit > 0 ? 'DEGRADED' : 'OPERATIONAL'} | Active Nodes: ${globalData.nodes.length}</div>`;
-                    } else if (main === 'list') {
-                        const list = globalData.nodes.map(n => `${n.id} [${n.ip}]`).join('\n');
-                        out.innerHTML += `<div class="text-gray-500">${list}</div>`;
-                    } else if (main === 'cost') {
-                         out.innerHTML += `<div>Budget: $${globalData.finops.budget} | Forecast: ${globalData.finops.forecast}</div>`;
-                    } else if (main === 'connect') {
-                        const targetId = args[1];
-                        const node = globalData.nodes.find(n => n.id === targetId);
-                        if(node) {
-                            sshSession = node;
-                            out.innerHTML += `<div class="text-gray-400">Authenticating to ${node.ip}...</div>`;
-                            setTimeout(() => {
-                                out.innerHTML += `<div>Welcome to Ubuntu 22.04.2 LTS (${node.id})</div>`;
-                                document.getElementById('prompt-user').innerText = `${node.shell_env.user}@${node.id}:~$`;
-                                out.scrollTop = out.scrollHeight;
-                            }, 500);
+                    const steps = ["Downloading...", "Unpacking...", "Stopping...", "Installing...", "Rebooting..."];
+                    let step = 0;
+                    
+                    const stepInt = setInterval(() => {
+                        if(step >= steps.length) {
+                            clearInterval(stepInt);
+                            // Complete
+                            card.classList.remove('upgrading');
+                            card.classList.add('done');
+                            statusTxt.innerText = "ONLINE";
+                            statusTxt.classList.replace('text-yellow-400', 'text-green-400');
+                            verBadge.innerText = "v2.0.0";
+                            verBadge.classList.replace('text-gray-400', 'text-green-300');
+                            progCon.classList.add('opacity-0');
+                            onComplete();
                         } else {
-                            out.innerHTML += `<div class="text-red-400">Error: Node '${targetId}' not found. Try 'list'.</div>`;
+                            statusTxt.innerText = steps[step];
+                            progBar.style.width = ((step + 1) / steps.length * 100) + "%";
+                            step++;
                         }
-                    } else if (cmd !== '') {
-                        out.innerHTML += `<div class="text-red-400">Command not found: ${main}</div>`;
+                    }, 500 + Math.random() * 500); // Random duration per step
+                }
+
+                function updateGlobalProgress(done, total) {
+                    const pct = Math.floor((done / total) * 100);
+                    document.getElementById('rollout-pct').innerText = pct + "%";
+                    document.getElementById('global-progress').style.width = pct + "%";
+                }
+
+                // --- AI COPILOT LOGIC ---
+                window.handleAI = function(e) {
+                    if(e.key === 'Enter') {
+                        const input = e.target.value;
+                        addUserMessage(input);
+                        e.target.value = '';
+                        
+                        setTimeout(() => {
+                            processAICommand(input.toLowerCase());
+                        }, 600);
                     }
                 }
 
-                function renderThreatLogs() {
-                    const el = document.getElementById('waf-logs');
-                    el.innerHTML = '';
-                    globalData.threats.forEach(t => {
-                        const div = document.createElement('div');
-                        div.className = `log-item ${t.severity === 'CRITICAL' ? 'high' : ''}`;
-                        div.innerHTML = `<span class="text-gray-500">[BLOCK]</span> ${t.type} from unknown <span class="text-gray-600">(${t.id})</span>`;
-                        el.appendChild(div);
-                    });
-                    document.getElementById('threat-count').innerText = globalData.threats.length + " BLOCKED";
+                function addUserMessage(msg) {
+                    const win = document.getElementById('chat-window');
+                    win.innerHTML += `<div class="msg-user"><div>${msg}</div></div>`;
+                    win.scrollTop = win.scrollHeight;
                 }
 
-                function autoLog() {
-                    const el = document.getElementById('waf-logs');
-                    if(Math.random() > 0.7) {
-                        const div = document.createElement('div');
-                        div.className = 'log-item';
-                        div.innerHTML = `<span class="text-blue-400">[INFO]</span> Rate limit triggered for IP 10.23.${Math.floor(Math.random()*255)}.x`;
-                        el.prepend(div);
-                        if(el.children.length > 20) el.lastChild.remove();
+                function addAIMessage(msg) {
+                    const win = document.getElementById('chat-window');
+                    win.innerHTML += `<div class="msg-ai"><div>${msg}</div></div>`;
+                    win.scrollTop = win.scrollHeight;
+                }
+
+                function processAICommand(cmd) {
+                    if(cmd.includes('deploy') || cmd.includes('upgrade')) {
+                        if(isDeploying) addAIMessage("Deployment is already in progress.");
+                        else {
+                            addAIMessage("Understood. Starting global rollout.");
+                            startDeployment();
+                        }
+                    } else if (cmd.includes('status')) {
+                        const active = globalData.nodes.filter(n=>n.status==='ACTIVE').length;
+                        addAIMessage(`System Report: ${active}/${globalData.nodes.length} nodes active. No critical threats.`);
+                    } else if (cmd.includes('fix') || cmd.includes('repair')) {
+                        addAIMessage("Auto-remediation started. Restarting unhealthy pods...");
+                        setTimeout(() => addAIMessage("Fixed 3 issues in cluster Gamma."), 1500);
+                    } else {
+                        addAIMessage("I can help with 'deploy', 'status', or 'fix'.");
                     }
                 }
 
@@ -472,16 +412,12 @@ jobs:
       with: { path: _site/ }
 
   # ==============================================================================
-  # [Job 2] Deployment (Fixed Syntax)
+  # [Job 2] 배포
   # ==============================================================================
   deploy:
     needs: build-deploy
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: ${{ steps.deployment.outputs.page_url }} }
     runs-on: ubuntu-latest
     steps:
       - name: 🚀 Deploy
