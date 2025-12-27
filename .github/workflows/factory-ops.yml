@@ -1,8 +1,8 @@
-name: 🌌 Hyper-Scale GPU Control Center (Fixed & Enhanced)
+name: 🌌 Galaxy Ops:Reboot & Tokenize
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 실행 (GitHub 허용 최대 빈도)
+    - cron: '*/10 * * * *' # 10분마다 인프라 스냅샷 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,13 +13,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "gpu-ops-hyper"
+  group: "galaxy-ops-token"
   cancel-in-progress: true
 
 jobs:
-  # ==============================================================================
-  # [Job 1] Build, Simulate & Deploy (All-in-One for Speed)
-  # ==============================================================================
   build-simulate-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -37,129 +34,111 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 고도화된 GPU 데이터 엔진 (에러 수정됨)
+    # [Step 1] 🏭 인프라 엔진 (서비스별 설치 스크립트 및 토큰 생성)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Physics-Based Data Engine
+    - name: 🏭 Run Provisioning Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import json, random, uuid
+        import json, random, uuid, hashlib
         from datetime import datetime
         from faker import Faker
         fake = Faker()
         
-        # [설정] 초대형 클러스터 시뮬레이션 (300개 노드)
-        NODE_COUNT = 300
+        NODE_COUNT = 100
         
-        # GPU 스펙 정의 (TDP는 Watt 단위)
-        GPU_SPECS = [
-            {"model": "NVIDIA H100 SXM", "vram": 80, "tdp": 700, "arch": "Hopper"},
-            {"model": "NVIDIA A100 80G", "vram": 80, "tdp": 400, "arch": "Ampere"},
-            {"model": "NVIDIA L40S",     "vram": 48, "tdp": 350, "arch": "Ada"},
-            {"model": "RTX 6000 Ada",    "vram": 48, "tdp": 300, "arch": "Ada"},
-            {"model": "RTX 4090",        "vram": 24, "tdp": 450, "arch": "Ada"},
-            {"model": "Tesla T4",        "vram": 16, "tdp": 70,  "arch": "Turing"} 
-        ]
+        # 서비스별 설치 로그 패턴 정의
+        SERVICES = {
+            "PAYMENT": {
+                "icon": "💳", 
+                "pkg": ["libssl-dev", "payment-gateway-v4", "fraud-detection-daemon"],
+                "logs": ["Verifying PCI-DSS compliance...", "Mounting secure ledger volume...", "Opening port 443 for transactions..."]
+            },
+            "AUTH": {
+                "icon": "🔐", 
+                "pkg": ["oauth2-proxy", "keycloak-server", "jwt-signer"],
+                "logs": ["Generating RSA-4096 keys...", "Syncing LDAP users...", "Flushing expired sessions..."]
+            },
+            "AI-CORE": {
+                "icon": "🧠", 
+                "pkg": ["nvidia-cuda-toolkit", "pytorch-lightning", "huggingface-cli"],
+                "logs": ["Allocating VRAM pages...", "Loading LoRA adapters...", "Warming up Tensor Cores..."]
+            },
+            "DELIVERY": {
+                "icon": "🚚", 
+                "pkg": ["geo-spatial-db", "route-optimizer", "mqtt-broker"],
+                "logs": ["Calibrating GPS grid...", "Connecting to logistics fleet...", "Optimizing pathfinding graph..."]
+            }
+        }
         
-        CLUSTERS = ["US-East-HPC", "KR-Seoul-AI", "EU-Frankfurt-LLM", "JP-Tokyo-Edge"]
-        WORKLOADS = ["Training (LLM)", "Fine-tuning", "Inference", "Data Preprocessing", "Idle"]
+        CLUSTERS = ["Alpha-Centauri", "Nebula-Edge", "Sirius-Main", "Orion-Backup"]
+
+        def gen_token_batch():
+            # 대량 토큰 시뮬레이션 (샘플링)
+            return [hashlib.sha256(str(uuid.uuid4()).encode()).hexdigest()[:16] for _ in range(5)]
 
         def gen_fleet():
             nodes = []
-            stats = {"total": NODE_COUNT, "active": 0, "training": 0, "error": 0}
             
             for i in range(NODE_COUNT):
-                spec = random.choice(GPU_SPECS)
+                svc_type = random.choice(list(SERVICES.keys()))
+                svc_info = SERVICES[svc_type]
                 cluster = random.choice(CLUSTERS)
-                workload = random.choice(WORKLOADS)
                 
-                # [로직] 워크로드에 따른 부하 시뮬레이션
-                if workload == "Idle":
-                    util = random.randint(0, 10)
-                    mem_used = random.uniform(0.5, 2.0)
-                    temp = random.randint(30, 45)
-                    # [FIX] 에러 발생 원인이었던 하드코딩 제거 -> 스펙 기반 계산
-                    power_min = int(spec['tdp'] * 0.1) # 아이들 시 10% 전력
-                    power_max = int(spec['tdp'] * 0.3)
-                elif "Training" in workload:
-                    util = random.randint(90, 100)
-                    mem_used = spec['vram'] * random.uniform(0.8, 0.98)
-                    temp = random.randint(75, 88)
-                    power_min = int(spec['tdp'] * 0.8)
-                    power_max = spec['tdp']
-                    stats["training"] += 1
-                else: # Inference / Others
-                    util = random.randint(40, 80)
-                    mem_used = spec['vram'] * random.uniform(0.3, 0.7)
-                    temp = random.randint(50, 70)
-                    power_min = int(spec['tdp'] * 0.4)
-                    power_max = int(spec['tdp'] * 0.7)
-
-                # [FIX] 안전한 랜덤 범위 설정 (min이 max보다 클 수 없음)
-                if power_min >= power_max: power_max = power_min + 5
-                power = random.randint(power_min, power_max)
-
-                # 상태 결정 (과열 시뮬레이션)
-                status = "ACTIVE"
-                if temp > 85:
-                    status = "WARNING"
-                if temp > 90 or random.random() < 0.02: # 2% 확률로 랜덤 고장
-                    status = "CRITICAL"
-                    workload = "ERROR_STATE"
-                    stats["error"] += 1
-                else:
-                    stats["active"] += 1
-
+                # 스펙 생성
+                is_heavy = svc_type == "AI-CORE"
+                cpu = random.randint(10, 90)
+                mem = random.randint(20, 80)
+                temp = random.randint(40, 85)
+                
+                # 대량 토큰 카운트 (수천 ~ 수만 개)
+                token_count = random.randint(5000, 99999)
+                
                 nodes.append({
-                    "id": f"{spec['arch']}-{cluster}-{i:04d}",
-                    "model": spec['model'],
+                    "id": f"{svc_type}-{cluster}-{i:03d}",
+                    "type": svc_type,
+                    "icon": svc_info['icon'],
                     "cluster": cluster,
-                    "status": status,
-                    "workload": workload,
+                    "status": "ACTIVE",
+                    "install_logs": svc_info['logs'], # 재부팅 시 사용할 로그
+                    "packages": svc_info['pkg'],
                     "metrics": {
-                        "util": util,
-                        "temp": temp,
-                        "power": power,
-                        "fan": min(100, int((temp / 90) * 100)), # 온도 비례 팬 속도
-                        "vram_total": spec['vram'],
-                        "vram_used": round(mem_used, 1)
+                        "cpu": cpu, "mem": mem, "temp": temp,
+                        "token_count": token_count,
+                        "token_samples": gen_token_batch()
                     }
                 })
             
             return {
                 "timestamp": str(datetime.now()),
-                "summary": stats,
+                "summary": {"total": NODE_COUNT, "tokens_global": sum(n['metrics']['token_count'] for n in nodes)},
                 "nodes": nodes
             }
 
         if __name__ == "__main__":
-            try:
-                data = gen_fleet()
-                with open("dashboard_data.json", "w") as f:
-                    json.dump(data, f, indent=2)
-                print(f"✅ Physics Engine: Generated {NODE_COUNT} nodes without error.")
-            except Exception as e:
-                print(f"❌ Critical Error: {e}")
-                exit(1)
+            data = gen_fleet()
+            with open("dashboard_data.json", "w") as f:
+                json.dump(data, f, indent=2)
+            print(f"✅ Provisioned {NODE_COUNT} nodes with Service Packs.")
         EOF
         
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 커밋 (히스토리 보존)
+    # [Step 2] 데이터 저장
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "H100-Bot"
+        git config --global user.name "Ops-Master"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🌌 GPU Matrix Update [$(date)]" || echo "No changes"
-        git push origin main || echo "Push skipped (concurrency)"
+        git commit -m "🌌 Infra Scale-up [$(date)]" || echo "No changes"
+        git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 빌드 (999% Live Jitter Engine)
+    # [Step 3] 프론트엔드 (재부팅 시뮬레이터 & 토큰 스트림 탑재)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Dashboard
+    - name: 🎨 Build Command Center
       shell: bash
       run: |
         mkdir -p _site
@@ -170,87 +149,63 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>GPU HIVE MIND</title>
+            <title>GALAXY OPS CENTER</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                :root { --neon-green: #00ff41; --neon-red: #ff003c; --bg-dark: #050505; }
-                body { background-color: var(--bg-dark); color: #e0e0e0; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+                body { background-color: #030712; color: #e5e7eb; font-family: 'Courier New', monospace; overflow: hidden; }
                 
-                /* Layout */
-                .main-layout { display: grid; grid-template-rows: 60px 80px 1fr 30px; height: 100vh; }
-                .gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1px; background: #222; overflow-y: scroll; }
+                /* Grid Layout */
+                .main-layout { display: grid; grid-template-rows: 60px 1fr 30px; height: 100vh; }
+                .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; }
                 
-                /* Card Design */
-                .card { background: #0a0a0a; border: 1px solid #222; padding: 10px; font-size: 10px; position: relative; transition: background 0.2s; }
-                .card:hover { background: #111; z-index: 10; border-color: #555; }
-                .card.crit { border: 1px solid var(--neon-red); box-shadow: inset 0 0 10px rgba(255,0,60,0.2); }
+                /* Card Styling */
+                .card { background: #111827; border: 1px solid #1f2937; padding: 12px; position: relative; transition: all 0.3s; }
+                .card:hover { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); z-index: 10; transform: scale(1.01); }
                 
-                /* Visuals */
-                .bar-track { background: #1a1a1a; height: 4px; width: 100%; margin-top: 2px; }
-                .bar-fill { height: 100%; transition: width 0.2s ease-out; }
-                .led { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-                .led-on { background: var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
-                .led-off { background: #333; }
-                .led-err { background: var(--neon-red); box-shadow: 0 0 5px var(--neon-red); animation: blink 0.5s infinite; }
+                /* Rebooting State Style */
+                .card.rebooting { background: #000; border-color: #f59e0b; color: #f59e0b; }
+                .card.rebooting .normal-view { display: none; }
+                .card.rebooting .boot-view { display: block; }
                 
-                @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+                /* Views */
+                .boot-view { display: none; font-size: 10px; line-height: 1.4; height: 100%; overflow: hidden; }
+                .boot-line { animation: type 0.1s; }
+                
+                /* Token Stream Animation */
+                .token-stream { font-size: 9px; color: #10b981; opacity: 0.7; white-space: nowrap; overflow: hidden; }
                 
                 /* Scrollbar */
                 ::-webkit-scrollbar { width: 6px; }
-                ::-webkit-scrollbar-thumb { background: #333; }
+                ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
             </style>
         </head>
         <body class="main-layout">
             
-            <header class="flex items-center justify-between px-6 border-b border-[#333] bg-[#080808]">
-                <div class="flex items-center gap-3">
-                    <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                    <h1 class="text-lg font-bold tracking-widest text-white">NVIDIA <span class="text-green-500">HIVE MIND</span></h1>
+            <header class="flex items-center justify-between px-6 bg-gray-900 border-b border-gray-800">
+                <div class="flex items-center gap-4">
+                    <span class="text-2xl animate-spin-slow">🪐</span>
+                    <h1 class="text-xl font-bold tracking-[0.2em] text-white">GALAXY <span class="text-blue-500">OPS</span></h1>
                 </div>
-                <div class="text-[10px] text-gray-500">
-                    SYNC RATE: <span class="text-green-400">10ms</span> | PROTOCOL: <span class="text-blue-400">WebSocket (Sim)</span>
+                <div class="flex gap-6 text-xs">
+                    <div>GLOBAL TOKENS: <span id="gl-tokens" class="text-green-400 font-bold text-lg">0</span></div>
+                    <div>ACTIVE NODES: <span id="gl-nodes" class="text-blue-400 font-bold text-lg">0</span></div>
                 </div>
             </header>
 
-            <div class="grid grid-cols-5 gap-0 divide-x divide-[#333] bg-[#0a0a0a] border-b border-[#333]">
-                <div class="p-3 text-center">
-                    <div class="text-[9px] text-gray-500">TOTAL NODES</div>
-                    <div class="text-xl font-bold text-white" id="val-total">---</div>
-                </div>
-                <div class="p-3 text-center">
-                    <div class="text-[9px] text-gray-500">ACTIVE WORKERS</div>
-                    <div class="text-xl font-bold text-green-400" id="val-active">---</div>
-                </div>
-                <div class="p-3 text-center">
-                    <div class="text-[9px] text-gray-500">TRAINING JOBS</div>
-                    <div class="text-xl font-bold text-blue-400" id="val-training">---</div>
-                </div>
-                <div class="p-3 text-center">
-                    <div class="text-[9px] text-gray-500">CRITICAL ALERTS</div>
-                    <div class="text-xl font-bold text-red-500" id="val-error">---</div>
-                </div>
-                <div class="p-3 text-center">
-                    <div class="text-[9px] text-gray-500">TOTAL POWER (kW)</div>
-                    <div class="text-xl font-bold text-yellow-500" id="val-power">---</div>
-                </div>
-            </div>
-
-            <div id="grid-container" class="gpu-grid">
+            <div id="grid" class="card-grid custom-scroll">
                 </div>
 
-            <div class="bg-black border-t border-[#333] flex items-center px-4 text-[10px] font-mono">
-                <span class="text-green-600 mr-2">root@h100-cluster:~#</span>
-                <span id="console-log" class="text-gray-400">tail -f /var/log/gpu_telemetry.log</span>
+            <div class="bg-black border-t border-gray-800 flex items-center px-4 text-[10px] text-gray-500">
+                <span class="mr-2">SYSTEM:</span>
+                <span id="sys-log">Monitoring Galaxy Cluster...</span>
             </div>
 
             <script>
-                // Fallback Data (빈 화면 방지)
+                // Fallback Data
                 const FALLBACK = {
-                    "summary": {"total": 4, "active": 4, "training": 2, "error": 0},
-                    "nodes": Array.from({length: 20}, (_, i) => ({
-                        id: `DEMO-NODE-${i}`, model: "NVIDIA H100", status: "ACTIVE", workload: "Initializing...",
-                        metrics: { util: 50, temp: 40, power: 100, fan: 30, vram_total: 80, vram_used: 10 }
+                    "nodes": Array.from({length:12}, (_,i) => ({
+                        id: `FALLBACK-${i}`, type: "AUTH", icon: "🔐", status: "ACTIVE", install_logs: ["Loading..."],
+                        metrics: {cpu:50, mem:50, temp:40, token_count: 12345, token_samples: ["a1b2c3d4", "e5f6g7h8"]}
                     }))
                 };
 
@@ -259,141 +214,144 @@ jobs:
                 async function init() {
                     try {
                         const res = await fetch('dashboard_data.json');
-                        if(!res.ok) throw new Error("404");
+                        if(!res.ok) throw new Error("Load fail");
                         const data = await res.json();
                         nodes = data.nodes;
                     } catch(e) {
                         nodes = FALLBACK.nodes;
                     }
-                    renderOnce();
-                    startPhysicsEngine();
-                }
-
-                function renderOnce() {
-                    const container = document.getElementById('grid-container');
-                    container.innerHTML = nodes.map((n, i) => createCardHTML(n, i)).join('');
-                    updateStats();
-                }
-
-                function createCardHTML(n, i) {
-                    const ledClass = n.status === 'CRITICAL' ? 'led-err' : 'led-on';
-                    const borderClass = n.status === 'CRITICAL' ? 'crit' : '';
                     
-                    return `
-                    <div class="card ${borderClass}" id="card-${i}">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="font-bold text-white truncate w-24">${n.id}</div>
-                            <div class="text-[9px] bg-[#222] px-1 rounded text-gray-400">${n.model}</div>
-                        </div>
-                        
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="led ${ledClass}" id="led-${i}"></div>
-                            <div class="text-[9px] truncate text-gray-300 w-full" id="work-${i}">${n.workload}</div>
-                        </div>
+                    renderGrid();
+                    updateGlobalStats();
+                    setInterval(updatePhysics, 1000); // 1초마다 수치 변동
+                }
 
-                        <div class="space-y-1">
-                            <div class="flex justify-between"><span>UTIL</span><span id="txt-util-${i}">${n.metrics.util}%</span></div>
-                            <div class="bar-track"><div class="bar-fill bg-blue-500" style="width: ${n.metrics.util}%" id="bar-util-${i}"></div></div>
-                            
-                            <div class="flex justify-between mt-1"><span>VRAM</span><span class="text-gray-500" id="txt-vram-${i}">${n.metrics.vram_used}/${n.metrics.vram_total}G</span></div>
-                            <div class="bar-track"><div class="bar-fill bg-purple-500" style="width: ${(n.metrics.vram_used/n.metrics.vram_total)*100}%" id="bar-vram-${i}"></div></div>
+                function renderGrid() {
+                    const grid = document.getElementById('grid');
+                    grid.innerHTML = nodes.map((n, i) => `
+                        <div class="card" id="card-${i}">
+                            <div class="normal-view h-full flex flex-col justify-between">
+                                <div>
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div>
+                                            <div class="font-bold text-white text-sm">${n.icon} ${n.id}</div>
+                                            <div class="text-[10px] text-gray-500">${n.type} SERVER</div>
+                                        </div>
+                                        <div class="px-2 py-0.5 rounded bg-green-900/30 text-green-400 text-[10px] border border-green-800" id="status-${i}">
+                                            ACTIVE
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-black/50 p-2 rounded border border-gray-800 mb-3">
+                                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                                            <span>ACTIVE TOKENS</span>
+                                            <span class="text-green-400 font-mono" id="tok-cnt-${i}">${n.metrics.token_count.toLocaleString()}</span>
+                                        </div>
+                                        <div class="token-stream font-mono" id="tok-stream-${i}">
+                                            ${n.metrics.token_samples.join(' ')}
+                                        </div>
+                                    </div>
 
-                            <div class="flex justify-between mt-1"><span>TEMP</span><span id="txt-temp-${i}">${n.metrics.temp}°C</span></div>
-                            <div class="bar-track"><div class="bar-fill bg-green-500" style="width: ${(n.metrics.temp/100)*100}%" id="bar-temp-${i}"></div></div>
-                            
-                            <div class="flex justify-between mt-1 text-gray-600">
-                                <span>FAN</span>
-                                <span id="txt-fan-${i}">${n.metrics.fan}%</span>
+                                    <div class="grid grid-cols-3 gap-2 text-center text-[10px] mb-2">
+                                        <div class="bg-gray-800/50 p-1 rounded">
+                                            <div class="text-gray-500">CPU</div>
+                                            <div class="text-white font-bold" id="cpu-${i}">${n.metrics.cpu}%</div>
+                                        </div>
+                                        <div class="bg-gray-800/50 p-1 rounded">
+                                            <div class="text-gray-500">MEM</div>
+                                            <div class="text-white font-bold" id="mem-${i}">${n.metrics.mem}%</div>
+                                        </div>
+                                        <div class="bg-gray-800/50 p-1 rounded">
+                                            <div class="text-gray-500">TEMP</div>
+                                            <div class="text-white font-bold" id="temp-${i}">${n.metrics.temp}°C</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onclick="triggerReboot(${i})" class="w-full py-1 text-[10px] bg-red-900/20 hover:bg-red-600 border border-red-900/50 hover:text-white text-red-400 transition rounded flex items-center justify-center gap-1">
+                                    <span>↺</span> SYSTEM REBOOT
+                                </button>
+                            </div>
+
+                            <div class="boot-view font-mono text-green-500 p-1" id="boot-term-${i}">
+                                <div class="text-yellow-500 mb-1">> INITIATING REBOOT SEQUENCE...</div>
                             </div>
                         </div>
-                    </div>`;
+                    `).join('');
                 }
 
-                function updateStats() {
-                    const total = nodes.length;
-                    const err = nodes.filter(n => n.status === 'CRITICAL').length;
-                    const active = total - err;
-                    const training = nodes.filter(n => n.workload.includes('Training')).length;
-                    const power = nodes.reduce((a, b) => a + b.metrics.power, 0) / 1000;
-
-                    document.getElementById('val-total').innerText = total;
-                    document.getElementById('val-active').innerText = active;
-                    document.getElementById('val-error').innerText = err;
-                    document.getElementById('val-training').innerText = training;
-                    document.getElementById('val-power').innerText = power.toFixed(1);
+                function updateGlobalStats() {
+                    const totalTokens = nodes.reduce((acc, n) => acc + n.metrics.token_count, 0);
+                    document.getElementById('gl-tokens').innerText = totalTokens.toLocaleString();
+                    document.getElementById('gl-nodes').innerText = nodes.length;
                 }
 
-                // [핵심] 999% Live Physics Engine (Client-Side Simulation)
-                function startPhysicsEngine() {
-                    setInterval(() => {
-                        nodes.forEach((n, i) => {
-                            // 1. Physics: 워크로드에 따른 변동성 부여
-                            let jitter = Math.random() > 0.5 ? 1 : -1;
-                            
-                            // Training 중이면 온도가 서서히 오름
-                            if (n.workload.includes('Training')) {
-                                if (Math.random() > 0.7) n.metrics.temp += 1;
-                                if (n.metrics.util < 99) n.metrics.util += 1;
-                            } else {
-                                // Idle이면 온도가 서서히 식음
-                                if (Math.random() > 0.6 && n.metrics.temp > 30) n.metrics.temp -= 1;
-                            }
-                            
-                            // Random Noise (자연스러운 떨림)
-                            n.metrics.util = clamp(n.metrics.util + jitter, 0, 100);
-                            n.metrics.temp = clamp(n.metrics.temp + (Math.random() > 0.8 ? jitter : 0), 20, 95);
-                            
-                            // Critical Check
-                            if (n.metrics.temp > 90) {
-                                n.status = "CRITICAL";
-                                updateLed(i, 'err');
-                            } else {
-                                n.status = "ACTIVE";
-                                updateLed(i, 'on');
-                            }
-
-                            // Update DOM (Efficiently)
-                            document.getElementById(`txt-util-${i}`).innerText = n.metrics.util + "%";
-                            document.getElementById(`bar-util-${i}`).style.width = n.metrics.util + "%";
-                            
-                            document.getElementById(`txt-temp-${i}`).innerText = n.metrics.temp + "°C";
-                            const tempBar = document.getElementById(`bar-temp-${i}`);
-                            tempBar.style.width = (n.metrics.temp / 100 * 100) + "%";
-                            tempBar.className = `bar-fill ${n.metrics.temp > 80 ? 'bg-red-500' : 'bg-green-500'}`;
-                            
-                            document.getElementById(`txt-fan-${i}`).innerText = Math.floor(n.metrics.temp * 1.1) + "%";
-                        });
-                        
-                        updateStats();
-
-                        // Random Console Log
-                        if(Math.random() > 0.9) {
-                            const logs = [
-                                "[KERNEL] NVLink connection unstable on GPU-04",
-                                "[CUDA] Out of Memory retry... success",
-                                "[COOLING] Fan curve adjusted (+10%)",
-                                "[JOB] Checkpoint saved: model_v3.pt"
-                            ];
-                            const logLine = document.getElementById('console-log');
-                            logLine.innerText = logs[Math.floor(Math.random() * logs.length)] + " [" + new Date().toISOString().split('T')[1] + "]";
-                            logLine.classList.add('text-white');
-                            setTimeout(() => logLine.classList.remove('text-white'), 200);
+                // [핵심 기능] 서버 재기동 시뮬레이션
+                window.triggerReboot = function(idx) {
+                    const card = document.getElementById(`card-${idx}`);
+                    const term = document.getElementById(`boot-term-${idx}`);
+                    const node = nodes[idx];
+                    
+                    if(card.classList.contains('rebooting')) return;
+                    
+                    // UI 상태 전환
+                    card.classList.add('rebooting');
+                    term.innerHTML = `<div class="text-yellow-500">> SIGTERM received. Stopping services...</div>`;
+                    
+                    // 부팅 로그 시퀀스 (설치 과정 시뮬레이션)
+                    const steps = [
+                        ...node.install_logs, // Python에서 정의한 서비스별 로그
+                        "Cleaning up cache...",
+                        "Verifying package integrity...",
+                        "Generating new access tokens...",
+                        "Starting system daemon... OK"
+                    ];
+                    
+                    let stepIdx = 0;
+                    const bootInterval = setInterval(() => {
+                        if(stepIdx >= steps.length) {
+                            // 부팅 완료
+                            clearInterval(bootInterval);
+                            setTimeout(() => {
+                                card.classList.remove('rebooting');
+                                // 토큰 수치 리셋 효과
+                                node.metrics.token_count += Math.floor(Math.random() * 1000);
+                                document.getElementById(`tok-cnt-${idx}`).innerText = node.metrics.token_count.toLocaleString();
+                            }, 800);
+                        } else {
+                            // 로그 출력
+                            const line = document.createElement('div');
+                            line.className = 'boot-line';
+                            line.innerText = `> ${steps[stepIdx]}`;
+                            term.appendChild(line);
+                            term.scrollTop = term.scrollHeight; // Auto scroll
+                            stepIdx++;
                         }
-
-                    }, 800); // 0.8초마다 갱신 (빠른 반응 속도)
+                    }, 800); // 0.8초마다 로그 한 줄 출력
                 }
 
-                function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
-                function updateLed(i, status) {
-                    const led = document.getElementById(`led-${i}`);
-                    const card = document.getElementById(`card-${i}`);
-                    if(status === 'err') {
-                        led.className = 'led led-err';
-                        card.classList.add('crit');
-                    } else {
-                        led.className = 'led led-on';
-                        card.classList.remove('crit');
-                    }
+                // Physics Engine (라이브 수치 변동)
+                function updatePhysics() {
+                    nodes.forEach((n, i) => {
+                        // CPU/MEM 변동
+                        const jitter = Math.floor(Math.random() * 5) - 2;
+                        n.metrics.cpu = Math.max(0, Math.min(100, n.metrics.cpu + jitter));
+                        n.metrics.token_count += Math.floor(Math.random() * 10) - 2; // 토큰 수 미세 변동
+                        
+                        // DOM 업데이트
+                        const card = document.getElementById(`card-${i}`);
+                        if(!card.classList.contains('rebooting')) {
+                            document.getElementById(`cpu-${i}`).innerText = n.metrics.cpu + "%";
+                            document.getElementById(`tok-cnt-${i}`).innerText = n.metrics.token_count.toLocaleString();
+                            
+                            // 토큰 스트림 애니메이션 (랜덤 해시 교체)
+                            if(Math.random() > 0.7) {
+                                const newHash = Math.random().toString(36).substring(2, 10);
+                                document.getElementById(`tok-stream-${i}`).innerText = newHash + " " + n.metrics.token_samples.slice(0,4).join(' ');
+                            }
+                        }
+                    });
+                    updateGlobalStats();
                 }
 
                 init();
@@ -407,9 +365,6 @@ jobs:
       with:
         path: _site/
 
-  # ==============================================================================
-  # [Job 2] Deploy (Correct Syntax)
-  # ==============================================================================
   deploy:
     needs: build-simulate-deploy
     permissions:
