@@ -1,143 +1,125 @@
-name: 🚀 Ops Control Center (Full-Screen Fix)
+name: 🚀 GPU AI Data Center (Hyper-Scale & Live)
 
 on:
   schedule:
-    - cron: '0 */4 * * *' # 4시간마다 데이터 갱신
+    - cron: '*/10 * * * *' # 10분마다 기준 데이터 갱신 (GitHub 최소 간격 근접)
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-# [권한 설정] 데이터 커밋 및 배포 권한
 permissions:
   contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: "ops-full-fix"
+  group: "gpu-ops-live"
   cancel-in-progress: true
 
 jobs:
-  # ==============================================================================
-  # [Job 1] 데이터 생성 및 웹 사이트 빌드 (단일 Job으로 통합하여 속도 향상)
-  # ==============================================================================
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-
     steps:
-    # 1. 소스 체크아웃
-    - name: 📥 Checkout Repo
+    - name: 📥 Checkout
       uses: actions/checkout@v4
 
-    # 2. 파이썬 환경 설정
     - name: 🛠️ Setup Python
       uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      with: { python-version: '3.10' }
 
-    # 3. 필수 라이브러리 설치
     - name: 📦 Install Deps
       run: pip install faker
 
-    # 4. 🏭 데이터 생성 엔진 실행 (JSON 파일 생성)
-    - name: 🏭 Run Data Engine
+    # ----------------------------------------------------------------
+    # [Step 1] 대량 GPU 데이터 생성 엔진 (Python)
+    # ----------------------------------------------------------------
+    - name: 🏭 Run GPU Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import json, random, os
+        import json, random, uuid
         from datetime import datetime
         from faker import Faker
-        
         fake = Faker()
-        DATA_FILE = "dashboard_data.json"
         
-        # 서비스 정의
-        SERVICES = [
-            {"type": "PAYMENT", "icon": "💳", "err": "Gateway Timeout"},
-            {"type": "AUTH",    "icon": "🔐", "err": "Token Expired"},
-            {"type": "ORDER",   "icon": "🛒", "err": "DB Deadlock"},
-            {"type": "AI-MODEL","icon": "🧠", "err": "GPU OOM"},
-            {"type": "DELIVERY","icon": "🚚", "err": "Route Fail"}
+        # 설정: 대량 노드 생성 (200개 이상)
+        NODE_COUNT = 200
+        GPU_MODELS = [
+            {"name": "NVIDIA H100", "vram": 80, "tdp": 700},
+            {"name": "NVIDIA A100", "vram": 40, "tdp": 400},
+            {"name": "RTX 4090",    "vram": 24, "tdp": 450},
+            {"name": "Tesla T4",    "vram": 16, "tdp": 70}
         ]
-        REGIONS = ["US-East", "KR-Seoul", "EU-West", "JP-Tokyo"]
+        CLUSTERS = ["US-AI-Lab", "KR-Busan-Edge", "EU-Research", "SG-FinTech"]
 
-        def generate_data():
-            services = []
-            active_cnt = 0
-            crit_cnt = 0
+        def gen_gpu_fleet():
+            nodes = []
+            active = 0
+            critical = 0
             
-            for i in range(50): # 50개 서비스 생성
-                svc_def = random.choice(SERVICES)
-                region = random.choice(REGIONS)
+            for i in range(NODE_COUNT):
+                model = random.choice(GPU_MODELS)
+                cluster = random.choice(CLUSTERS)
                 
-                # 상태 랜덤 결정 (20% 확률로 에러)
-                is_error = random.random() < 0.2
-                status = "CRITICAL" if is_error else "ACTIVE"
-                if is_error: crit_cnt += 1
-                else: active_cnt += 1
+                # 상태 시뮬레이션
+                is_overheat = random.random() < 0.15 # 15% 과열
+                status = "CRITICAL" if is_overheat else "ACTIVE"
+                if is_overheat: critical += 1
+                else: active += 1
                 
-                cpu = random.randint(80, 99) if is_error else random.randint(10, 60)
-                mem = random.randint(80, 99) if is_error else random.randint(20, 70)
+                # 온도 및 로드 계산
+                temp = random.randint(90, 105) if is_overheat else random.randint(40, 75)
+                util = random.randint(90, 100) if is_overheat else random.randint(10, 85)
+                fan = 100 if is_overheat else random.randint(30, 70)
                 
-                logs = []
-                # 로그 생성
-                for _ in range(3):
-                    logs.append({
-                        "ts": datetime.now().strftime("%H:%M:%S"),
-                        "level": "INFO",
-                        "msg": "Health check passed."
-                    })
-                if is_error:
-                    logs.append({
-                        "ts": datetime.now().strftime("%H:%M:%S"),
-                        "level": "ERROR",
-                        "msg": f"{svc_def['err']} detected!"
-                    })
-                
-                services.append({
-                    "id": f"{svc_def['type']}-{region}-{random.randint(100,999)}",
-                    "type": svc_def['type'],
-                    "icon": svc_def['icon'],
-                    "region": region,
+                nodes.append({
+                    "id": f"GPU-{cluster}-{i:04d}",
+                    "model": model['name'],
+                    "cluster": cluster,
                     "status": status,
-                    "metrics": {"cpu": cpu, "mem": mem},
-                    "logs": sorted(logs, key=lambda x: x['ts'], reverse=True)
+                    "metrics": {
+                        "temp": temp,        # 온도 (C)
+                        "util": util,        # 사용률 (%)
+                        "vram_used": round(random.uniform(2, model['vram']), 1),
+                        "vram_total": model['vram'],
+                        "fan": fan,          # 팬 속도 (%)
+                        "power": random.randint(100, model['tdp']) # 전력 (W)
+                    }
                 })
             
-            data = {
-                "generated_at": str(datetime.now()),
-                "summary": {"active": active_cnt, "critical": crit_cnt},
-                "services": services
+            return {
+                "updated_at": str(datetime.now()),
+                "summary": {"total": NODE_COUNT, "active": active, "critical": critical},
+                "nodes": nodes
             }
-            return data
 
         if __name__ == "__main__":
-            data = generate_data()
-            with open(DATA_FILE, "w") as f:
+            data = gen_gpu_fleet()
+            with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print("✅ Data Generated Successfully.")
+            print(f"✅ Generated {NODE_COUNT} GPU Nodes.")
         EOF
         
         python db_engine.py
 
-    # 5. 데이터 파일 커밋 (GitHub Pages가 읽을 수 있도록)
-    - name: 💾 Commit Data
+    # ----------------------------------------------------------------
+    # [Step 2] 데이터 커밋 (저장소 반영)
+    # ----------------------------------------------------------------
+    - name: 💾 Commit & Push
       run: |
-        git config --global user.name "Ops-Bot"
+        git config --global user.name "GPU-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        # 변경사항이 있을 때만 커밋
-        git commit -m "📈 Auto-update: Dashboard Data" || echo "No changes to commit"
-        git push origin main || echo "Push failed (might be concurrent update), skipping..."
+        git commit -m "🔥 GPU Status Update [$(date)]" || echo "No changes"
+        git push origin main || echo "Push skipped"
 
-    # 6. 프론트엔드 빌드 (화면 구성 코드)
-    - name: 🎨 Build Frontend
+    # ----------------------------------------------------------------
+    # [Step 3] 프론트엔드 빌드 (Live Simulation Engine 탑재)
+    # ----------------------------------------------------------------
+    - name: 🎨 Build UI with Live Engine
       shell: bash
       run: |
         mkdir -p _site
-        
-        # JSON 데이터 복사 (매우 중요: 사이트 루트로 복사)
         cp dashboard_data.json _site/dashboard_data.json
         
         cat <<'EOF' > _site/index.html
@@ -145,150 +127,201 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>OPS CONTROL CENTER</title>
+            <title>GPU CONTROL TOWER</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-                body { background-color: #0f172a; color: #94a3b8; font-family: monospace; overflow: hidden; }
-                .grid-layout { display: grid; grid-template-columns: 2fr 1fr; height: 100vh; }
-                .border-r { border-right: 1px solid #1e293b; }
-                .header-panel { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #1e293b; background: #0f172a; }
-                .scroll-area { overflow-y: auto; height: calc(100vh - 60px); }
+                body { background-color: #050505; color: #a1a1aa; font-family: 'Courier New', monospace; overflow: hidden; }
                 
-                /* Custom Scrollbar */
-                ::-webkit-scrollbar { width: 8px; }
-                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+                /* Layout */
+                .layout { display: grid; grid-template-rows: 50px 100px 1fr 30px; height: 100vh; }
                 
-                /* Status Colors */
-                .st-ACTIVE { color: #4ade80; }
-                .st-CRITICAL { color: #f87171; font-weight: bold; animation: blink 1s infinite; }
-                @keyframes blink { 50% { opacity: 0.5; } }
+                /* Grid Table */
+                .gpu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px; padding: 4px; overflow-y: auto; }
                 
-                tr:hover { background-color: #1e293b; cursor: pointer; }
-                .selected-row { background-color: #1e293b; border-left: 2px solid #3b82f6; }
+                /* Card Style */
+                .gpu-card { background: #0f0f0f; border: 1px solid #27272a; padding: 10px; font-size: 11px; position: relative; }
+                .gpu-card.critical { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+                .gpu-card:hover { background: #18181b; }
+                
+                /* Visual Bars */
+                .bar-bg { width: 100%; background: #27272a; height: 4px; margin-top: 2px; }
+                .bar-fill { height: 100%; transition: width 0.5s; }
+                
+                /* Animations */
+                .blink { animation: blinker 1s linear infinite; }
+                @keyframes blinker { 50% { opacity: 0; } }
             </style>
         </head>
-        <body>
-            <div class="header-panel">
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">🏭</span>
-                    <h1 class="text-xl font-bold text-white tracking-widest">OPS CONTROL <span class="text-blue-500">CENTER</span></h1>
+        <body class="layout">
+            
+            <header class="flex items-center justify-between px-4 border-b border-zinc-800 bg-black">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🔥</span>
+                    <h1 class="text-lg font-bold text-white tracking-[0.2em]">NVIDIA <span class="text-green-500">GPU OPS</span></h1>
                 </div>
-                <div class="flex gap-4 text-xs">
-                    <span class="border border-red-900 bg-red-900/20 text-red-400 px-3 py-1 rounded">CRITICAL: <span id="cnt-crit">0</span></span>
-                    <span class="border border-green-900 bg-green-900/20 text-green-400 px-3 py-1 rounded">ACTIVE: <span id="cnt-active">0</span></span>
+                <div class="text-xs text-zinc-500">
+                    LIVE CONNECTION: <span class="text-green-500 font-bold">ESTABLISHED (99.9%)</span>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-4 gap-4 p-4 border-b border-zinc-800 bg-[#0a0a0a]">
+                <div class="p-2 border border-zinc-800 bg-black text-center">
+                    <div class="text-[10px] text-zinc-500">TOTAL NODES</div>
+                    <div id="stat-total" class="text-2xl text-white font-bold">0</div>
+                </div>
+                <div class="p-2 border border-zinc-800 bg-black text-center">
+                    <div class="text-[10px] text-zinc-500">ACTIVE</div>
+                    <div id="stat-active" class="text-2xl text-green-500 font-bold">0</div>
+                </div>
+                <div class="p-2 border border-zinc-800 bg-black text-center">
+                    <div class="text-[10px] text-zinc-500">CRITICAL / OVERHEAT</div>
+                    <div id="stat-crit" class="text-2xl text-red-500 font-bold blink">0</div>
+                </div>
+                <div class="p-2 border border-zinc-800 bg-black text-center">
+                    <div class="text-[10px] text-zinc-500">TOTAL POWER (kW)</div>
+                    <div id="stat-power" class="text-2xl text-yellow-500 font-bold">0</div>
                 </div>
             </div>
 
-            <div class="grid-layout">
-                
-                <div class="border-r flex flex-col">
-                    <div class="p-2 bg-slate-800 text-xs font-bold text-slate-400 border-b border-slate-700">SERVICE FLEET</div>
-                    <div class="scroll-area">
-                        <table class="w-full text-left text-sm">
-                            <thead class="text-slate-500 bg-[#0f172a] sticky top-0 border-b border-slate-700">
-                                <tr>
-                                    <th class="p-3">ID</th>
-                                    <th class="p-3">REGION</th>
-                                    <th class="p-3">STATUS</th>
-                                    <th class="p-3 text-right">CPU</th>
-                                    <th class="p-3 text-center">ACTION</th>
-                                </tr>
-                            </thead>
-                            <tbody id="svc-table" class="divide-y divide-slate-800">
-                                </tbody>
-                        </table>
-                    </div>
+            <div id="gpu-container" class="gpu-grid custom-scroll">
                 </div>
 
-                <div class="flex flex-col bg-slate-900/50">
-                    <div class="p-2 bg-slate-800 text-xs font-bold text-slate-400 border-b border-slate-700">🚨 EVENT SITUATION ROOM</div>
-                    <div id="event-room" class="scroll-area p-4 space-y-2">
-                        <div class="text-center text-slate-600 mt-20 italic">Select a service to view live logs...</div>
-                    </div>
-                </div>
+            <div class="bg-black border-t border-zinc-800 flex items-center px-4 text-[10px] text-green-700 font-mono">
+                <span class="mr-2"> > SYSTEM_DAEMON:</span>
+                <span id="log-line">Initializing monitoring sequence...</span>
             </div>
 
             <script>
-                // [핵심] 안전장치 데이터 (파일 로드 실패 시 사용)
-                const FALLBACK_DATA = {
-                    "summary": {"active": 5, "critical": 1},
-                    "services": [
-                        {"id": "DEMO-WEB-001", "region": "KR-Seoul", "status": "ACTIVE", "metrics": {"cpu": 45}, "logs": [{"ts":"NOW", "level":"INFO", "msg":"Demo Mode Active"}]},
-                        {"id": "DEMO-DB-002", "region": "US-East", "status": "CRITICAL", "metrics": {"cpu": 99}, "logs": [{"ts":"NOW", "level":"ERROR", "msg":"Connection Failed"}]},
-                        {"id": "DEMO-API-003", "region": "EU-West", "status": "ACTIVE", "metrics": {"cpu": 12}, "logs": [{"ts":"NOW", "level":"INFO", "msg":"Healthy"}]}
+                // [안전장치] 데이터 로드 실패 시 사용할 더미 데이터
+                const FALLBACK = {
+                    "summary": {"total": 4, "active": 3, "critical": 1},
+                    "nodes": [
+                        {"id": "GPU-FALLBACK-01", "model": "NVIDIA H100", "status": "ACTIVE", "metrics": {"temp": 65, "util": 80, "vram_used": 40, "vram_total": 80}},
+                        {"id": "GPU-FALLBACK-02", "model": "NVIDIA A100", "status": "CRITICAL", "metrics": {"temp": 98, "util": 99, "vram_used": 39, "vram_total": 40}},
+                        {"id": "GPU-FALLBACK-03", "model": "RTX 4090", "status": "ACTIVE", "metrics": {"temp": 55, "util": 10, "vram_used": 12, "vram_total": 24}},
+                        {"id": "GPU-FALLBACK-04", "model": "NVIDIA H100", "status": "ACTIVE", "metrics": {"temp": 70, "util": 92, "vram_used": 75, "vram_total": 80}}
                     ]
                 };
 
-                let globalServices = [];
+                let gpuNodes = [];
 
                 async function init() {
                     try {
-                        // 1. 실제 데이터 파일 로드 시도
                         const res = await fetch('dashboard_data.json');
-                        if (!res.ok) throw new Error("File not found");
+                        if(!res.ok) throw new Error("Load fail");
                         const data = await res.json();
-                        render(data);
-                    } catch (e) {
-                        console.warn("⚠️ Data fetch failed, using FALLBACK data to prevent empty screen.", e);
-                        // 2. 실패 시 폴백 데이터 사용 (빈 화면 방지)
-                        render(FALLBACK_DATA);
+                        gpuNodes = data.nodes;
+                    } catch(e) {
+                        gpuNodes = FALLBACK.nodes;
                     }
+                    
+                    renderInitial();
+                    startLiveUpdate(); // 999% Update Logic Start
                 }
 
-                function render(data) {
-                    globalServices = data.services;
+                function renderInitial() {
+                    const container = document.getElementById('gpu-container');
+                    container.innerHTML = '';
+
+                    gpuNodes.forEach((node, idx) => {
+                        // 카드 HTML 생성
+                        const div = document.createElement('div');
+                        div.id = `card-${idx}`;
+                        div.className = `gpu-card ${node.status === 'CRITICAL' ? 'critical' : ''}`;
+                        div.innerHTML = getCardHTML(node);
+                        container.appendChild(div);
+                    });
+                    updateStats();
+                }
+
+                function getCardHTML(node) {
+                    // Color Logic
+                    const tempColor = node.metrics.temp > 85 ? '#ef4444' : (node.metrics.temp > 70 ? '#eab308' : '#22c55e');
+                    const utilColor = node.metrics.util > 90 ? '#ef4444' : '#3b82f6';
                     
-                    // 상단 카운터 업데이트
-                    document.getElementById('cnt-active').innerText = data.summary.active;
-                    document.getElementById('cnt-crit').innerText = data.summary.critical;
-
-                    const tbody = document.getElementById('svc-table');
-                    tbody.innerHTML = '';
-
-                    data.services.forEach((svc, idx) => {
-                        const statusColor = svc.status === 'CRITICAL' ? 'st-CRITICAL' : 'st-ACTIVE';
-                        const cpuColor = svc.metrics.cpu > 80 ? 'bg-red-500' : 'bg-green-500';
+                    return `
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-white">${node.id}</span>
+                            <span class="text-[9px] border px-1 border-zinc-700 rounded">${node.model}</span>
+                        </div>
+                        <div class="flex justify-between text-zinc-500 mb-2">
+                            <span>${node.cluster}</span>
+                            <span class="${node.status==='CRITICAL'?'text-red-500 font-bold':''}">${node.status}</span>
+                        </div>
                         
-                        tbody.innerHTML += `
-                        <tr onclick="showLogs(${idx}, this)" class="group transition">
-                            <td class="p-3 text-white font-mono font-bold">${svc.id}</td>
-                            <td class="p-3 text-xs text-slate-400">${svc.region}</td>
-                            <td class="p-3 text-xs ${statusColor}">${svc.status}</td>
-                            <td class="p-3 text-right">
-                                <div class="w-full bg-slate-700 h-1.5 rounded-full mt-1">
-                                    <div class="${cpuColor} h-1.5 rounded-full" style="width: ${svc.metrics.cpu}%"></div>
-                                </div>
-                                <span class="text-[9px]">${svc.metrics.cpu}%</span>
-                            </td>
-                            <td class="p-3 text-center">
-                                <button class="text-[10px] border border-slate-600 px-2 py-0.5 rounded hover:bg-slate-700 hover:text-white">REBOOT</button>
-                            </td>
-                        </tr>`;
-                    });
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <div class="flex justify-between"><span>TEMP</span> <span class="text-white" id="val-temp">${node.metrics.temp}°C</span></div>
+                                <div class="bar-bg"><div class="bar-fill" style="width:${node.metrics.temp/1.1}%; background:${tempColor}"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between"><span>UTIL</span> <span class="text-white" id="val-util">${node.metrics.util}%</span></div>
+                                <div class="bar-bg"><div class="bar-fill" style="width:${node.metrics.util}%; background:${utilColor}"></div></div>
+                            </div>
+                            <div class="col-span-2 mt-1">
+                                <div class="flex justify-between"><span>VRAM (${node.metrics.vram_total}GB)</span> <span class="text-zinc-400">${node.metrics.vram_used}GB</span></div>
+                                <div class="bar-bg"><div class="bar-fill" style="width:${(node.metrics.vram_used/node.metrics.vram_total)*100}%; background:#a855f7"></div></div>
+                            </div>
+                        </div>
+                    `;
                 }
 
-                window.showLogs = function(idx, rowElem) {
-                    // 선택 효과
-                    document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
-                    rowElem.classList.add('selected-row');
+                function updateStats() {
+                    const total = gpuNodes.length;
+                    const crit = gpuNodes.filter(n => n.status === 'CRITICAL').length;
+                    const active = total - crit;
+                    const power = gpuNodes.reduce((acc, curr) => acc + (curr.metrics.power || 0), 0) / 1000;
 
-                    const svc = globalServices[idx];
-                    const board = document.getElementById('event-room');
-                    
-                    let logHtml = `<div class="mb-4 pb-2 border-b border-slate-700">
-                        <h2 class="text-white font-bold text-lg">${svc.id}</h2>
-                        <span class="text-xs text-slate-400">Region: ${svc.region} | Status: ${svc.status}</span>
-                    </div>`;
+                    document.getElementById('stat-total').innerText = total;
+                    document.getElementById('stat-active').innerText = active;
+                    document.getElementById('stat-crit').innerText = crit;
+                    document.getElementById('stat-power').innerText = power.toFixed(1);
+                }
 
-                    svc.logs.forEach(log => {
-                        const color = log.level === 'ERROR' ? 'text-red-400 border-l-2 border-red-500 pl-2' : 'text-green-400 border-l-2 border-green-500 pl-2';
-                        logHtml += `
-                        <div class="mb-2 font-mono text-xs ${color} bg-slate-800/30 p-1 rounded">
-                            <span class="opacity-50">[${log.ts}]</span> <span class="font-bold">${log.level}</span>: ${log.msg}
-                        </div>`;
-                    });
-                    
-                    board.innerHTML = logHtml;
+                // [핵심] Live Simulation Engine (999% Update Feel)
+                function startLiveUpdate() {
+                    setInterval(() => {
+                        // 1. Random Jitter (데이터 미세 변동 시뮬레이션)
+                        gpuNodes.forEach((node, idx) => {
+                            // 변동폭 설정 (-2 ~ +2)
+                            const jitter = Math.floor(Math.random() * 5) - 2;
+                            
+                            // 온도 업데이트
+                            node.metrics.temp += jitter;
+                            if(node.metrics.temp < 30) node.metrics.temp = 30;
+                            if(node.metrics.temp > 110) node.metrics.temp = 110;
+                            
+                            // 로드 업데이트
+                            node.metrics.util += jitter;
+                            if(node.metrics.util < 0) node.metrics.util = 0;
+                            if(node.metrics.util > 100) node.metrics.util = 100;
+
+                            // 상태 자동 변경 시뮬레이션
+                            if(node.metrics.temp > 90) node.status = "CRITICAL";
+                            else node.status = "ACTIVE";
+
+                            // DOM 업데이트 (HTML 전체 재생성이 아닌 텍스트만 변경하여 성능 최적화 필요하지만 데모는 재생성)
+                            const card = document.getElementById(`card-${idx}`);
+                            if(card) {
+                                card.innerHTML = getCardHTML(node);
+                                if(node.status === 'CRITICAL') card.classList.add('critical');
+                                else card.classList.remove('critical');
+                            }
+                        });
+                        
+                        // 2. 통계 갱신
+                        updateStats();
+
+                        // 3. 로그 갱신
+                        const logMsg = [
+                            "Adjusting fan speeds for cluster KR-Busan...",
+                            "Syncing tensor cores...",
+                            "Optimizing power delivery...",
+                            "Collecting telemetry data..."
+                        ];
+                        document.getElementById('log-line').innerText = logMsg[Math.floor(Math.random()*logMsg.length)] + " [" + new Date().toLocaleTimeString() + "]";
+
+                    }, 1000); // 1초마다 화면 갱신 (Real-time 느낌)
                 }
 
                 init();
@@ -297,20 +330,15 @@ jobs:
         </html>
         EOF
 
-    # 7. GitHub Pages 배포
-    - name: 🚀 Deploy to Pages
+    - name: 🚀 Deploy Pages
       uses: actions/upload-pages-artifact@v3
-      with:
-        path: _site/
+      with: { path: _site/ }
 
   deploy:
     needs: build-and-deploy
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages}
+    url: {{ steps.deployment.outputs.page_url }} }
     runs-on: ubuntu-latest
     steps:
       - name: 🚀 Deploy
