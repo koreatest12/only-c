@@ -17,6 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ==============================================================================
+  # [Job 1] 데이터 생성, 웹 빌드, 배포 준비
+  # ==============================================================================
   build-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -27,7 +30,8 @@ jobs:
 
     - name: 🛠️ Setup Python
       uses: actions/setup-python@v5
-      with: { python-version: '3.10' }
+      with:
+        python-version: '3.10'
 
     - name: 📦 Install Deps
       run: pip install faker
@@ -325,16 +329,24 @@ jobs:
         </html>
         EOF
 
-    - name: 🚀 Deploy Pages
+    - name: 🚀 Deploy to Pages Artifact
       uses: actions/upload-pages-artifact@v3
-      with: { path: _site/ }
+      with:
+        path: _site/
 
+  # ==============================================================================
+  # [Job 2] 배포 (구문 오류 수정됨)
+  # ==============================================================================
   deploy:
     needs: build-deploy
-    permissions: { pages: write, id-token: write }
-    environment: { name: github-pages, url: ${{ steps.deployment.outputs.page_url }} }
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Deploy
+      - name: 🚀 Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
