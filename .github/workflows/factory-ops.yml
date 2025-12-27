@@ -412,12 +412,16 @@ jobs:
       with: { path: _site/ }
 
   # ==============================================================================
-  # [Job 2] 배포
+  # [Job 2] 배포 (구문 오류 수정됨)
   # ==============================================================================
   deploy:
     needs: build-deploy
-    permissions: { pages: write, id-token: write }
-    environment: { name: github-pages, url: ${{ steps.deployment.outputs.page_url }} }
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: 🚀 Deploy
