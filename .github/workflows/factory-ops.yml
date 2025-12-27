@@ -2,7 +2,7 @@ name: 🪐 Galaxy Ops:Omni-Command (Shell & Security)
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # 5분마다 데이터 갱신
+    - cron: '*/5 * * * *' # Update every 5 minutes
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -17,6 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ==============================================================================
+  # [Job 1] Generate Data, Build Interface
+  # ==============================================================================
   build-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -33,7 +36,7 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 옴니 데이터 엔진 (보안, 비용, 쉘 데이터 생성)
+    # [Step 1] 🏭 Omni Data Engine (Generates Shell FS, Threats, FinOps)
     # ----------------------------------------------------------------
     - name: 🏭 Run Omni Data Engine
       shell: bash
@@ -89,8 +92,8 @@ jobs:
                 r_key = random.choice(list(REGIONS.keys()))
                 reg = REGIONS[r_key]
                 
-                # 가상 파일시스템 및 쉘 환경 데이터
-                files = ["config.yaml", "app.py", "error.log", "id_rsa.pub"]
+                # Virtual Filesystem for Shell Simulation
+                files = ["config.yaml", "app.py", "error.log", "id_rsa.pub", ".env"]
                 
                 nodes.append({
                     "id": f"{reg['c']}-{i:03d}",
@@ -128,7 +131,7 @@ jobs:
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 커밋
+    # [Step 2] Save Data
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
@@ -139,7 +142,7 @@ jobs:
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 (Shell, Canvas Map, FinOps)
+    # [Step 3] Frontend Build (Shell, Canvas Map, FinOps)
     # ----------------------------------------------------------------
     - name: 🎨 Build Omni Interface
       shell: bash
@@ -285,7 +288,6 @@ jobs:
                 // --- MAP & VISUALS ---
                 function renderMap() {
                     const map = document.getElementById('map-root');
-                    // Remove old dots only (keep canvas)
                     document.querySelectorAll('.node-dot').forEach(e => e.remove());
                     
                     globalData.nodes.forEach(n => {
@@ -307,13 +309,10 @@ jobs:
                 let threatsAnim = [];
 
                 function animateThreats() {
-                    // Resize
                     canvas.width = canvas.parentElement.offsetWidth;
                     canvas.height = canvas.parentElement.offsetHeight;
-                    
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
-                    // Add new threats randomly
                     if(Math.random() > 0.95 && globalData.threats.length > 0) {
                         const t = globalData.threats[Math.floor(Math.random() * globalData.threats.length)];
                         threatsAnim.push({
@@ -327,14 +326,11 @@ jobs:
                         });
                     }
 
-                    // Draw lines
                     threatsAnim.forEach((t, i) => {
                         t.progress += t.speed;
-                        
                         const curX = t.x + (t.tx - t.x) * t.progress;
                         const curY = t.y + (t.ty - t.y) * t.progress;
                         
-                        // Trail
                         ctx.beginPath();
                         ctx.moveTo(t.x, t.y);
                         ctx.lineTo(curX, curY);
@@ -342,7 +338,6 @@ jobs:
                         ctx.lineWidth = 2;
                         ctx.stroke();
                         
-                        // Head
                         ctx.beginPath();
                         ctx.arc(curX, curY, 2, 0, Math.PI*2);
                         ctx.fillStyle = '#fff';
@@ -357,29 +352,21 @@ jobs:
                 // --- FINOPS ENGINE ---
                 function updateFinOps() {
                     if(!globalData.finops) return;
-                    
                     let spend = parseFloat(document.getElementById('fin-spend').innerText);
                     let rate = globalData.finops.burn_rate_per_sec;
-                    
-                    // Increment
                     spend += rate;
                     document.getElementById('fin-spend').innerText = spend.toFixed(2);
                 }
 
-                // --- SHELL / TERMINAL LOGIC (THE BRAIN) ---
+                // --- SHELL / TERMINAL LOGIC ---
                 function handleShellInput(e) {
                     if(e.key === 'Enter') {
                         const input = e.target.value.trim();
                         const out = document.getElementById('term-out');
                         const prompt = document.getElementById('prompt-user').innerText;
                         
-                        // Echo input
                         out.innerHTML += `<div><span class="text-green-500">${prompt}</span> ${input}</div>`;
-                        
-                        // Process Command
                         processCommand(input, out);
-                        
-                        // Scroll & Clear
                         e.target.value = '';
                         out.scrollTop = out.scrollHeight;
                     }
@@ -390,7 +377,6 @@ jobs:
                     const main = args[0].toLowerCase();
                     
                     if(sshSession) {
-                        // SSH Context Commands
                         if(main === 'exit') {
                             sshSession = null;
                             document.getElementById('prompt-user').innerText = "devops@galaxy-ops:~$";
@@ -409,13 +395,11 @@ jobs:
                             out.innerHTML += `
                             <div>Tasks: 12 total, 1 running, 11 sleeping</div>
                             <div>%Cpu(s): ${sshSession.metrics.cpu}.0 us,  2.1 sy,  0.0 ni</div>
-                            <div>MiB Mem : ${sshSession.metrics.mem * 64} total,  ${sshSession.metrics.mem * 32} free</div>
-                            `;
+                            <div>MiB Mem : ${sshSession.metrics.mem * 64} total,  ${sshSession.metrics.mem * 32} free</div>`;
                             return;
                         }
                     } 
                     
-                    // Global Context Commands
                     if(main === 'help') {
                         out.innerHTML += `
                         <div class="text-gray-400">Available Commands:</div>
@@ -424,8 +408,7 @@ jobs:
                         <div>  list          List all active nodes</div>
                         <div>  cost          Show detailed FinOps report</div>
                         <div>  connect [ID]  SSH into a specific server</div>
-                        <div>  clear         Clear terminal</div>
-                        `;
+                        <div>  clear         Clear terminal</div>`;
                     } else if (main === 'clear') {
                         out.innerHTML = '';
                     } else if (main === 'status') {
@@ -450,9 +433,7 @@ jobs:
                         } else {
                             out.innerHTML += `<div class="text-red-400">Error: Node '${targetId}' not found. Try 'list'.</div>`;
                         }
-                    } else if (cmd === '') {
-                        // do nothing
-                    } else {
+                    } else if (cmd !== '') {
                         out.innerHTML += `<div class="text-red-400">Command not found: ${main}</div>`;
                     }
                 }
@@ -470,10 +451,8 @@ jobs:
                 }
 
                 function autoLog() {
-                    // Random logs in the WAF panel to make it feel alive
                     const el = document.getElementById('waf-logs');
                     if(Math.random() > 0.7) {
-                        const attacks = ["SQLi", "XSS", "Path Traversal"];
                         const div = document.createElement('div');
                         div.className = 'log-item';
                         div.innerHTML = `<span class="text-blue-400">[INFO]</span> Rate limit triggered for IP 10.23.${Math.floor(Math.random()*255)}.x`;
@@ -492,10 +471,17 @@ jobs:
       uses: actions/upload-pages-artifact@v3
       with: { path: _site/ }
 
+  # ==============================================================================
+  # [Job 2] Deployment (Fixed Syntax)
+  # ==============================================================================
   deploy:
     needs: build-deploy
-    permissions: { pages: write, id-token: write }
-    environment: { name: github-pages, url: ${{ steps.deployment.outputs.page_url }} }
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: 🚀 Deploy
