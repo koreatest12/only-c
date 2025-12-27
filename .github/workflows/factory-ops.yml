@@ -1,8 +1,8 @@
-name: 🌌 Galaxy Ops:Reboot & Tokenize
+name: 🌌 Galaxy Ops:DB, Backup & Snapshot
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # 10분마다 인프라 스냅샷 갱신
+    - cron: '*/15 * * * *' # 15분마다 전체 데이터 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "galaxy-ops-token"
+  group: "galaxy-ops-full"
   cancel-in-progress: true
 
 jobs:
@@ -34,111 +34,111 @@ jobs:
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 인프라 엔진 (서비스별 설치 스크립트 및 토큰 생성)
+    # [Step 1] 🏭 인프라 & DB 데이터 엔진
     # ----------------------------------------------------------------
-    - name: 🏭 Run Provisioning Engine
+    - name: 🏭 Run Full-Stack Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import json, random, uuid, hashlib
-        from datetime import datetime
+        import json, random, uuid, datetime
         from faker import Faker
         fake = Faker()
         
-        NODE_COUNT = 100
+        NODE_COUNT = 60 # 화면 밀도를 위해 최적화
         
-        # 서비스별 설치 로그 패턴 정의
-        SERVICES = {
-            "PAYMENT": {
-                "icon": "💳", 
-                "pkg": ["libssl-dev", "payment-gateway-v4", "fraud-detection-daemon"],
-                "logs": ["Verifying PCI-DSS compliance...", "Mounting secure ledger volume...", "Opening port 443 for transactions..."]
-            },
-            "AUTH": {
-                "icon": "🔐", 
-                "pkg": ["oauth2-proxy", "keycloak-server", "jwt-signer"],
-                "logs": ["Generating RSA-4096 keys...", "Syncing LDAP users...", "Flushing expired sessions..."]
-            },
-            "AI-CORE": {
-                "icon": "🧠", 
-                "pkg": ["nvidia-cuda-toolkit", "pytorch-lightning", "huggingface-cli"],
-                "logs": ["Allocating VRAM pages...", "Loading LoRA adapters...", "Warming up Tensor Cores..."]
-            },
-            "DELIVERY": {
-                "icon": "🚚", 
-                "pkg": ["geo-spatial-db", "route-optimizer", "mqtt-broker"],
-                "logs": ["Calibrating GPS grid...", "Connecting to logistics fleet...", "Optimizing pathfinding graph..."]
-            }
+        # 서비스별 DB 기술 스택 정의
+        TECH_STACK = {
+            "PAYMENT": { "db": "PostgreSQL 16", "store": "NVMe Block", "backup_type": "WAL Archive" },
+            "AUTH":    { "db": "Redis Cluster", "store": "In-Memory", "backup_type": "RDB Snapshot" },
+            "AI-CORE": { "db": "Milvus Vector", "store": "Object Store", "backup_type": "Embedding Dump" },
+            "DELIVERY":{ "db": "MongoDB 7.0",   "store": "SSD Raid-0", "backup_type": "Oplog Slice" }
         }
         
-        CLUSTERS = ["Alpha-Centauri", "Nebula-Edge", "Sirius-Main", "Orion-Backup"]
+        CLUSTERS = ["Alpha", "Beta", "Gamma", "Delta"]
 
-        def gen_token_batch():
-            # 대량 토큰 시뮬레이션 (샘플링)
-            return [hashlib.sha256(str(uuid.uuid4()).encode()).hexdigest()[:16] for _ in range(5)]
+        def gen_backups():
+            # 과거 백업 기록 생성
+            backups = []
+            for i in range(random.randint(2, 5)):
+                dt = fake.date_time_this_month()
+                size = random.randint(50, 5000)
+                backups.append({
+                    "id": f"bk-{fake.hex_color()[1:]}-{i}",
+                    "date": dt.strftime("%Y-%m-%d %H:%M"),
+                    "size": f"{size}GB",
+                    "status": "SUCCESS"
+                })
+            return sorted(backups, key=lambda x: x['date'], reverse=True)
 
-        def gen_fleet():
+        def gen_snapshots():
+            # 스냅샷 기록 생성
+            snaps = []
+            for i in range(random.randint(1, 3)):
+                dt = fake.date_time_this_week()
+                snaps.append({
+                    "id": f"snap-{random.randint(1000,9999)}",
+                    "date": dt.strftime("%H:%M:%S"),
+                    "desc": random.choice(["Pre-deploy", "Hourly", "Manual"]),
+                    "size": f"{random.randint(1, 100)}GB"
+                })
+            return snaps
+
+        def gen_nodes():
             nodes = []
-            
             for i in range(NODE_COUNT):
-                svc_type = random.choice(list(SERVICES.keys()))
-                svc_info = SERVICES[svc_type]
+                svc_type = random.choice(list(TECH_STACK.keys()))
+                tech = TECH_STACK[svc_type]
                 cluster = random.choice(CLUSTERS)
                 
-                # 스펙 생성
-                is_heavy = svc_type == "AI-CORE"
-                cpu = random.randint(10, 90)
-                mem = random.randint(20, 80)
-                temp = random.randint(40, 85)
-                
-                # 대량 토큰 카운트 (수천 ~ 수만 개)
-                token_count = random.randint(5000, 99999)
+                # DB Metrics
+                db_size = random.randint(100, 9000) # GB
+                db_used = random.randint(10, db_size - 50)
+                connections = random.randint(50, 5000)
                 
                 nodes.append({
                     "id": f"{svc_type}-{cluster}-{i:03d}",
                     "type": svc_type,
-                    "icon": svc_info['icon'],
                     "cluster": cluster,
                     "status": "ACTIVE",
-                    "install_logs": svc_info['logs'], # 재부팅 시 사용할 로그
-                    "packages": svc_info['pkg'],
+                    "tech": tech,
                     "metrics": {
-                        "cpu": cpu, "mem": mem, "temp": temp,
-                        "token_count": token_count,
-                        "token_samples": gen_token_batch()
-                    }
+                        "cpu": random.randint(10, 80),
+                        "mem": random.randint(20, 70),
+                        "temp": random.randint(40, 75),
+                        "db_total": db_size,
+                        "db_used": db_used,
+                        "conn": connections,
+                        "tps": random.randint(100, 20000)
+                    },
+                    "backups": gen_backups(),
+                    "snapshots": gen_snapshots()
                 })
             
-            return {
-                "timestamp": str(datetime.now()),
-                "summary": {"total": NODE_COUNT, "tokens_global": sum(n['metrics']['token_count'] for n in nodes)},
-                "nodes": nodes
-            }
+            return {"timestamp": str(datetime.datetime.now()), "nodes": nodes}
 
         if __name__ == "__main__":
-            data = gen_fleet()
+            data = gen_nodes()
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print(f"✅ Provisioned {NODE_COUNT} nodes with Service Packs.")
+            print(f"✅ Generated Full-Stack Data for {NODE_COUNT} nodes.")
         EOF
-        
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 저장
+    # [Step 2] 데이터 커밋
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "Ops-Master"
+        git config --global user.name "DBA-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🌌 Infra Scale-up [$(date)]" || echo "No changes"
+        git commit -m "🗄️ DB & Backup State Update [$(date)]" || echo "No changes"
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 (재부팅 시뮬레이터 & 토큰 스트림 탑재)
+    # [Step 3] 프론트엔드 (모달, 탭, 기능 시뮬레이션 탑재)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Command Center
+    - name: 🎨 Build Deep Ops UI
       shell: bash
       run: |
         mkdir -p _site
@@ -149,67 +149,203 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>GALAXY OPS CENTER</title>
+            <title>GALAXY DEEP OPS</title>
             <script src="https://cdn.tailwindcss.com"></script>
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
             <style>
-                body { background-color: #030712; color: #e5e7eb; font-family: 'Courier New', monospace; overflow: hidden; }
+                body { background-color: #020617; color: #cbd5e1; font-family: 'Courier New', monospace; overflow: hidden; }
                 
-                /* Grid Layout */
-                .main-layout { display: grid; grid-template-rows: 60px 1fr 30px; height: 100vh; }
-                .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; padding: 8px; overflow-y: auto; }
+                /* Layout */
+                .layout { display: grid; grid-template-rows: 60px 1fr 30px; height: 100vh; }
+                .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; padding: 10px; overflow-y: auto; }
                 
-                /* Card Styling */
-                .card { background: #111827; border: 1px solid #1f2937; padding: 12px; position: relative; transition: all 0.3s; }
-                .card:hover { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); z-index: 10; transform: scale(1.01); }
+                /* Card */
+                .card { background: #0f172a; border: 1px solid #1e293b; padding: 10px; cursor: pointer; transition: all 0.2s; position: relative; }
+                .card:hover { border-color: #3b82f6; background: #1e293b; transform: translateY(-2px); }
+                .card.active .status-dot { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
                 
-                /* Rebooting State Style */
-                .card.rebooting { background: #000; border-color: #f59e0b; color: #f59e0b; }
-                .card.rebooting .normal-view { display: none; }
-                .card.rebooting .boot-view { display: block; }
+                /* Modal */
+                .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 50; backdrop-filter: blur(4px); }
+                .modal-content { 
+                    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    width: 80%; height: 80%; background: #0f172a; border: 1px solid #3b82f6; 
+                    display: grid; grid-template-rows: 50px 1fr; 
+                    box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+                }
                 
-                /* Views */
-                .boot-view { display: none; font-size: 10px; line-height: 1.4; height: 100%; overflow: hidden; }
-                .boot-line { animation: type 0.1s; }
+                /* Tabs */
+                .tab-bar { display: flex; border-bottom: 1px solid #334155; background: #1e293b; }
+                .tab-btn { padding: 0 20px; height: 100%; display: flex; align-items: center; cursor: pointer; border-right: 1px solid #334155; color: #94a3b8; }
+                .tab-btn:hover { background: #334155; color: white; }
+                .tab-btn.active { background: #0f172a; color: #3b82f6; border-bottom: 2px solid #3b82f6; }
                 
-                /* Token Stream Animation */
-                .token-stream { font-size: 9px; color: #10b981; opacity: 0.7; white-space: nowrap; overflow: hidden; }
+                .tab-content { display: none; padding: 20px; overflow-y: auto; height: 100%; }
+                .tab-content.active { display: block; }
                 
-                /* Scrollbar */
-                ::-webkit-scrollbar { width: 6px; }
-                ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+                /* Visuals */
+                .bar-bg { width: 100%; background: #334155; height: 6px; border-radius: 3px; overflow: hidden; }
+                .bar-fill { height: 100%; transition: width 0.5s; }
+                .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block; margin-right: 5px; }
+
+                /* Animations */
+                .spin-slow { animation: spin 3s linear infinite; }
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                .blink { animation: blink 1s infinite; }
+                @keyframes blink { 50% { opacity: 0.5; } }
             </style>
         </head>
-        <body class="main-layout">
+        <body class="layout">
             
-            <header class="flex items-center justify-between px-6 bg-gray-900 border-b border-gray-800">
-                <div class="flex items-center gap-4">
-                    <span class="text-2xl animate-spin-slow">🪐</span>
-                    <h1 class="text-xl font-bold tracking-[0.2em] text-white">GALAXY <span class="text-blue-500">OPS</span></h1>
+            <header class="flex justify-between items-center px-6 border-b border-slate-800 bg-slate-950">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-server text-blue-500 text-xl"></i>
+                    <h1 class="text-xl font-bold text-white tracking-widest">GALAXY <span class="text-blue-500">DEEP OPS</span></h1>
                 </div>
-                <div class="flex gap-6 text-xs">
-                    <div>GLOBAL TOKENS: <span id="gl-tokens" class="text-green-400 font-bold text-lg">0</span></div>
-                    <div>ACTIVE NODES: <span id="gl-nodes" class="text-blue-400 font-bold text-lg">0</span></div>
+                <div class="text-xs text-slate-500">
+                    <span class="mr-4"><i class="fas fa-database text-green-500"></i> DB LINKED: <span class="text-white" id="stat-db">--</span></span>
+                    <span><i class="fas fa-shield-alt text-yellow-500"></i> SECURITY LEVEL: <span class="text-white">MAX</span></span>
                 </div>
             </header>
 
-            <div id="grid" class="card-grid custom-scroll">
-                </div>
+            <div id="grid-container" class="grid-view custom-scroll"></div>
 
-            <div class="bg-black border-t border-gray-800 flex items-center px-4 text-[10px] text-gray-500">
-                <span class="mr-2">SYSTEM:</span>
-                <span id="sys-log">Monitoring Galaxy Cluster...</span>
+            <footer class="flex items-center px-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-500">
+                <span>> SYSTEM READY. CLICK ANY NODE FOR DETAILS.</span>
+            </footer>
+
+            <div id="detail-modal" class="modal-overlay">
+                <div class="modal-content">
+                    <div class="tab-bar">
+                        <div class="px-4 flex items-center font-bold text-white border-right border-slate-700 w-64 bg-slate-900">
+                            <i class="fas fa-terminal mr-2 text-blue-400"></i> <span id="modal-title">NODE-ID</span>
+                        </div>
+                        <div class="tab-btn active" onclick="switchTab('overview')">OVERVIEW</div>
+                        <div class="tab-btn" onclick="switchTab('database')">DATABASE</div>
+                        <div class="tab-btn" onclick="switchTab('backup')">BACKUPS</div>
+                        <div class="tab-btn" onclick="switchTab('snapshot')">SNAPSHOTS</div>
+                        <div class="flex-1"></div>
+                        <div class="tab-btn text-red-400 hover:bg-red-900/50" onclick="closeModal()">CLOSE [X]</div>
+                    </div>
+
+                    <div id="tab-overview" class="tab-content active">
+                        <div class="grid grid-cols-2 gap-4 h-full">
+                            <div class="border border-slate-700 p-4 bg-slate-900/50">
+                                <h3 class="text-blue-400 font-bold mb-4 border-b border-slate-700 pb-2">SYSTEM METRICS</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1"><span>CPU LOAD</span><span id="ov-cpu">0%</span></div>
+                                        <div class="bar-bg"><div id="bar-ov-cpu" class="bar-fill bg-blue-500" style="width:0%"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1"><span>MEMORY</span><span id="ov-mem">0%</span></div>
+                                        <div class="bar-bg"><div id="bar-ov-mem" class="bar-fill bg-purple-500" style="width:0%"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs mb-1"><span>THERMAL</span><span id="ov-temp">0°C</span></div>
+                                        <div class="bar-bg"><div id="bar-ov-temp" class="bar-fill bg-red-500" style="width:0%"></div></div>
+                                    </div>
+                                </div>
+                                <div class="mt-8">
+                                    <button class="w-full py-2 bg-red-900/20 border border-red-800 text-red-400 hover:bg-red-800 hover:text-white transition text-xs font-bold" onclick="simulateAction('REBOOT')">
+                                        <i class="fas fa-power-off mr-2"></i> EMERGENCY REBOOT
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="border border-slate-700 p-4 bg-black font-mono text-xs overflow-y-auto text-green-400" id="ov-log">
+                                > Connection established.<br>
+                                > Monitoring daemon active.<br>
+                                > Waiting for user input...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-database" class="tab-content">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-white" id="db-engine">PostgreSQL</h2>
+                                <div class="text-sm text-slate-400">Storage Engine: <span id="db-store" class="text-blue-300">NVMe</span></div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-3xl font-bold text-green-400" id="db-tps">0</div>
+                                <div class="text-xs text-slate-500">TRANSACTIONS / SEC</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-4 mb-6">
+                            <div class="bg-slate-800 p-3 rounded text-center">
+                                <div class="text-xs text-slate-400">TOTAL STORAGE</div>
+                                <div class="text-xl font-bold text-white" id="db-total">0 GB</div>
+                            </div>
+                            <div class="bg-slate-800 p-3 rounded text-center">
+                                <div class="text-xs text-slate-400">USED SPACE</div>
+                                <div class="text-xl font-bold text-yellow-400" id="db-used">0 GB</div>
+                            </div>
+                            <div class="bg-slate-800 p-3 rounded text-center">
+                                <div class="text-xs text-slate-400">ACTIVE CONNECTIONS</div>
+                                <div class="text-xl font-bold text-blue-400" id="db-conn">0</div>
+                            </div>
+                        </div>
+
+                        <div class="border border-slate-700 p-4 bg-black/50">
+                            <div class="flex justify-between mb-2 text-xs font-bold text-slate-400">
+                                <span>STORAGE UTILIZATION</span>
+                                <span id="db-util-text">0%</span>
+                            </div>
+                            <div class="h-4 w-full bg-slate-700 rounded overflow-hidden">
+                                <div id="db-util-bar" class="h-full bg-gradient-to-r from-blue-500 to-red-500 transition-all duration-1000" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 flex gap-2">
+                             <button class="px-4 py-2 bg-blue-900/30 border border-blue-700 text-blue-300 text-xs hover:bg-blue-800" onclick="simulateAction('VACUUM')">RUN VACUUM</button>
+                             <button class="px-4 py-2 bg-blue-900/30 border border-blue-700 text-blue-300 text-xs hover:bg-blue-800" onclick="simulateAction('REINDEX')">REINDEX</button>
+                        </div>
+                    </div>
+
+                    <div id="tab-backup" class="tab-content">
+                        <div class="flex justify-between mb-4">
+                            <h3 class="font-bold text-white">BACKUP HISTORY</h3>
+                            <button class="px-3 py-1 bg-green-900/30 border border-green-700 text-green-400 text-xs hover:bg-green-800" onclick="runBackup()">
+                                <i class="fas fa-save mr-1"></i> RUN INCREMENTAL BACKUP
+                            </button>
+                        </div>
+                        <div id="backup-progress" class="hidden mb-4">
+                            <div class="text-xs text-green-400 mb-1">Backing up... <span id="bk-pct">0%</span></div>
+                            <div class="bar-bg"><div id="bk-bar" class="bar-fill bg-green-500" style="width:0%"></div></div>
+                        </div>
+                        <table class="w-full text-left text-xs text-slate-300 border border-slate-700">
+                            <thead class="bg-slate-800 font-bold">
+                                <tr><th class="p-2">BACKUP ID</th><th class="p-2">DATE</th><th class="p-2">SIZE</th><th class="p-2">STATUS</th></tr>
+                            </thead>
+                            <tbody id="backup-list" class="divide-y divide-slate-800 bg-slate-900"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="tab-snapshot" class="tab-content">
+                        <div class="flex justify-between mb-4">
+                            <h3 class="font-bold text-white">SYSTEM SNAPSHOTS</h3>
+                            <button class="px-3 py-1 bg-purple-900/30 border border-purple-700 text-purple-400 text-xs hover:bg-purple-800" onclick="takeSnapshot()">
+                                <i class="fas fa-camera mr-1"></i> TAKE SNAPSHOT
+                            </button>
+                        </div>
+                        <div id="snap-flash" class="hidden fixed inset-0 bg-white/20 z-50"></div>
+                        <table class="w-full text-left text-xs text-slate-300 border border-slate-700">
+                            <thead class="bg-slate-800 font-bold">
+                                <tr><th class="p-2">SNAPSHOT ID</th><th class="p-2">TIME</th><th class="p-2">DESC</th><th class="p-2">SIZE</th><th class="p-2">ACTION</th></tr>
+                            </thead>
+                            <tbody id="snap-list" class="divide-y divide-slate-800 bg-slate-900"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <script>
-                // Fallback Data
-                const FALLBACK = {
-                    "nodes": Array.from({length:12}, (_,i) => ({
-                        id: `FALLBACK-${i}`, type: "AUTH", icon: "🔐", status: "ACTIVE", install_logs: ["Loading..."],
-                        metrics: {cpu:50, mem:50, temp:40, token_count: 12345, token_samples: ["a1b2c3d4", "e5f6g7h8"]}
-                    }))
-                };
-
+                // Data Storage
                 let nodes = [];
+                let currentNodeIdx = null;
+
+                // Fallback Data
+                const FALLBACK = { "nodes": [] };
 
                 async function init() {
                     try {
@@ -220,139 +356,182 @@ jobs:
                     } catch(e) {
                         nodes = FALLBACK.nodes;
                     }
-                    
                     renderGrid();
-                    updateGlobalStats();
-                    setInterval(updatePhysics, 1000); // 1초마다 수치 변동
+                    document.getElementById('stat-db').innerText = nodes.length;
+                    
+                    // Live Update (Physics)
+                    setInterval(() => {
+                        nodes.forEach(n => {
+                            n.metrics.cpu = clamp(n.metrics.cpu + (Math.random()*4-2), 0, 100);
+                            n.metrics.tps = Math.max(0, Math.floor(n.metrics.tps + (Math.random()*100-50)));
+                        });
+                        // Update Modal if open
+                        if(currentNodeIdx !== null) updateModalMetrics(currentNodeIdx);
+                    }, 1000);
                 }
 
                 function renderGrid() {
-                    const grid = document.getElementById('grid');
+                    const grid = document.getElementById('grid-container');
                     grid.innerHTML = nodes.map((n, i) => `
-                        <div class="card" id="card-${i}">
-                            <div class="normal-view h-full flex flex-col justify-between">
-                                <div>
-                                    <div class="flex justify-between items-start mb-2">
-                                        <div>
-                                            <div class="font-bold text-white text-sm">${n.icon} ${n.id}</div>
-                                            <div class="text-[10px] text-gray-500">${n.type} SERVER</div>
-                                        </div>
-                                        <div class="px-2 py-0.5 rounded bg-green-900/30 text-green-400 text-[10px] border border-green-800" id="status-${i}">
-                                            ACTIVE
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="bg-black/50 p-2 rounded border border-gray-800 mb-3">
-                                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                                            <span>ACTIVE TOKENS</span>
-                                            <span class="text-green-400 font-mono" id="tok-cnt-${i}">${n.metrics.token_count.toLocaleString()}</span>
-                                        </div>
-                                        <div class="token-stream font-mono" id="tok-stream-${i}">
-                                            ${n.metrics.token_samples.join(' ')}
-                                        </div>
-                                    </div>
-
-                                    <div class="grid grid-cols-3 gap-2 text-center text-[10px] mb-2">
-                                        <div class="bg-gray-800/50 p-1 rounded">
-                                            <div class="text-gray-500">CPU</div>
-                                            <div class="text-white font-bold" id="cpu-${i}">${n.metrics.cpu}%</div>
-                                        </div>
-                                        <div class="bg-gray-800/50 p-1 rounded">
-                                            <div class="text-gray-500">MEM</div>
-                                            <div class="text-white font-bold" id="mem-${i}">${n.metrics.mem}%</div>
-                                        </div>
-                                        <div class="bg-gray-800/50 p-1 rounded">
-                                            <div class="text-gray-500">TEMP</div>
-                                            <div class="text-white font-bold" id="temp-${i}">${n.metrics.temp}°C</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button onclick="triggerReboot(${i})" class="w-full py-1 text-[10px] bg-red-900/20 hover:bg-red-600 border border-red-900/50 hover:text-white text-red-400 transition rounded flex items-center justify-center gap-1">
-                                    <span>↺</span> SYSTEM REBOOT
-                                </button>
+                        <div class="card active" onclick="openModal(${i})">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="font-bold text-xs text-white">${n.id}</div>
+                                <div class="status-dot"></div>
                             </div>
-
-                            <div class="boot-view font-mono text-green-500 p-1" id="boot-term-${i}">
-                                <div class="text-yellow-500 mb-1">> INITIATING REBOOT SEQUENCE...</div>
+                            <div class="text-[10px] text-slate-400 mb-2">${n.tech.db}</div>
+                            <div class="grid grid-cols-2 gap-2 text-[9px] text-slate-500">
+                                <div><i class="fas fa-hdd"></i> ${n.metrics.db_used}GB</div>
+                                <div><i class="fas fa-bolt"></i> ${n.metrics.tps} TPS</div>
                             </div>
                         </div>
                     `).join('');
                 }
 
-                function updateGlobalStats() {
-                    const totalTokens = nodes.reduce((acc, n) => acc + n.metrics.token_count, 0);
-                    document.getElementById('gl-tokens').innerText = totalTokens.toLocaleString();
-                    document.getElementById('gl-nodes').innerText = nodes.length;
+                // --- MODAL LOGIC ---
+                window.openModal = function(idx) {
+                    currentNodeIdx = idx;
+                    const n = nodes[idx];
+                    
+                    document.getElementById('detail-modal').style.display = 'block';
+                    document.getElementById('modal-title').innerText = n.id;
+                    
+                    // Init Tabs
+                    switchTab('overview');
+                    
+                    // Populate Static Data
+                    // DB Tab
+                    document.getElementById('db-engine').innerText = n.tech.db;
+                    document.getElementById('db-store').innerText = n.tech.store;
+                    document.getElementById('db-total').innerText = n.metrics.db_total + " GB";
+                    
+                    // Lists
+                    renderBackups(n.backups);
+                    renderSnapshots(n.snapshots);
+                    
+                    updateModalMetrics(idx);
                 }
 
-                // [핵심 기능] 서버 재기동 시뮬레이션
-                window.triggerReboot = function(idx) {
-                    const card = document.getElementById(`card-${idx}`);
-                    const term = document.getElementById(`boot-term-${idx}`);
-                    const node = nodes[idx];
-                    
-                    if(card.classList.contains('rebooting')) return;
-                    
-                    // UI 상태 전환
-                    card.classList.add('rebooting');
-                    term.innerHTML = `<div class="text-yellow-500">> SIGTERM received. Stopping services...</div>`;
-                    
-                    // 부팅 로그 시퀀스 (설치 과정 시뮬레이션)
-                    const steps = [
-                        ...node.install_logs, // Python에서 정의한 서비스별 로그
-                        "Cleaning up cache...",
-                        "Verifying package integrity...",
-                        "Generating new access tokens...",
-                        "Starting system daemon... OK"
-                    ];
-                    
-                    let stepIdx = 0;
-                    const bootInterval = setInterval(() => {
-                        if(stepIdx >= steps.length) {
-                            // 부팅 완료
-                            clearInterval(bootInterval);
-                            setTimeout(() => {
-                                card.classList.remove('rebooting');
-                                // 토큰 수치 리셋 효과
-                                node.metrics.token_count += Math.floor(Math.random() * 1000);
-                                document.getElementById(`tok-cnt-${idx}`).innerText = node.metrics.token_count.toLocaleString();
-                            }, 800);
-                        } else {
-                            // 로그 출력
-                            const line = document.createElement('div');
-                            line.className = 'boot-line';
-                            line.innerText = `> ${steps[stepIdx]}`;
-                            term.appendChild(line);
-                            term.scrollTop = term.scrollHeight; // Auto scroll
-                            stepIdx++;
-                        }
-                    }, 800); // 0.8초마다 로그 한 줄 출력
+                window.closeModal = function() {
+                    document.getElementById('detail-modal').style.display = 'none';
+                    currentNodeIdx = null;
                 }
 
-                // Physics Engine (라이브 수치 변동)
-                function updatePhysics() {
-                    nodes.forEach((n, i) => {
-                        // CPU/MEM 변동
-                        const jitter = Math.floor(Math.random() * 5) - 2;
-                        n.metrics.cpu = Math.max(0, Math.min(100, n.metrics.cpu + jitter));
-                        n.metrics.token_count += Math.floor(Math.random() * 10) - 2; // 토큰 수 미세 변동
-                        
-                        // DOM 업데이트
-                        const card = document.getElementById(`card-${i}`);
-                        if(!card.classList.contains('rebooting')) {
-                            document.getElementById(`cpu-${i}`).innerText = n.metrics.cpu + "%";
-                            document.getElementById(`tok-cnt-${i}`).innerText = n.metrics.token_count.toLocaleString();
+                window.switchTab = function(tabName) {
+                    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                    
+                    document.getElementById('tab-' + tabName).classList.add('active');
+                    // Find button (simple approximate match)
+                    event.target.classList.add('active');
+                }
+
+                function updateModalMetrics(idx) {
+                    const n = nodes[idx];
+                    
+                    // Overview Tab
+                    document.getElementById('ov-cpu').innerText = Math.floor(n.metrics.cpu) + "%";
+                    document.getElementById('bar-ov-cpu').style.width = n.metrics.cpu + "%";
+                    
+                    document.getElementById('ov-mem').innerText = n.metrics.mem + "%";
+                    document.getElementById('bar-ov-mem').style.width = n.metrics.mem + "%";
+                    
+                    document.getElementById('ov-temp').innerText = n.metrics.temp + "°C";
+                    document.getElementById('bar-ov-temp').style.width = (n.metrics.temp / 100 * 100) + "%";
+
+                    // Database Tab
+                    document.getElementById('db-tps').innerText = n.metrics.tps.toLocaleString();
+                    document.getElementById('db-used').innerText = n.metrics.db_used + " GB";
+                    document.getElementById('db-conn').innerText = n.metrics.conn;
+                    
+                    const util = (n.metrics.db_used / n.metrics.db_total) * 100;
+                    document.getElementById('db-util-bar').style.width = util + "%";
+                    document.getElementById('db-util-text').innerText = util.toFixed(1) + "%";
+                }
+
+                // --- ACTIONS ---
+                window.simulateAction = function(action) {
+                    const log = document.getElementById('ov-log');
+                    log.innerHTML += `> Command: ${action} initiated...<br>`;
+                    log.scrollTop = log.scrollHeight;
+                    setTimeout(() => {
+                        log.innerHTML += `> ${action} completed successfully.<br>`;
+                        log.scrollTop = log.scrollHeight;
+                    }, 1500);
+                }
+
+                // Backup Logic
+                function renderBackups(list) {
+                    const tbody = document.getElementById('backup-list');
+                    tbody.innerHTML = list.map(b => `
+                        <tr class="hover:bg-slate-800">
+                            <td class="p-2 font-mono text-blue-300">${b.id}</td>
+                            <td class="p-2">${b.date}</td>
+                            <td class="p-2">${b.size}</td>
+                            <td class="p-2 text-green-400">${b.status}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                window.runBackup = function() {
+                    const progDiv = document.getElementById('backup-progress');
+                    const bar = document.getElementById('bk-bar');
+                    const txt = document.getElementById('bk-pct');
+                    
+                    progDiv.classList.remove('hidden');
+                    let width = 0;
+                    const intv = setInterval(() => {
+                        width += Math.random() * 5;
+                        if(width >= 100) {
+                            width = 100;
+                            clearInterval(intv);
+                            setTimeout(() => progDiv.classList.add('hidden'), 500);
                             
-                            // 토큰 스트림 애니메이션 (랜덤 해시 교체)
-                            if(Math.random() > 0.7) {
-                                const newHash = Math.random().toString(36).substring(2, 10);
-                                document.getElementById(`tok-stream-${i}`).innerText = newHash + " " + n.metrics.token_samples.slice(0,4).join(' ');
-                            }
+                            // Add dummy backup row
+                            const n = nodes[currentNodeIdx];
+                            n.backups.unshift({
+                                id: "bk-new-" + Math.floor(Math.random()*1000),
+                                date: "Just now",
+                                size: (n.metrics.db_used * 0.1).toFixed(1) + "GB (Inc)",
+                                status: "SUCCESS"
+                            });
+                            renderBackups(n.backups);
                         }
-                    });
-                    updateGlobalStats();
+                        bar.style.width = width + "%";
+                        txt.innerText = Math.floor(width) + "%";
+                    }, 100);
                 }
+
+                // Snapshot Logic
+                function renderSnapshots(list) {
+                    const tbody = document.getElementById('snap-list');
+                    tbody.innerHTML = list.map(s => `
+                        <tr class="hover:bg-slate-800">
+                            <td class="p-2 font-mono text-purple-300">${s.id}</td>
+                            <td class="p-2">${s.date}</td>
+                            <td class="p-2">${s.desc}</td>
+                            <td class="p-2">${s.size}</td>
+                            <td class="p-2"><button class="text-red-400 hover:text-white" onclick="alert('Simulated Delete')">[DEL]</button></td>
+                        </tr>
+                    `).join('');
+                }
+
+                window.takeSnapshot = function() {
+                    // Flash effect
+                    const flash = document.getElementById('snap-flash');
+                    flash.classList.remove('hidden');
+                    setTimeout(() => flash.classList.add('hidden'), 100);
+                    
+                    const n = nodes[currentNodeIdx];
+                    n.snapshots.unshift({
+                        id: "snap-" + Math.floor(Math.random()*9999),
+                        date: new Date().toLocaleTimeString(),
+                        desc: "Manual User Snap",
+                        size: "0.5GB"
+                    });
+                    renderSnapshots(n.snapshots);
+                }
+
+                function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
 
                 init();
             </script>
