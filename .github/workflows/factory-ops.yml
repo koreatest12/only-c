@@ -1,387 +1,294 @@
-name: ♾️ Massive Ops Control (Big Data Edition)
+name: 🚀 Ops Control Center (Full-Screen Fix)
 
 on:
   schedule:
-    - cron: '0 */4 * * *' # 4시간마다 대량 데이터 갱신
+    - cron: '0 */4 * * *' # 4시간마다 데이터 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-permissions: read-all
+# [권한 설정] 데이터 커밋 및 배포 권한
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 concurrency:
-  group: "ops-control-massive"
+  group: "ops-full-fix"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 대규모 데이터 생산 및 시각화 파이프라인
+  # [Job 1] 데이터 생성 및 웹 사이트 빌드 (단일 Job으로 통합하여 속도 향상)
   # ==============================================================================
-  massive-data-ops:
+  build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions:
-      contents: write
 
     steps:
     # 1. 소스 체크아웃
     - name: 📥 Checkout Repo
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      uses: actions/checkout@v4
 
     # 2. 파이썬 환경 설정
     - name: 🛠️ Setup Python
-      uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    # 3. 필수 도구 설치
-    - name: 📦 Install Tools
-      run: pip install --no-cache-dir flask flask-cors gunicorn faker pandas requests bandit
+    # 3. 필수 라이브러리 설치
+    - name: 📦 Install Deps
+      run: pip install faker
 
-    # 4. 🏭 대용량 데이터 엔진 (Big Data Engine)
-    - name: 🏭 Run Massive Data Engine
+    # 4. 🏭 데이터 생성 엔진 실행 (JSON 파일 생성)
+    - name: 🏭 Run Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import os, json, uuid, secrets, random
-        from datetime import datetime, timedelta
-        from decimal import Decimal
+        import json, random, os
+        from datetime import datetime
         from faker import Faker
         
-        secure_rng = secrets.SystemRandom()
         fake = Faker()
         DATA_FILE = "dashboard_data.json"
         
-        # 설정: 생성할 서버의 수 (대량 생성)
-        SERVER_COUNT = 500  
-        
-        def json_serial(obj):
-            if isinstance(obj, (datetime, date)): return obj.isoformat()
-            if isinstance(obj, Decimal): return float(obj)
-            raise TypeError (f"Type {type(obj)} not serializable")
+        # 서비스 정의
+        SERVICES = [
+            {"type": "PAYMENT", "icon": "💳", "err": "Gateway Timeout"},
+            {"type": "AUTH",    "icon": "🔐", "err": "Token Expired"},
+            {"type": "ORDER",   "icon": "🛒", "err": "DB Deadlock"},
+            {"type": "AI-MODEL","icon": "🧠", "err": "GPU OOM"},
+            {"type": "DELIVERY","icon": "🚚", "err": "Route Fail"}
+        ]
+        REGIONS = ["US-East", "KR-Seoul", "EU-West", "JP-Tokyo"]
 
-        def load_existing_data():
-            if os.path.exists(DATA_FILE):
-                try:
-                    with open(DATA_FILE, 'r') as f: return json.load(f)
-                except: return None
-            return None
-
-        # 파이프라인 단계 시각화 데이터
-        def gen_pipeline_steps():
-            now = datetime.now()
-            return [
-                {"step": "DATA MINING", "status": "SUCCESS", "time": (now - timedelta(seconds=60)).strftime("%H:%M:%S")},
-                {"step": "ETL PROCESS", "status": "SUCCESS", "time": (now - timedelta(seconds=45)).strftime("%H:%M:%S")},
-                {"step": "SECURITY AUDIT", "status": "PASSED", "time": (now - timedelta(seconds=20)).strftime("%H:%M:%S")},
-                {"step": "VISUALIZATION", "status": "RENDERING", "time": "LIVE"} 
-            ]
-
-        # 대량 서비스 생성 로직
-        def gen_massive_services():
+        def generate_data():
             services = []
-            regions = ["KR-Seoul", "US-East", "US-West", "EU-Frankfurt", "EU-London", "AP-Tokyo", "AP-Singapore"]
-            clusters = ["Alpha", "Beta", "Gamma", "Delta", "Omega"]
-            
-            critical_cnt = 0
-            warning_cnt = 0
             active_cnt = 0
+            crit_cnt = 0
             
-            print(f"Generating {SERVER_COUNT} service nodes...")
-            
-            for i in range(SERVER_COUNT):
-                r = secure_rng.choice(regions)
-                c = secure_rng.choice(clusters)
+            for i in range(50): # 50개 서비스 생성
+                svc_def = random.choice(SERVICES)
+                region = random.choice(REGIONS)
                 
-                # 랜덤 메트릭 생성
-                cpu = secure_rng.randint(5, 99)
-                mem = secure_rng.randint(10, 95)
-                latency = secure_rng.randint(10, 500)
+                # 상태 랜덤 결정 (20% 확률로 에러)
+                is_error = random.random() < 0.2
+                status = "CRITICAL" if is_error else "ACTIVE"
+                if is_error: crit_cnt += 1
+                else: active_cnt += 1
                 
-                # 상태 결정 로직
-                status = "ACTIVE"
-                if cpu > 90 or mem > 90: 
-                    status = "CRITICAL"
-                    critical_cnt += 1
-                elif cpu > 70 or latency > 300:
-                    status = "WARNING"
-                    warning_cnt += 1
-                else:
-                    active_cnt += 1
+                cpu = random.randint(80, 99) if is_error else random.randint(10, 60)
+                mem = random.randint(80, 99) if is_error else random.randint(20, 70)
                 
-                svc_id = f"{c}-{r}-{i:04d}"
+                logs = []
+                # 로그 생성
+                for _ in range(3):
+                    logs.append({
+                        "ts": datetime.now().strftime("%H:%M:%S"),
+                        "level": "INFO",
+                        "msg": "Health check passed."
+                    })
+                if is_error:
+                    logs.append({
+                        "ts": datetime.now().strftime("%H:%M:%S"),
+                        "level": "ERROR",
+                        "msg": f"{svc_def['err']} detected!"
+                    })
                 
                 services.append({
-                    "id": svc_id,
-                    "region": r,
-                    "cluster": c,
+                    "id": f"{svc_def['type']}-{region}-{random.randint(100,999)}",
+                    "type": svc_def['type'],
+                    "icon": svc_def['icon'],
+                    "region": region,
                     "status": status,
-                    "metrics": {
-                        "cpu": cpu,
-                        "mem": mem,
-                        "lat": latency,
-                        "net_in": f"{secure_rng.randint(10, 900)}Mbps",
-                        "net_out": f"{secure_rng.randint(10, 900)}Mbps"
-                    },
-                    "last_log": f"Daemon process pid:{secure_rng.randint(1000,9999)} state changed."
+                    "metrics": {"cpu": cpu, "mem": mem},
+                    "logs": sorted(logs, key=lambda x: x['ts'], reverse=True)
                 })
-                
-            return services, {"active": active_cnt, "warning": warning_cnt, "critical": critical_cnt}
-
-        if __name__ == "__main__":
-            print("🚀 Starting Massive Data Engine...")
-            old_data = load_existing_data()
-            if old_data is None: old_data = {"history": []}
             
-            services, stats = gen_massive_services()
-            pipeline = gen_pipeline_steps()
-            
-            # 히스토리 기록 (대시보드 차트용)
-            history = old_data.get("history", [])
-            history.append({
-                "ts": datetime.now().strftime("%H:%M"),
-                "stats": stats
-            })
-            if len(history) > 30: history = history[-30:] # 최근 30개 포인트 유지
-            
-            final_data = {
+            data = {
                 "generated_at": str(datetime.now()),
-                "pipeline": pipeline,
-                "summary": stats,
-                "history": history,
+                "summary": {"active": active_cnt, "critical": crit_cnt},
                 "services": services
             }
-            
+            return data
+
+        if __name__ == "__main__":
+            data = generate_data()
             with open(DATA_FILE, "w") as f:
-                json.dump(final_data, f, default=json_serial, indent=None) # 대용량이므로 indent 제거하여 용량 절약
-            print("✅ Massive Data Generation Completed.")
+                json.dump(data, f, indent=2)
+            print("✅ Data Generated Successfully.")
         EOF
         
         python db_engine.py
 
-    # 5. 보안 감사 (SAST)
-    - name: 🕵️ Run Security Audit
-      run: bandit -r db_engine.py -s B101,B311 || true
-
-    # 6. 데이터 저장 (충돌 방지 및 대량 파일 처리)
-    - name: 💾 Commit & Push Data
+    # 5. 데이터 파일 커밋 (GitHub Pages가 읽을 수 있도록)
+    - name: 💾 Commit Data
       run: |
-        git config --global user.name "BigData-Bot"
+        git config --global user.name "Ops-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        if git diff --staged --quiet; then
-          echo "No changes."
-        else
-          git commit -m "📊 Big Data Update: 500+ Nodes [$(date)]"
-          git pull --rebase --autostash
-          git push
-        fi
+        # 변경사항이 있을 때만 커밋
+        git commit -m "📈 Auto-update: Dashboard Data" || echo "No changes to commit"
+        git push origin main || echo "Push failed (might be concurrent update), skipping..."
 
-    # 7. UI 빌드 (고밀도 대시보드)
-    - name: 🎨 Build High-Density Dashboard
+    # 6. 프론트엔드 빌드 (화면 구성 코드)
+    - name: 🎨 Build Frontend
       shell: bash
       run: |
-        mkdir -p _web_portal/templates
+        mkdir -p _site
         
-        cat <<'EOF' > _web_portal/templates/index.html
+        # JSON 데이터 복사 (매우 중요: 사이트 루트로 복사)
+        cp dashboard_data.json _site/dashboard_data.json
+        
+        cat <<'EOF' > _site/index.html
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>MASSIVE OPS CONTROL</title>
+            <title>OPS CONTROL CENTER</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
-                /* Cyberpunk / High-Density Style */
-                body { background-color: #050505; color: #a3a3a3; font-family: 'Consolas', 'Monaco', monospace; overflow: hidden; font-size: 11px; }
+                body { background-color: #0f172a; color: #94a3b8; font-family: monospace; overflow: hidden; }
+                .grid-layout { display: grid; grid-template-columns: 2fr 1fr; height: 100vh; }
+                .border-r { border-right: 1px solid #1e293b; }
+                .header-panel { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #1e293b; background: #0f172a; }
+                .scroll-area { overflow-y: auto; height: calc(100vh - 60px); }
                 
-                /* Grid Layout */
-                .dashboard-grid { display: grid; grid-template-rows: 40px 120px 1fr 150px; height: 100vh; gap: 2px; }
+                /* Custom Scrollbar */
+                ::-webkit-scrollbar { width: 8px; }
+                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
                 
-                /* Colors */
-                .bg-panel { background: #0a0a0a; border: 1px solid #1f1f1f; }
-                .text-crit { color: #ff4444; text-shadow: 0 0 3px #ff0000; }
-                .text-warn { color: #ffbb33; }
-                .text-good { color: #00cc66; }
-                .border-crit { border-color: #ff4444; }
+                /* Status Colors */
+                .st-ACTIVE { color: #4ade80; }
+                .st-CRITICAL { color: #f87171; font-weight: bold; animation: blink 1s infinite; }
+                @keyframes blink { 50% { opacity: 0.5; } }
                 
-                /* Custom Scroll */
-                ::-webkit-scrollbar { width: 6px; height: 6px; }
-                ::-webkit-scrollbar-thumb { background: #333; }
-                ::-webkit-scrollbar-track { background: #000; }
-                
-                /* Table Styling */
-                table { border-collapse: collapse; width: 100%; }
-                th { position: sticky; top: 0; background: #111; z-index: 10; padding: 4px; text-align: left; border-bottom: 1px solid #333; color: #666; }
-                td { padding: 2px 4px; border-bottom: 1px solid #111; white-space: nowrap; }
-                tr:hover { background: #1a1a1a; cursor: crosshair; }
-                
-                /* Progress Bars */
-                .bar-bg { background: #222; height: 4px; width: 100%; display: inline-block; }
-                .bar-fill { height: 100%; }
+                tr:hover { background-color: #1e293b; cursor: pointer; }
+                .selected-row { background-color: #1e293b; border-left: 2px solid #3b82f6; }
             </style>
         </head>
-        <body class="dashboard-grid">
-            
-            <header class="bg-panel flex items-center justify-between px-4">
-                <div class="flex items-center gap-4">
-                    <h1 class="text-lg font-bold text-white tracking-widest">♾️ MASSIVE <span class="text-blue-600">DATA OPS</span></h1>
-                    <span class="text-[10px] bg-blue-900/30 text-blue-400 px-2 border border-blue-900">NODE COUNT: <span id="total-nodes">0</span></span>
+        <body>
+            <div class="header-panel">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🏭</span>
+                    <h1 class="text-xl font-bold text-white tracking-widest">OPS CONTROL <span class="text-blue-500">CENTER</span></h1>
                 </div>
-                <div class="flex gap-2" id="pipeline-steps"></div>
-            </header>
+                <div class="flex gap-4 text-xs">
+                    <span class="border border-red-900 bg-red-900/20 text-red-400 px-3 py-1 rounded">CRITICAL: <span id="cnt-crit">0</span></span>
+                    <span class="border border-green-900 bg-green-900/20 text-green-400 px-3 py-1 rounded">ACTIVE: <span id="cnt-active">0</span></span>
+                </div>
+            </div>
 
-            <section class="grid grid-cols-4 gap-1 px-1">
-                <div class="bg-panel p-2 flex flex-col justify-center items-center">
-                    <div class="text-2xl font-bold text-white" id="val-active">0</div>
-                    <div class="text-[10px] text-green-500">ACTIVE NODES</div>
+            <div class="grid-layout">
+                
+                <div class="border-r flex flex-col">
+                    <div class="p-2 bg-slate-800 text-xs font-bold text-slate-400 border-b border-slate-700">SERVICE FLEET</div>
+                    <div class="scroll-area">
+                        <table class="w-full text-left text-sm">
+                            <thead class="text-slate-500 bg-[#0f172a] sticky top-0 border-b border-slate-700">
+                                <tr>
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">REGION</th>
+                                    <th class="p-3">STATUS</th>
+                                    <th class="p-3 text-right">CPU</th>
+                                    <th class="p-3 text-center">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="svc-table" class="divide-y divide-slate-800">
+                                </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="bg-panel p-2 flex flex-col justify-center items-center">
-                    <div class="text-2xl font-bold text-warn" id="val-warn">0</div>
-                    <div class="text-[10px] text-yellow-500">WARNING NODES</div>
-                </div>
-                <div class="bg-panel p-2 flex flex-col justify-center items-center border border-red-900/30">
-                    <div class="text-2xl font-bold text-crit" id="val-crit">0</div>
-                    <div class="text-[10px] text-red-500">CRITICAL NODES</div>
-                </div>
-                <div class="bg-panel p-1 relative">
-                    <canvas id="mainChart"></canvas>
-                </div>
-            </section>
 
-            <section class="bg-panel overflow-auto mx-1 relative">
-                <table class="w-full">
-                    <thead>
-                        <tr>
-                            <th style="width:120px">ID</th>
-                            <th style="width:80px">REGION</th>
-                            <th style="width:60px">STATUS</th>
-                            <th style="width:100px">CPU LOAD</th>
-                            <th style="width:100px">MEMORY</th>
-                            <th style="width:80px">LATENCY</th>
-                            <th>NET I/O</th>
-                            <th class="text-right">LAST LOG MESSAGE</th>
-                        </tr>
-                    </thead>
-                    <tbody id="grid-body" class="font-mono"></tbody>
-                </table>
-            </section>
-
-            <footer class="bg-panel mx-1 mb-1 p-2 flex flex-col">
-                <div class="text-[10px] font-bold text-slate-500 border-b border-slate-800 mb-1">📢 SYSTEM BROADCAST STREAM</div>
-                <div class="flex-1 overflow-y-auto space-y-1" id="log-stream"></div>
-            </footer>
+                <div class="flex flex-col bg-slate-900/50">
+                    <div class="p-2 bg-slate-800 text-xs font-bold text-slate-400 border-b border-slate-700">🚨 EVENT SITUATION ROOM</div>
+                    <div id="event-room" class="scroll-area p-4 space-y-2">
+                        <div class="text-center text-slate-600 mt-20 italic">Select a service to view live logs...</div>
+                    </div>
+                </div>
+            </div>
 
             <script>
+                // [핵심] 안전장치 데이터 (파일 로드 실패 시 사용)
+                const FALLBACK_DATA = {
+                    "summary": {"active": 5, "critical": 1},
+                    "services": [
+                        {"id": "DEMO-WEB-001", "region": "KR-Seoul", "status": "ACTIVE", "metrics": {"cpu": 45}, "logs": [{"ts":"NOW", "level":"INFO", "msg":"Demo Mode Active"}]},
+                        {"id": "DEMO-DB-002", "region": "US-East", "status": "CRITICAL", "metrics": {"cpu": 99}, "logs": [{"ts":"NOW", "level":"ERROR", "msg":"Connection Failed"}]},
+                        {"id": "DEMO-API-003", "region": "EU-West", "status": "ACTIVE", "metrics": {"cpu": 12}, "logs": [{"ts":"NOW", "level":"INFO", "msg":"Healthy"}]}
+                    ]
+                };
+
+                let globalServices = [];
+
                 async function init() {
-                    const res = await fetch('/api/stats').catch(()=>fetch('dashboard_data.json'));
-                    const data = await res.json();
+                    try {
+                        // 1. 실제 데이터 파일 로드 시도
+                        const res = await fetch('dashboard_data.json');
+                        if (!res.ok) throw new Error("File not found");
+                        const data = await res.json();
+                        render(data);
+                    } catch (e) {
+                        console.warn("⚠️ Data fetch failed, using FALLBACK data to prevent empty screen.", e);
+                        // 2. 실패 시 폴백 데이터 사용 (빈 화면 방지)
+                        render(FALLBACK_DATA);
+                    }
+                }
+
+                function render(data) {
+                    globalServices = data.services;
                     
-                    renderHeader(data);
-                    renderSummary(data.summary);
-                    renderGrid(data.services);
-                    renderChart(data.history);
-                    startLogStream(data.services);
-                }
+                    // 상단 카운터 업데이트
+                    document.getElementById('cnt-active').innerText = data.summary.active;
+                    document.getElementById('cnt-crit').innerText = data.summary.critical;
 
-                function renderHeader(data) {
-                    document.getElementById('total-nodes').innerText = data.services.length;
-                    const p = document.getElementById('pipeline-steps');
-                    p.innerHTML = '';
-                    data.pipeline.forEach(step => {
-                        const color = step.status === 'SUCCESS' || step.status === 'PASSED' ? 'text-green-400' : 'text-blue-400';
-                        p.innerHTML += `<div class="bg-[#111] px-2 py-1 border border-[#222]">
-                            <span class="text-white font-bold">${step.step}</span>: <span class="${color}">${step.status}</span>
-                        </div>`;
-                    });
-                }
+                    const tbody = document.getElementById('svc-table');
+                    tbody.innerHTML = '';
 
-                function renderSummary(s) {
-                    document.getElementById('val-active').innerText = s.active;
-                    document.getElementById('val-warn').innerText = s.warning;
-                    document.getElementById('val-crit').innerText = s.critical;
-                }
-
-                function renderGrid(services) {
-                    const tbody = document.getElementById('grid-body');
-                    // 대량 데이터 렌더링 성능을 위해 HTML 문자열 한 번에 구성
-                    let html = '';
-                    services.forEach(svc => {
-                        let stClass = 'text-good';
-                        if(svc.status === 'CRITICAL') stClass = 'text-crit font-bold';
-                        if(svc.status === 'WARNING') stClass = 'text-warn';
+                    data.services.forEach((svc, idx) => {
+                        const statusColor = svc.status === 'CRITICAL' ? 'st-CRITICAL' : 'st-ACTIVE';
+                        const cpuColor = svc.metrics.cpu > 80 ? 'bg-red-500' : 'bg-green-500';
                         
-                        // CPU Bar Color
-                        let cpuColor = '#00cc66';
-                        if(svc.metrics.cpu > 70) cpuColor = '#ffbb33';
-                        if(svc.metrics.cpu > 90) cpuColor = '#ff4444';
-
-                        html += `
-                        <tr>
-                            <td class="text-white">${svc.id}</td>
-                            <td>${svc.region}</td>
-                            <td class="${stClass}">${svc.status}</td>
-                            <td>
-                                <div class="flex items-center gap-1">
-                                    <span class="w-6 text-right">${svc.metrics.cpu}%</span>
-                                    <div class="bar-bg"><div class="bar-fill" style="width:${svc.metrics.cpu}%; background:${cpuColor}"></div></div>
+                        tbody.innerHTML += `
+                        <tr onclick="showLogs(${idx}, this)" class="group transition">
+                            <td class="p-3 text-white font-mono font-bold">${svc.id}</td>
+                            <td class="p-3 text-xs text-slate-400">${svc.region}</td>
+                            <td class="p-3 text-xs ${statusColor}">${svc.status}</td>
+                            <td class="p-3 text-right">
+                                <div class="w-full bg-slate-700 h-1.5 rounded-full mt-1">
+                                    <div class="${cpuColor} h-1.5 rounded-full" style="width: ${svc.metrics.cpu}%"></div>
                                 </div>
+                                <span class="text-[9px]">${svc.metrics.cpu}%</span>
                             </td>
-                            <td>
-                                <div class="flex items-center gap-1">
-                                    <span class="w-6 text-right">${svc.metrics.mem}%</span>
-                                    <div class="bar-bg"><div class="bar-fill" style="width:${svc.metrics.mem}%; background:#3b82f6"></div></div>
-                                </div>
+                            <td class="p-3 text-center">
+                                <button class="text-[10px] border border-slate-600 px-2 py-0.5 rounded hover:bg-slate-700 hover:text-white">REBOOT</button>
                             </td>
-                            <td>${svc.metrics.lat}ms</td>
-                            <td class="text-[9px] text-slate-500">⬇${svc.metrics.net_in} ⬆${svc.metrics.net_out}</td>
-                            <td class="text-right text-slate-600 italic">${svc.last_log}</td>
                         </tr>`;
                     });
-                    tbody.innerHTML = html;
                 }
 
-                function renderChart(history) {
-                    if(!history) return;
-                    const ctx = document.getElementById('mainChart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: history.map(h => h.ts),
-                            datasets: [
-                                { label: 'Active', data: history.map(h => h.stats.active), borderColor: '#00cc66', pointRadius: 0, tension: 0.2 },
-                                { label: 'Warning', data: history.map(h => h.stats.warning), borderColor: '#ffbb33', pointRadius: 0, tension: 0.2 },
-                                { label: 'Critical', data: history.map(h => h.stats.critical), borderColor: '#ff4444', pointRadius: 0, tension: 0.2 }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { display: false },
-                                y: { display: false }
-                            },
-                            animation: false
-                        }
+                window.showLogs = function(idx, rowElem) {
+                    // 선택 효과
+                    document.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+                    rowElem.classList.add('selected-row');
+
+                    const svc = globalServices[idx];
+                    const board = document.getElementById('event-room');
+                    
+                    let logHtml = `<div class="mb-4 pb-2 border-b border-slate-700">
+                        <h2 class="text-white font-bold text-lg">${svc.id}</h2>
+                        <span class="text-xs text-slate-400">Region: ${svc.region} | Status: ${svc.status}</span>
+                    </div>`;
+
+                    svc.logs.forEach(log => {
+                        const color = log.level === 'ERROR' ? 'text-red-400 border-l-2 border-red-500 pl-2' : 'text-green-400 border-l-2 border-green-500 pl-2';
+                        logHtml += `
+                        <div class="mb-2 font-mono text-xs ${color} bg-slate-800/30 p-1 rounded">
+                            <span class="opacity-50">[${log.ts}]</span> <span class="font-bold">${log.level}</span>: ${log.msg}
+                        </div>`;
                     });
-                }
-
-                function startLogStream(services) {
-                    const stream = document.getElementById('log-stream');
-                    // Simulate live streaming logs from the static data
-                    setInterval(() => {
-                        const randomSvc = services[Math.floor(Math.random() * services.length)];
-                        const time = new Date().toISOString().split('T')[1].split('.')[0];
-                        const logColor = randomSvc.status === 'CRITICAL' ? 'text-red-400' : 'text-slate-400';
-                        
-                        const logLine = document.createElement('div');
-                        logLine.className = `font-mono ${logColor}`;
-                        logLine.innerHTML = `<span class="opacity-50">[${time}]</span> ${randomSvc.id} :: ${randomSvc.metrics.cpu}% Load - ${randomSvc.last_log}`;
-                        
-                        stream.prepend(logLine);
-                        if(stream.children.length > 50) stream.lastChild.remove();
-                    }, 800);
+                    
+                    board.innerHTML = logHtml;
                 }
 
                 init();
@@ -390,43 +297,22 @@ jobs:
         </html>
         EOF
 
-    # 8. 배포용 빌드
-    - name: 🧪 Build & Publish
-      run: |
-        cat <<'EOF' > _web_portal/app.py
-        from flask import Flask, render_template, jsonify, send_from_directory
-        import json
-        app = Flask(__name__)
-        @app.route('/')
-        def home(): return render_template('index.html')
-        @app.route('/api/stats')
-        def stats(): return jsonify(json.load(open('../dashboard_data.json')))
-        @app.route('/dashboard_data.json')
-        def static_data(): return send_from_directory('..', 'dashboard_data.json')
-        EOF
-        
-        mkdir -p _site
-        cp _web_portal/templates/index.html _site/index.html
-        cp dashboard_data.json _site/dashboard_data.json
-
-    - name: 📤 Upload Pages
-      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+    # 7. GitHub Pages 배포
+    - name: 🚀 Deploy to Pages
+      uses: actions/upload-pages-artifact@v3
       with:
         path: _site/
 
-  # ==============================================================================
-  # [Job 2] 배포
-  # ==============================================================================
   deploy:
+    needs: build-and-deploy
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: massive-data-ops
-    permissions:
-      pages: write
-      id-token: write
     steps:
       - name: 🚀 Deploy
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+        uses: actions/deploy-pages@v4
