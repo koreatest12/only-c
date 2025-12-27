@@ -2,7 +2,7 @@ name: 🚀 GPU AI Data Center (Hyper-Scale & Live)
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # 10분마다 기준 데이터 갱신 (GitHub 최소 간격 근접)
+    - cron: '*/10 * * * *' # 10분마다 실행
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -17,6 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ==============================================================================
+  # [Job 1] 데이터 생성 및 웹 페이지 빌드
+  # ==============================================================================
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +28,8 @@ jobs:
 
     - name: 🛠️ Setup Python
       uses: actions/setup-python@v5
-      with: { python-version: '3.10' }
+      with:
+        python-version: '3.10'
 
     - name: 📦 Install Deps
       run: pip install faker
@@ -300,7 +304,7 @@ jobs:
                             if(node.metrics.temp > 90) node.status = "CRITICAL";
                             else node.status = "ACTIVE";
 
-                            // DOM 업데이트 (HTML 전체 재생성이 아닌 텍스트만 변경하여 성능 최적화 필요하지만 데모는 재생성)
+                            // DOM 업데이트
                             const card = document.getElementById(`card-${idx}`);
                             if(card) {
                                 card.innerHTML = getCardHTML(node);
@@ -332,13 +336,20 @@ jobs:
 
     - name: 🚀 Deploy Pages
       uses: actions/upload-pages-artifact@v3
-      with: { path: _site/ }
+      with:
+        path: _site/
 
+  # ==============================================================================
+  # [Job 2] 배포 (수정된 구문)
+  # ==============================================================================
   deploy:
     needs: build-and-deploy
-    permissions: { pages: write, id-token: write }
-    environment: { name: github-pages}
-    url: {{ steps.deployment.outputs.page_url }} }
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: 🚀 Deploy
