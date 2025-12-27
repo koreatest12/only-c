@@ -1,8 +1,8 @@
-name: 🌌 Galaxy Ops:Ultimate Edition (SQL & Restore)
+name: 🌍 Galaxy Ops:Global Command (Cache-Free)
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # 10분마다 데이터 재생성
+    - cron: '*/5 * * * *' # 5분마다 갱신 (최대 빈도)
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -13,134 +13,107 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "galaxy-ops-ultimate"
+  group: "galaxy-ops-final"
   cancel-in-progress: true
 
 jobs:
-  build-simulate-deploy:
+  build-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     
     steps:
-    - name: 📥 Checkout Repo
+    - name: 📥 Checkout
       uses: actions/checkout@v4
 
     - name: 🛠️ Setup Python
       uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      with: { python-version: '3.10' }
 
     - name: 📦 Install Deps
       run: pip install faker
 
     # ----------------------------------------------------------------
-    # [Step 1] 🏭 데이터 엔진 (에러 수정 & 데이터 고도화)
+    # [Step 1] 🏭 데이터 엔진 (지역 정보 및 좌표 추가)
     # ----------------------------------------------------------------
-    - name: 🏭 Run Ultimate Data Engine
+    - name: 🏭 Run Global Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import json, random, uuid, datetime
+        import json, random, datetime
         from faker import Faker
         fake = Faker()
         
-        NODE_COUNT = 80
+        NODE_COUNT = 100
         
-        TECH_STACK = {
-            "PAYMENT": { "db": "PostgreSQL 16", "store": "NVMe Block", "backup_type": "WAL Archive" },
-            "AUTH":    { "db": "Redis Cluster", "store": "In-Memory", "backup_type": "RDB Snapshot" },
-            "AI-CORE": { "db": "Milvus Vector", "store": "Object Store", "backup_type": "Embedding Dump" },
-            "DELIVERY":{ "db": "MongoDB 7.0",   "store": "SSD Raid-0", "backup_type": "Oplog Slice" },
-            "LOGGING": { "db": "Elasticsearch", "store": "HDD Raid-6", "backup_type": "Index Snapshot" }
+        # 지역별 좌표 및 클러스터 정의
+        REGIONS = {
+            "US-EAST": {"lat": 30, "lon": 20, "code": "USE"},
+            "EU-WEST": {"lat": 30, "lon": 50, "code": "EUW"},
+            "AP-NORT": {"lat": 35, "lon": 80, "code": "APN"},
+            "SA-EAST": {"lat": 70, "lon": 25, "code": "SAE"}
         }
         
-        CLUSTERS = ["Alpha-Centauri", "Nebula-Edge", "Sirius-Main", "Orion-Backup", "Vega-Frontier"]
-
-        # [FIX] 에러가 발생했던 date_time_this_week 대체 함수
-        def safe_date():
-            return fake.date_time_between(start_date='-7d', end_date='now')
-
-        def gen_backups():
-            backups = []
-            for i in range(random.randint(2, 6)):
-                dt = safe_date()
-                size = random.randint(50, 5000)
-                backups.append({
-                    "id": f"bk-{fake.hex_color()[1:]}-{i}",
-                    "date": dt.strftime("%Y-%m-%d %H:%M"),
-                    "size": f"{size}GB",
-                    "status": "SUCCESS"
-                })
-            return sorted(backups, key=lambda x: x['date'], reverse=True)
-
-        def gen_snapshots():
-            snaps = []
-            for i in range(random.randint(1, 4)):
-                dt = safe_date()
-                snaps.append({
-                    "id": f"snap-{random.randint(10000,99999)}",
-                    "date": dt.strftime("%H:%M:%S"),
-                    "desc": random.choice(["Pre-deploy", "Hourly", "Manual", "Post-Patch"]),
-                    "size": f"{random.randint(1, 100)}GB"
-                })
-            return snaps
+        TECH_STACK = {
+            "PAYMENT": { "db": "PostgreSQL", "store": "Block-NVMe" },
+            "AUTH":    { "db": "Redis-Cluster", "store": "Mem-Only" },
+            "AI":      { "db": "Vector-DB", "store": "Obj-Store" },
+            "CDN":     { "db": "Edge-KV", "store": "SSD-Raid" }
+        }
 
         def gen_nodes():
             nodes = []
             for i in range(NODE_COUNT):
-                svc_type = random.choice(list(TECH_STACK.keys()))
-                tech = TECH_STACK[svc_type]
-                cluster = random.choice(CLUSTERS)
+                r_key = random.choice(list(REGIONS.keys()))
+                region = REGIONS[r_key]
+                svc = random.choice(list(TECH_STACK.keys()))
                 
-                # DB Metrics
-                db_size = random.randint(100, 9000)
-                db_used = random.randint(10, db_size - 50)
+                # 좌표 미세 조정 (군집 효과)
+                lat = region['lat'] + random.randint(-5, 5)
+                lon = region['lon'] + random.randint(-5, 5)
                 
                 nodes.append({
-                    "id": f"{svc_type}-{cluster}-{i:03d}",
-                    "type": svc_type,
-                    "cluster": cluster,
-                    "status": "ACTIVE",
-                    "tech": tech,
+                    "id": f"{svc}-{region['code']}-{i:03d}",
+                    "type": svc,
+                    "region": r_key,
+                    "pos": {"top": f"{lat}%", "left": f"{lon}%"},
+                    "status": "ACTIVE" if random.random() > 0.1 else "CRITICAL",
+                    "tech": TECH_STACK[svc],
                     "metrics": {
-                        "cpu": random.randint(5, 60),
-                        "mem": random.randint(20, 70),
-                        "temp": random.randint(40, 65),
-                        "db_total": db_size,
-                        "db_used": db_used,
-                        "conn": random.randint(50, 5000),
-                        "tps": random.randint(100, 20000),
-                        "latency": random.randint(1, 50)
+                        "cpu": random.randint(5, 90),
+                        "tps": random.randint(100, 5000),
+                        "latency": random.randint(10, 200)
                     },
-                    "backups": gen_backups(),
-                    "snapshots": gen_snapshots()
+                    "tokens": [fake.sha256()[:8] for _ in range(3)]
                 })
             
-            return {"timestamp": str(datetime.datetime.now()), "nodes": nodes}
+            return {
+                "generated_at": datetime.datetime.now().isoformat(),
+                "nodes": nodes
+            }
 
         if __name__ == "__main__":
             data = gen_nodes()
             with open("dashboard_data.json", "w") as f:
                 json.dump(data, f, indent=2)
-            print(f"✅ Generated Ultimate Data for {NODE_COUNT} nodes.")
+            print("✅ Global Data Generated.")
         EOF
         python db_engine.py
 
     # ----------------------------------------------------------------
-    # [Step 2] 데이터 저장
+    # [Step 2] 데이터 커밋 (저장소 반영)
     # ----------------------------------------------------------------
     - name: 💾 Commit Data
       run: |
-        git config --global user.name "Ops-Admin"
+        git config --global user.name "Ops-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
-        git commit -m "🚀 Ultimate Ops Update [$(date)]" || echo "No changes"
+        git commit -m "🌍 Global Ops Update [$(date)]" || echo "No changes"
         git push origin main || echo "Push skipped"
 
     # ----------------------------------------------------------------
-    # [Step 3] 프론트엔드 (SQL 콘솔, 복구 시뮬레이션, 차트 탑재)
+    # [Step 3] 프론트엔드 (Cache Busting & Map)
     # ----------------------------------------------------------------
-    - name: 🎨 Build Ultimate UI
+    - name: 🎨 Build Command Center
       shell: bash
       run: |
         mkdir -p _site
@@ -151,393 +124,201 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>GALAXY OPS: ULTIMATE</title>
+            <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+            <meta http-equiv="Pragma" content="no-cache">
+            <meta http-equiv="Expires" content="0">
+            
+            <title>GALAXY COMMAND</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
             <style>
-                body { background-color: #020617; color: #cbd5e1; font-family: 'Courier New', monospace; overflow: hidden; }
+                body { background-color: #020617; color: #94a3b8; font-family: 'Courier New', monospace; overflow: hidden; }
                 
-                /* Layout */
-                .layout { display: grid; grid-template-rows: 60px 1fr 30px; height: 100vh; }
-                .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; padding: 10px; overflow-y: auto; }
+                /* Grid Layout */
+                .layout { display: grid; grid-template-rows: 60px 1fr 200px 30px; height: 100vh; }
                 
-                /* Card */
-                .card { background: #0f172a; border: 1px solid #1e293b; padding: 10px; cursor: pointer; transition: all 0.2s; position: relative; }
-                .card:hover { border-color: #60a5fa; background: #1e293b; transform: translateY(-2px); z-index: 10; }
-                .card.active .status-dot { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-                
-                /* Modal */
-                .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 50; backdrop-filter: blur(5px); }
-                .modal-content { 
-                    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                    width: 85%; height: 85%; background: #0f172a; border: 1px solid #3b82f6; 
-                    display: grid; grid-template-rows: 45px 1fr; 
-                    box-shadow: 0 0 50px rgba(59, 130, 246, 0.3);
+                /* Map Area */
+                .map-container { position: relative; background: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 80%); overflow: hidden; border-bottom: 1px solid #334155; }
+                .map-grid { 
+                    position: absolute; width: 100%; height: 100%; 
+                    background-image: linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px);
+                    background-size: 40px 40px; opacity: 0.1;
                 }
+                .node-point { 
+                    position: absolute; width: 8px; height: 8px; border-radius: 50%; 
+                    background: #3b82f6; box-shadow: 0 0 10px #3b82f6; cursor: pointer; transition: all 0.3s; 
+                }
+                .node-point:hover { transform: scale(2); z-index: 100; background: #fff; }
+                .node-point.crit { background: #ef4444; box-shadow: 0 0 15px #ef4444; animation: pulse 1s infinite; }
                 
-                /* Tabs */
-                .tab-bar { display: flex; border-bottom: 1px solid #334155; background: #1e293b; }
-                .tab-btn { padding: 0 20px; height: 100%; display: flex; align-items: center; cursor: pointer; border-right: 1px solid #334155; font-size: 11px; font-weight: bold; }
-                .tab-btn:hover { background: #334155; color: white; }
-                .tab-btn.active { background: #0f172a; color: #3b82f6; border-bottom: 2px solid #3b82f6; }
+                /* Server List Area */
+                .server-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; padding: 10px; overflow-y: auto; background: #0f172a; }
+                .card { background: #1e293b; padding: 8px; border: 1px solid #334155; font-size: 10px; cursor: pointer; }
+                .card:hover { border-color: #60a5fa; background: #334155; }
                 
-                .tab-content { display: none; padding: 0; height: 100%; }
-                .tab-content.active { display: block; }
+                /* Animations */
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
                 
-                /* Terminal */
-                .terminal { background: #000; color: #22c55e; font-family: 'Courier New', monospace; padding: 10px; height: 100%; overflow-y: auto; font-size: 11px; }
-                .cmd-input { background: transparent; border: none; color: #fff; width: 80%; outline: none; }
-                
-                /* Visuals */
-                .bar-bg { width: 100%; background: #334155; height: 4px; overflow: hidden; }
-                .bar-fill { height: 100%; }
-                .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block; }
-                
-                /* Scrollbar */
-                ::-webkit-scrollbar { width: 6px; height: 6px; }
-                ::-webkit-scrollbar-thumb { background: #475569; }
+                /* DR Mode */
+                body.dr-mode { border: 4px solid #ef4444; }
+                body.dr-mode .map-container { filter: sepia(1) hue-rotate(-50deg) saturate(3); }
             </style>
         </head>
         <body class="layout">
             
-            <header class="flex justify-between items-center px-6 border-b border-slate-800 bg-slate-950">
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-network-wired text-blue-500 text-lg"></i>
-                    <h1 class="text-lg font-bold text-white tracking-widest">GALAXY <span class="text-blue-500">OPS ULTIMATE</span></h1>
+            <header class="flex justify-between items-center px-6 bg-slate-950 border-b border-slate-800">
+                <div class="flex items-center gap-4">
+                    <i class="fas fa-globe-americas text-2xl text-blue-600"></i>
+                    <div>
+                        <h1 class="text-xl font-bold text-white tracking-widest">GLOBAL <span class="text-blue-500">COMMAND</span></h1>
+                        <div class="text-[10px]">SYNC: <span id="sync-time" class="text-green-400">CONNECTING...</span></div>
+                    </div>
                 </div>
-                <div class="flex gap-4 text-xs font-mono">
-                    <div>NODES: <span class="text-white" id="stat-nodes">--</span></div>
-                    <div>STATUS: <span class="text-green-400">OPTIMAL</span></div>
+                <div class="flex gap-4 items-center">
+                    <button onclick="toggleDR()" class="border border-red-900 bg-red-900/20 text-red-500 px-4 py-2 hover:bg-red-900 hover:text-white transition font-bold text-xs rounded">
+                        <i class="fas fa-biohazard mr-2"></i> DR MODE
+                    </button>
+                    <button onclick="forceRefresh()" class="border border-blue-900 bg-blue-900/20 text-blue-500 px-4 py-2 hover:bg-blue-900 hover:text-white transition font-bold text-xs rounded">
+                        <i class="fas fa-sync mr-2"></i> REFRESH DATA
+                    </button>
                 </div>
             </header>
 
-            <div id="grid-container" class="grid-view custom-scroll"></div>
-
-            <footer class="flex items-center px-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-500">
-                <span class="animate-pulse mr-2">●</span> SYSTEM LIVE. CLICK NODES TO MANAGE.
-            </footer>
-
-            <div id="detail-modal" class="modal-overlay">
-                <div class="modal-content">
-                    <div class="tab-bar">
-                        <div class="px-4 flex items-center font-bold text-white border-r border-slate-700 w-48 bg-slate-900 text-xs">
-                            <i class="fas fa-cube mr-2 text-blue-400"></i> <span id="modal-title">ID</span>
-                        </div>
-                        <div class="tab-btn active" onclick="switchTab('overview')"><i class="fas fa-chart-line mr-2"></i> MONITOR</div>
-                        <div class="tab-btn" onclick="switchTab('db')"><i class="fas fa-database mr-2"></i> SQL CONSOLE</div>
-                        <div class="tab-btn" onclick="switchTab('backup')"><i class="fas fa-save mr-2"></i> BACKUP/RESTORE</div>
-                        <div class="tab-btn" onclick="switchTab('security')"><i class="fas fa-shield-alt mr-2"></i> SECURITY</div>
-                        <div class="flex-1"></div>
-                        <div class="tab-btn text-red-400 hover:bg-red-900/50" onclick="closeModal()">CLOSE</div>
-                    </div>
-
-                    <div id="tab-overview" class="tab-content active p-4">
-                        <div class="grid grid-cols-4 gap-4 h-full">
-                            <div class="col-span-1 space-y-4">
-                                <div class="bg-slate-800 p-3 border border-slate-700">
-                                    <div class="text-xs text-slate-400">CPU LOAD</div>
-                                    <div class="text-2xl font-bold text-white" id="ov-cpu">0%</div>
-                                    <div class="bar-bg mt-1"><div id="bar-ov-cpu" class="bar-fill bg-blue-500" style="width:0%"></div></div>
-                                </div>
-                                <div class="bg-slate-800 p-3 border border-slate-700">
-                                    <div class="text-xs text-slate-400">MEMORY</div>
-                                    <div class="text-2xl font-bold text-white" id="ov-mem">0%</div>
-                                    <div class="bar-bg mt-1"><div id="bar-ov-mem" class="bar-fill bg-purple-500" style="width:0%"></div></div>
-                                </div>
-                                <div class="bg-slate-800 p-3 border border-slate-700">
-                                    <div class="text-xs text-slate-400">DISK I/O</div>
-                                    <div class="text-2xl font-bold text-yellow-400" id="ov-io">0 MB/s</div>
-                                </div>
-                            </div>
-                            <div class="col-span-3 bg-slate-900 border border-slate-700 p-2 relative">
-                                <canvas id="liveChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-db" class="tab-content">
-                        <div class="flex flex-col h-full">
-                            <div class="bg-slate-800 p-2 border-b border-slate-700 flex justify-between items-center text-xs">
-                                <div><span class="text-green-400">●</span> Connected to <span id="db-name" class="font-bold text-white">DB</span></div>
-                                <div class="text-slate-400">Port: 5432 | SSL: On</div>
-                            </div>
-                            <div class="flex-1 terminal" id="sql-term" onclick="document.getElementById('sql-input').focus()">
-                                <div>Welcome to Galaxy SQL Monitor v5.2</div>
-                                <div>Type 'help' for commands.</div>
-                                <br>
-                                <div id="sql-history"></div>
-                                <div class="flex">
-                                    <span class="mr-2 text-blue-400">admin@db></span>
-                                    <input type="text" id="sql-input" class="cmd-input" autocomplete="off" onkeydown="handleSql(event)">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-backup" class="tab-content p-4 overflow-y-auto">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <h3 class="font-bold text-white text-xs">INCREMENTAL BACKUPS</h3>
-                                    <button class="px-2 py-1 text-[10px] bg-blue-900 border border-blue-700 text-blue-300 hover:bg-blue-800" onclick="runProcess('BACKUP')">RUN BACKUP</button>
-                                </div>
-                                <table class="w-full text-xs text-left border border-slate-700">
-                                    <thead class="bg-slate-800 text-slate-300"><tr><th class="p-2">ID</th><th class="p-2">DATE</th><th class="p-2">SIZE</th><th class="p-2">ACTION</th></tr></thead>
-                                    <tbody id="bk-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
-                                </table>
-                            </div>
-                            <div>
-                                <div class="flex justify-between mb-2">
-                                    <h3 class="font-bold text-white text-xs">SYSTEM SNAPSHOTS</h3>
-                                    <button class="px-2 py-1 text-[10px] bg-purple-900 border border-purple-700 text-purple-300 hover:bg-purple-800" onclick="runProcess('SNAPSHOT')">NEW SNAPSHOT</button>
-                                </div>
-                                <table class="w-full text-xs text-left border border-slate-700">
-                                    <thead class="bg-slate-800 text-slate-300"><tr><th class="p-2">ID</th><th class="p-2">DESC</th><th class="p-2">ACTION</th></tr></thead>
-                                    <tbody id="snap-list" class="bg-slate-900 divide-y divide-slate-800"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div id="proc-overlay" class="hidden mt-4 bg-slate-800 p-3 border border-slate-600">
-                            <div class="flex justify-between text-xs mb-1"><span id="proc-name">PROCESSING...</span><span id="proc-pct">0%</span></div>
-                            <div class="bar-bg"><div id="proc-bar" class="bar-fill bg-green-500" style="width:0%"></div></div>
-                        </div>
-                    </div>
-
-                    <div id="tab-security" class="tab-content p-4">
-                        <div class="grid grid-cols-3 gap-4 h-full">
-                            <div class="col-span-1 bg-slate-900 border border-red-900/30 p-4">
-                                <h3 class="text-red-400 font-bold mb-4 text-sm">THREAT LEVEL: LOW</h3>
-                                <div class="space-y-2 text-xs text-slate-400">
-                                    <div class="flex justify-between"><span>Firewall</span><span class="text-green-400">ACTIVE</span></div>
-                                    <div class="flex justify-between"><span>IPS/IDS</span><span class="text-green-400">SCANNING</span></div>
-                                    <div class="flex justify-between"><span>Vulnerability</span><span class="text-blue-400">0 FOUND</span></div>
-                                </div>
-                            </div>
-                            <div class="col-span-2 bg-black border border-slate-700 p-2 font-mono text-xs overflow-y-auto" id="sec-log">
-                                <div class="text-slate-500">Initializing Security Audit Daemon...</div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="map-container" id="world-map">
+                <div class="map-grid"></div>
+                <div class="absolute top-4 left-4 text-xs text-slate-500 font-mono">
+                    <div>> USEAST CLUSTER: ONLINE</div>
+                    <div>> EUWEST CLUSTER: ONLINE</div>
+                    <div>> APNORT CLUSTER: DEGRADED</div>
                 </div>
             </div>
 
+            <div class="server-list custom-scroll" id="grid-list">
+                </div>
+
+            <footer class="bg-black border-t border-slate-800 flex items-center px-4 text-[10px] font-mono text-slate-500">
+                <span class="mr-2 text-green-500">root@global-ops:~#</span>
+                <span id="term-log">tail -f /var/log/syslog</span>
+            </footer>
+
             <script>
-                // --- GLOBAL VARS ---
                 let nodes = [];
-                let currentNodeIdx = null;
-                let chartInstance = null;
-                const FALLBACK = { "nodes": [] };
+                let drMode = false;
 
                 async function init() {
-                    try {
-                        const res = await fetch('dashboard_data.json');
-                        if(!res.ok) throw new Error("Load fail");
-                        const data = await res.json();
-                        nodes = data.nodes;
-                    } catch(e) { nodes = FALLBACK.nodes; }
-                    
-                    document.getElementById('stat-nodes').innerText = nodes.length;
-                    renderGrid();
-                    
-                    // Live Logic
+                    await loadData();
+                    // Auto-refresh data every 60s (without page reload)
+                    setInterval(loadData, 60000);
+                    // Live Physics
                     setInterval(updatePhysics, 1000);
                 }
 
-                function renderGrid() {
-                    const grid = document.getElementById('grid-container');
-                    grid.innerHTML = nodes.map((n, i) => `
-                        <div class="card active" onclick="openModal(${i})">
-                            <div class="flex justify-between items-center mb-1">
-                                <div class="font-bold text-xs text-white truncate w-32">${n.id}</div>
-                                <div class="status-dot"></div>
+                // [핵심] Cache Busting Fetcher
+                async function loadData() {
+                    const statusEl = document.getElementById('sync-time');
+                    statusEl.innerText = "FETCHING...";
+                    
+                    try {
+                        // URL 끝에 타임스탬프(?v=...)를 붙여서 캐시 무시
+                        const res = await fetch('dashboard_data.json?v=' + Date.now());
+                        if(!res.ok) throw new Error("Network error");
+                        
+                        const data = await res.json();
+                        nodes = data.nodes;
+                        
+                        renderMap();
+                        renderList();
+                        
+                        const genTime = new Date(data.generated_at);
+                        const now = new Date();
+                        const diff = Math.floor((now - genTime) / 1000);
+                        statusEl.innerText = `UPDATED ${diff}s AGO`;
+                        statusEl.classList.replace('text-red-500', 'text-green-400');
+                        
+                    } catch(e) {
+                        console.error(e);
+                        // Fallback (빈 화면 방지)
+                        if(nodes.length === 0) generateFallback();
+                        statusEl.innerText = "OFFLINE MODE (LOCAL DATA)";
+                        statusEl.classList.replace('text-green-400', 'text-red-500');
+                    }
+                }
+
+                function generateFallback() {
+                    nodes = Array.from({length: 50}, (_, i) => ({
+                        id: `LOCAL-${i}`, type: "FALLBACK", region: "US-EAST", status: "ACTIVE",
+                        pos: { top: Math.random()*80+10+"%", left: Math.random()*80+10+"%" },
+                        tech: { db: "LocalDB" }, metrics: { cpu: 50, tps: 100 }
+                    }));
+                    renderMap();
+                    renderList();
+                }
+
+                function renderMap() {
+                    const map = document.getElementById('world-map');
+                    // Keep grid, remove nodes
+                    const grid = map.querySelector('.map-grid');
+                    map.innerHTML = ''; 
+                    map.appendChild(grid); 
+
+                    nodes.forEach((n, i) => {
+                        const el = document.createElement('div');
+                        el.className = `node-point ${n.status === 'CRITICAL' ? 'crit' : ''}`;
+                        el.style.top = n.pos.top;
+                        el.style.left = n.pos.left;
+                        el.title = `${n.id} [${n.status}]`;
+                        el.onclick = () => alert(`Node: ${n.id}\nDB: ${n.tech.db}\nCPU: ${n.metrics.cpu}%`);
+                        map.appendChild(el);
+                    });
+                }
+
+                function renderList() {
+                    const list = document.getElementById('grid-list');
+                    list.innerHTML = nodes.map(n => `
+                        <div class="card ${n.status === 'CRITICAL' ? 'border-red-500' : ''}">
+                            <div class="flex justify-between font-bold text-white mb-1">
+                                <span>${n.id}</span>
+                                <span class="${n.status==='CRITICAL'?'text-red-500':'text-green-500'}">●</span>
                             </div>
-                            <div class="text-[9px] text-blue-400 mb-2">${n.tech.db}</div>
-                            <div class="flex justify-between text-[9px] text-slate-500">
-                                <span>CPU: ${n.metrics.cpu}%</span>
-                                <span>DB: ${n.metrics.db_used}GB</span>
+                            <div class="text-slate-400">${n.tech.db}</div>
+                            <div class="flex justify-between mt-2 text-slate-500">
+                                <span>CPU: <span id="cpu-${n.id}">${n.metrics.cpu}%</span></span>
+                                <span>TPS: ${n.metrics.tps}</span>
                             </div>
                         </div>
                     `).join('');
                 }
 
-                // --- MODAL ---
-                window.openModal = function(idx) {
-                    currentNodeIdx = idx;
-                    const n = nodes[idx];
-                    document.getElementById('detail-modal').style.display = 'block';
-                    document.getElementById('modal-title').innerText = n.id;
-                    document.getElementById('db-name').innerText = n.tech.db;
-                    
-                    switchTab('overview'); // Default tab
-                    renderBackups(n.backups);
-                    renderSnapshots(n.snapshots);
-                    
-                    // Init Chart
-                    if(chartInstance) chartInstance.destroy();
-                    const ctx = document.getElementById('liveChart').getContext('2d');
-                    chartInstance = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: Array(20).fill(''),
-                            datasets: [{
-                                label: 'TPS',
-                                data: Array(20).fill(0).map(()=>Math.random()*100),
-                                borderColor: '#3b82f6',
-                                tension: 0.4,
-                                borderWidth: 1,
-                                pointRadius: 0
-                            }, {
-                                label: 'Latency',
-                                data: Array(20).fill(0).map(()=>Math.random()*50),
-                                borderColor: '#a855f7',
-                                tension: 0.4,
-                                borderWidth: 1,
-                                pointRadius: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            animation: false,
-                            plugins: { legend: { labels: { color: '#94a3b8', font:{size:10} } } },
-                            scales: { y: { grid: { color: '#1e293b' } }, x: { display: false } }
-                        }
-                    });
-
-                    startSecurityStream();
-                }
-
-                window.closeModal = function() {
-                    document.getElementById('detail-modal').style.display = 'none';
-                    currentNodeIdx = null;
-                }
-
-                window.switchTab = function(tab) {
-                    document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
-                    document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
-                    document.getElementById('tab-' + tab).classList.add('active');
-                    event.currentTarget.classList.add('active');
-                }
-
-                // --- TAB LOGIC ---
-                // 1. Overview Physics
                 function updatePhysics() {
-                    if(currentNodeIdx === null) return;
-                    const n = nodes[currentNodeIdx];
+                    nodes.forEach(n => {
+                        // Live Jitter
+                        n.metrics.cpu = Math.max(0, Math.min(100, n.metrics.cpu + Math.floor(Math.random()*5-2)));
+                        const el = document.getElementById(`cpu-${n.id}`);
+                        if(el) el.innerText = n.metrics.cpu + "%";
+                    });
                     
-                    // Update Values
-                    n.metrics.cpu = clamp(n.metrics.cpu + (Math.random()*6-3), 0, 100);
-                    n.metrics.tps = Math.max(0, Math.floor(n.metrics.tps + (Math.random()*200-100)));
-                    
-                    // DOM
-                    document.getElementById('ov-cpu').innerText = Math.floor(n.metrics.cpu) + "%";
-                    document.getElementById('bar-ov-cpu').style.width = n.metrics.cpu + "%";
-                    document.getElementById('ov-mem').innerText = n.metrics.mem + "%";
-                    document.getElementById('bar-ov-mem').style.width = n.metrics.mem + "%";
-                    document.getElementById('ov-io').innerText = Math.floor(Math.random()*500) + " MB/s";
-
-                    // Chart Update
-                    if(chartInstance) {
-                        const data0 = chartInstance.data.datasets[0].data;
-                        const data1 = chartInstance.data.datasets[1].data;
-                        data0.shift(); data0.push(n.metrics.tps / 100);
-                        data1.shift(); data1.push(n.metrics.latency + Math.random()*10);
-                        chartInstance.update();
+                    // Random Logs
+                    if(Math.random() > 0.9) {
+                        const logs = ["Syncing replica...", "Health check OK", "Auth token refreshed", "Packet loss detected"];
+                        const logEl = document.getElementById('term-log');
+                        logEl.innerText = `> ${logs[Math.floor(Math.random()*logs.length)]} [${new Date().toLocaleTimeString()}]`;
                     }
                 }
 
-                // 2. SQL Console
-                window.handleSql = function(e) {
-                    if(e.key === 'Enter') {
-                        const val = e.target.value;
-                        const hist = document.getElementById('sql-history');
-                        hist.innerHTML += `<div><span class="text-blue-400">admin@db></span> ${val}</div>`;
-                        
-                        let resp = "";
-                        if(val.toLowerCase().includes('select')) {
-                            resp = `<div class="text-white mb-2">
-                                ID | STATUS | LOAD<br>
-                                ---+--------+-----<br>
-                                01 | ACTIVE | 23%<br>
-                                02 | ACTIVE | 45%<br>
-                                <span class="text-gray-500">(2 rows affected)</span>
-                            </div>`;
-                        } else if(val === 'help') {
-                            resp = `<div class="text-gray-400 mb-2">Available: SELECT, INSERT, UPDATE, DELETE, SHUTDOWN</div>`;
-                        } else {
-                            resp = `<div class="text-red-400 mb-2">Error: Syntax error near '${val}'</div>`;
-                        }
-                        
-                        hist.innerHTML += resp;
-                        e.target.value = '';
-                        document.getElementById('sql-term').scrollTop = document.getElementById('sql-term').scrollHeight;
+                window.forceRefresh = function() {
+                    loadData();
+                }
+
+                window.toggleDR = function() {
+                    drMode = !drMode;
+                    if(drMode) {
+                        document.body.classList.add('dr-mode');
+                        alert("⚠️ DISASTER RECOVERY PROTOCOL INITIATED ⚠️\nRerouting global traffic...");
+                    } else {
+                        document.body.classList.remove('dr-mode');
                     }
                 }
 
-                // 3. Backup & Snapshot
-                function renderBackups(list) {
-                    document.getElementById('bk-list').innerHTML = list.map(b => `
-                        <tr class="hover:bg-slate-800 border-b border-slate-800">
-                            <td class="p-2 font-mono text-blue-300">${b.id}</td>
-                            <td class="p-2">${b.date}</td>
-                            <td class="p-2">${b.size}</td>
-                            <td class="p-2"><button onclick="runProcess('RESTORE')" class="text-green-400 hover:text-white underline">RESTORE</button></td>
-                        </tr>
-                    `).join('');
-                }
-                function renderSnapshots(list) {
-                    document.getElementById('snap-list').innerHTML = list.map(s => `
-                        <tr class="hover:bg-slate-800 border-b border-slate-800">
-                            <td class="p-2 font-mono text-purple-300">${s.id}</td>
-                            <td class="p-2">${s.desc}</td>
-                            <td class="p-2"><button onclick="runProcess('ROLLBACK')" class="text-yellow-400 hover:text-white underline">ROLLBACK</button></td>
-                        </tr>
-                    `).join('');
-                }
-
-                window.runProcess = function(type) {
-                    const div = document.getElementById('proc-overlay');
-                    const bar = document.getElementById('proc-bar');
-                    const txt = document.getElementById('proc-pct');
-                    const name = document.getElementById('proc-name');
-                    
-                    div.classList.remove('hidden');
-                    name.innerText = type + " IN PROGRESS...";
-                    
-                    let w = 0;
-                    const iv = setInterval(() => {
-                        w += 2;
-                        bar.style.width = w + "%";
-                        txt.innerText = w + "%";
-                        if(w >= 100) {
-                            clearInterval(iv);
-                            name.innerText = "COMPLETED.";
-                            setTimeout(() => div.classList.add('hidden'), 1000);
-                        }
-                    }, 30);
-                }
-
-                // 4. Security Log
-                function startSecurityStream() {
-                    const log = document.getElementById('sec-log');
-                    log.innerHTML = '';
-                    const msgs = [
-                        "Scanning port 443... OK", "Checking SSL cert... VALID", 
-                        "Analyzing packet flow... NORMAL", "IPS: No signatures matched"
-                    ];
-                    msgs.forEach(m => log.innerHTML += `<div class="mb-1 text-green-500">> ${m}</div>`);
-                    
-                    setInterval(() => {
-                        if(Math.random() > 0.8 && document.getElementById('tab-security').classList.contains('active')) {
-                            const newMsg = `> Traffic analysis: ${Math.floor(Math.random()*1000)} packets/s`;
-                            log.innerHTML += `<div class="mb-1 text-blue-400">${newMsg}</div>`;
-                            log.scrollTop = log.scrollHeight;
-                        }
-                    }, 1000);
-                }
-
-                function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
                 init();
             </script>
         </body>
@@ -546,17 +327,12 @@ jobs:
 
     - name: 🚀 Deploy Pages
       uses: actions/upload-pages-artifact@v3
-      with:
-        path: _site/
+      with: { path: _site/ }
 
   deploy:
-    needs: build-simulate-deploy
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build-deploy
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: ${{ steps.deployment.outputs.page_url }} }
     runs-on: ubuntu-latest
     steps:
       - name: 🚀 Deploy
