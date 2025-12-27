@@ -1,8 +1,8 @@
-name: 👁️ Ops Control Center (Full Process Visibility)
+name: ♾️ Massive Ops Control (Big Data Edition)
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # 6시간마다 갱신
+    - cron: '0 */4 * * *' # 4시간마다 대량 데이터 갱신
   push:
     branches: [ "main" ]
   workflow_dispatch:
@@ -10,14 +10,14 @@ on:
 permissions: read-all
 
 concurrency:
-  group: "ops-control-visual"
+  group: "ops-control-massive"
   cancel-in-progress: true
 
 jobs:
   # ==============================================================================
-  # [Job 1] 전체 프로세스 실행 및 시각화 데이터 생성
+  # [Job 1] 대규모 데이터 생산 및 시각화 파이프라인
   # ==============================================================================
-  process-visualizer:
+  massive-data-ops:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -38,13 +38,13 @@ jobs:
     - name: 📦 Install Tools
       run: pip install --no-cache-dir flask flask-cors gunicorn faker pandas requests bandit
 
-    # 4. 🏭 데이터 엔진 (파이프라인 추적 데이터 추가)
-    - name: 🏭 Run Process Engine
+    # 4. 🏭 대용량 데이터 엔진 (Big Data Engine)
+    - name: 🏭 Run Massive Data Engine
       shell: bash
       run: |
         cat <<'EOF' > db_engine.py
-        import os, json, uuid, secrets, time
-        from datetime import datetime, date, timedelta
+        import os, json, uuid, secrets, random
+        from datetime import datetime, timedelta
         from decimal import Decimal
         from faker import Faker
         
@@ -52,11 +52,12 @@ jobs:
         fake = Faker()
         DATA_FILE = "dashboard_data.json"
         
+        # 설정: 생성할 서버의 수 (대량 생성)
+        SERVER_COUNT = 500  
+        
         def json_serial(obj):
-            if isinstance(obj, (datetime, date)):
-                return obj.isoformat()
-            if isinstance(obj, Decimal):
-                return float(obj)
+            if isinstance(obj, (datetime, date)): return obj.isoformat()
+            if isinstance(obj, Decimal): return float(obj)
             raise TypeError (f"Type {type(obj)} not serializable")
 
         def load_existing_data():
@@ -66,70 +67,94 @@ jobs:
                 except: return None
             return None
 
-        # [NEW] 파이프라인 단계별 상태 생성
+        # 파이프라인 단계 시각화 데이터
         def gen_pipeline_steps():
             now = datetime.now()
             return [
-                {"step": "DATA GEN", "status": "SUCCESS", "time": (now - timedelta(seconds=45)).strftime("%H:%M:%S")},
-                {"step": "SECURITY SCAN", "status": "PASSED", "time": (now - timedelta(seconds=30)).strftime("%H:%M:%S")},
-                {"step": "UNIT TEST", "status": "PASSED", "time": (now - timedelta(seconds=15)).strftime("%H:%M:%S")},
-                {"step": "DEPLOYMENT", "status": "PENDING", "time": "IN PROGRESS"} 
+                {"step": "DATA MINING", "status": "SUCCESS", "time": (now - timedelta(seconds=60)).strftime("%H:%M:%S")},
+                {"step": "ETL PROCESS", "status": "SUCCESS", "time": (now - timedelta(seconds=45)).strftime("%H:%M:%S")},
+                {"step": "SECURITY AUDIT", "status": "PASSED", "time": (now - timedelta(seconds=20)).strftime("%H:%M:%S")},
+                {"step": "VISUALIZATION", "status": "RENDERING", "time": "LIVE"} 
             ]
 
-        def gen_services():
+        # 대량 서비스 생성 로직
+        def gen_massive_services():
             services = []
-            regions = ["KR-Seoul", "US-East", "EU-West"]
-            domains = ["Payment", "Auth", "Order", "Delivery"]
-            critical_count = 0
-            active_count = 0
+            regions = ["KR-Seoul", "US-East", "US-West", "EU-Frankfurt", "EU-London", "AP-Tokyo", "AP-Singapore"]
+            clusters = ["Alpha", "Beta", "Gamma", "Delta", "Omega"]
             
-            for r in regions:
-                for d in domains:
-                    is_down = secure_rng.random() < 0.15
-                    status = "CRITICAL" if is_down else "ACTIVE"
-                    if is_down: critical_count += 1
-                    else: active_count += 1
-                    
-                    svc_id = f"{d}-{r}-{secure_rng.randint(100,999)}"
-                    events = []
-                    if is_down:
-                        events.append({"ts": str(datetime.now()), "level": "ERROR", "msg": "Latency > 2000ms"})
-                    else:
-                        events.append({"ts": str(datetime.now()), "level": "INFO", "msg": "Health check ok"})
-                    
-                    services.append({
-                        "id": svc_id, "region": r, "domain": d, "status": status, 
-                        "events": events
-                    })
-            return services, active_count, critical_count
+            critical_cnt = 0
+            warning_cnt = 0
+            active_cnt = 0
+            
+            print(f"Generating {SERVER_COUNT} service nodes...")
+            
+            for i in range(SERVER_COUNT):
+                r = secure_rng.choice(regions)
+                c = secure_rng.choice(clusters)
+                
+                # 랜덤 메트릭 생성
+                cpu = secure_rng.randint(5, 99)
+                mem = secure_rng.randint(10, 95)
+                latency = secure_rng.randint(10, 500)
+                
+                # 상태 결정 로직
+                status = "ACTIVE"
+                if cpu > 90 or mem > 90: 
+                    status = "CRITICAL"
+                    critical_cnt += 1
+                elif cpu > 70 or latency > 300:
+                    status = "WARNING"
+                    warning_cnt += 1
+                else:
+                    active_cnt += 1
+                
+                svc_id = f"{c}-{r}-{i:04d}"
+                
+                services.append({
+                    "id": svc_id,
+                    "region": r,
+                    "cluster": c,
+                    "status": status,
+                    "metrics": {
+                        "cpu": cpu,
+                        "mem": mem,
+                        "lat": latency,
+                        "net_in": f"{secure_rng.randint(10, 900)}Mbps",
+                        "net_out": f"{secure_rng.randint(10, 900)}Mbps"
+                    },
+                    "last_log": f"Daemon process pid:{secure_rng.randint(1000,9999)} state changed."
+                })
+                
+            return services, {"active": active_cnt, "warning": warning_cnt, "critical": critical_cnt}
 
         if __name__ == "__main__":
-            print("🚀 Starting Process Engine...")
+            print("🚀 Starting Massive Data Engine...")
             old_data = load_existing_data()
             if old_data is None: old_data = {"history": []}
             
-            services, active, critical = gen_services()
-            pipeline = gen_pipeline_steps() # 파이프라인 데이터 생성
+            services, stats = gen_massive_services()
+            pipeline = gen_pipeline_steps()
             
-            # 히스토리 기록
+            # 히스토리 기록 (대시보드 차트용)
             history = old_data.get("history", [])
             history.append({
                 "ts": datetime.now().strftime("%H:%M"),
-                "active": active,
-                "critical": critical
+                "stats": stats
             })
-            if len(history) > 20: history = history[-20:]
+            if len(history) > 30: history = history[-30:] # 최근 30개 포인트 유지
             
             final_data = {
                 "generated_at": str(datetime.now()),
-                "pipeline": pipeline, # 시각화용 파이프라인 데이터 포함
+                "pipeline": pipeline,
+                "summary": stats,
                 "history": history,
                 "services": services
             }
             
             with open(DATA_FILE, "w") as f:
-                json.dump(final_data, f, default=json_serial, indent=2)
-            print("✅ Process Completed.")
+                json.dump(final_data, f, default=json_serial, indent=None) # 대용량이므로 indent 제거하여 용량 절약
+            print("✅ Massive Data Generation Completed.")
         EOF
         
         python db_engine.py
@@ -138,22 +163,22 @@ jobs:
     - name: 🕵️ Run Security Audit
       run: bandit -r db_engine.py -s B101,B311 || true
 
-    # 6. 데이터 저장 (강제 추가 및 Rebase)
+    # 6. 데이터 저장 (충돌 방지 및 대량 파일 처리)
     - name: 💾 Commit & Push Data
       run: |
-        git config --global user.name "Process-Bot"
+        git config --global user.name "BigData-Bot"
         git config --global user.email "bot@noreply.github.com"
         git add -f dashboard_data.json
         if git diff --staged --quiet; then
           echo "No changes."
         else
-          git commit -m "UPDATE: System Process Log [$(date)]"
+          git commit -m "📊 Big Data Update: 500+ Nodes [$(date)]"
           git pull --rebase --autostash
           git push
         fi
 
-    # 7. UI 빌드 (파이프라인 시각화 포함)
-    - name: 🎨 Build Visual Dashboard
+    # 7. UI 빌드 (고밀도 대시보드)
+    - name: 🎨 Build High-Density Dashboard
       shell: bash
       run: |
         mkdir -p _web_portal/templates
@@ -163,154 +188,171 @@ jobs:
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>OPS PROCESS VISUALIZER</title>
+            <title>MASSIVE OPS CONTROL</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
-                body { background-color: #0b1121; color: #e2e8f0; font-family: 'Courier New', monospace; overflow: hidden; }
-                .scroll-y { overflow-y: auto; height: 100%; }
+                /* Cyberpunk / High-Density Style */
+                body { background-color: #050505; color: #a3a3a3; font-family: 'Consolas', 'Monaco', monospace; overflow: hidden; font-size: 11px; }
                 
-                /* Status Colors */
-                .st-active { color: #4ade80; text-shadow: 0 0 5px #4ade80; }
-                .st-critical { color: #f87171; text-shadow: 0 0 5px #f87171; animation: blink 1s infinite; }
-                @keyframes blink { 50% { opacity: 0.5; } }
+                /* Grid Layout */
+                .dashboard-grid { display: grid; grid-template-rows: 40px 120px 1fr 150px; height: 100vh; gap: 2px; }
                 
-                /* Process Step Bar */
-                .step-box { border: 1px solid #334155; padding: 10px; flex: 1; text-align: center; background: #0f172a; }
-                .step-success { border-bottom: 3px solid #4ade80; color: #4ade80; }
-                .step-pending { border-bottom: 3px solid #fbbf24; color: #fbbf24; }
+                /* Colors */
+                .bg-panel { background: #0a0a0a; border: 1px solid #1f1f1f; }
+                .text-crit { color: #ff4444; text-shadow: 0 0 3px #ff0000; }
+                .text-warn { color: #ffbb33; }
+                .text-good { color: #00cc66; }
+                .border-crit { border-color: #ff4444; }
                 
-                /* Scrollbar */
-                ::-webkit-scrollbar { width: 6px; }
-                ::-webkit-scrollbar-thumb { background: #334155; }
+                /* Custom Scroll */
+                ::-webkit-scrollbar { width: 6px; height: 6px; }
+                ::-webkit-scrollbar-thumb { background: #333; }
+                ::-webkit-scrollbar-track { background: #000; }
+                
+                /* Table Styling */
+                table { border-collapse: collapse; width: 100%; }
+                th { position: sticky; top: 0; background: #111; z-index: 10; padding: 4px; text-align: left; border-bottom: 1px solid #333; color: #666; }
+                td { padding: 2px 4px; border-bottom: 1px solid #111; white-space: nowrap; }
+                tr:hover { background: #1a1a1a; cursor: crosshair; }
+                
+                /* Progress Bars */
+                .bar-bg { background: #222; height: 4px; width: 100%; display: inline-block; }
+                .bar-fill { height: 100%; }
             </style>
         </head>
-        <body class="flex flex-col h-screen">
-            <div id="pipeline-container" class="flex justify-between gap-2 p-2 bg-slate-900 border-b border-slate-700 h-24">
+        <body class="dashboard-grid">
+            
+            <header class="bg-panel flex items-center justify-between px-4">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-lg font-bold text-white tracking-widest">♾️ MASSIVE <span class="text-blue-600">DATA OPS</span></h1>
+                    <span class="text-[10px] bg-blue-900/30 text-blue-400 px-2 border border-blue-900">NODE COUNT: <span id="total-nodes">0</span></span>
                 </div>
+                <div class="flex gap-2" id="pipeline-steps"></div>
+            </header>
 
-            <div class="flex flex-1 overflow-hidden">
-                <div class="w-3/4 flex flex-col border-r border-slate-700">
-                    <header class="p-4 flex justify-between items-center bg-slate-800/50">
-                        <h1 class="text-2xl font-bold tracking-widest">SYSTEM <span class="text-blue-500">VISUALIZER</span></h1>
-                        <div class="text-xs text-slate-400">LAST UPDATE: <span id="last-update" class="text-white">...</span></div>
-                    </header>
-                    
-                    <div class="h-1/3 p-4 border-b border-slate-700">
-                        <canvas id="trendChart"></canvas>
-                    </div>
-                    
-                    <div class="flex-1 scroll-y p-4">
-                        <table class="w-full text-left text-sm">
-                            <thead class="text-slate-500 sticky top-0 bg-[#0b1121] border-b border-slate-700">
-                                <tr><th class="p-3">SERVICE ID</th><th class="p-3">REGION</th><th class="p-3">PROCESS STATE</th></tr>
-                            </thead>
-                            <tbody id="svc-table" class="divide-y divide-slate-800"></tbody>
-                        </table>
-                    </div>
+            <section class="grid grid-cols-4 gap-1 px-1">
+                <div class="bg-panel p-2 flex flex-col justify-center items-center">
+                    <div class="text-2xl font-bold text-white" id="val-active">0</div>
+                    <div class="text-[10px] text-green-500">ACTIVE NODES</div>
                 </div>
+                <div class="bg-panel p-2 flex flex-col justify-center items-center">
+                    <div class="text-2xl font-bold text-warn" id="val-warn">0</div>
+                    <div class="text-[10px] text-yellow-500">WARNING NODES</div>
+                </div>
+                <div class="bg-panel p-2 flex flex-col justify-center items-center border border-red-900/30">
+                    <div class="text-2xl font-bold text-crit" id="val-crit">0</div>
+                    <div class="text-[10px] text-red-500">CRITICAL NODES</div>
+                </div>
+                <div class="bg-panel p-1 relative">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </section>
 
-                <div class="w-1/4 flex flex-col bg-slate-900">
-                    <div class="p-3 bg-slate-800 font-bold text-xs text-slate-400 border-b border-slate-700">🖥️ SYSTEM BOOT LOGS</div>
-                    <div class="flex-1 scroll-y p-3 font-mono text-[10px] space-y-1" id="boot-logs">
-                        <div class="text-slate-500">Waiting for data stream...</div>
-                    </div>
-                    
-                    <div class="p-3 bg-slate-800 font-bold text-xs text-slate-400 border-y border-slate-700">🚨 ERROR ALERTS</div>
-                    <div class="h-1/3 scroll-y p-3 space-y-2" id="error-logs"></div>
-                </div>
-            </div>
+            <section class="bg-panel overflow-auto mx-1 relative">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th style="width:120px">ID</th>
+                            <th style="width:80px">REGION</th>
+                            <th style="width:60px">STATUS</th>
+                            <th style="width:100px">CPU LOAD</th>
+                            <th style="width:100px">MEMORY</th>
+                            <th style="width:80px">LATENCY</th>
+                            <th>NET I/O</th>
+                            <th class="text-right">LAST LOG MESSAGE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grid-body" class="font-mono"></tbody>
+                </table>
+            </section>
+
+            <footer class="bg-panel mx-1 mb-1 p-2 flex flex-col">
+                <div class="text-[10px] font-bold text-slate-500 border-b border-slate-800 mb-1">📢 SYSTEM BROADCAST STREAM</div>
+                <div class="flex-1 overflow-y-auto space-y-1" id="log-stream"></div>
+            </footer>
 
             <script>
-                async function loadData() {
+                async function init() {
                     const res = await fetch('/api/stats').catch(()=>fetch('dashboard_data.json'));
                     const data = await res.json();
                     
-                    document.getElementById('last-update').innerText = data.generated_at;
-                    
-                    renderPipeline(data.pipeline);
-                    renderTable(data.services);
+                    renderHeader(data);
+                    renderSummary(data.summary);
+                    renderGrid(data.services);
                     renderChart(data.history);
-                    renderLogs(data.services, data.pipeline);
+                    startLogStream(data.services);
                 }
 
-                // 1. Render Pipeline Steps (Top Bar)
-                function renderPipeline(steps) {
-                    const container = document.getElementById('pipeline-container');
-                    container.innerHTML = '';
-                    if(!steps) return;
-                    
-                    steps.forEach(s => {
-                        const style = s.status === 'SUCCESS' || s.status === 'PASSED' ? 'step-success' : 'step-pending';
-                        const icon = s.status === 'SUCCESS' || s.status === 'PASSED' ? '✔' : '⚡';
-                        container.innerHTML += `
-                        <div class="step-box ${style} flex flex-col justify-center">
-                            <div class="text-xs opacity-70">${s.step}</div>
-                            <div class="text-lg font-bold">${icon} ${s.status}</div>
-                            <div class="text-[10px] opacity-50">${s.time}</div>
+                function renderHeader(data) {
+                    document.getElementById('total-nodes').innerText = data.services.length;
+                    const p = document.getElementById('pipeline-steps');
+                    p.innerHTML = '';
+                    data.pipeline.forEach(step => {
+                        const color = step.status === 'SUCCESS' || step.status === 'PASSED' ? 'text-green-400' : 'text-blue-400';
+                        p.innerHTML += `<div class="bg-[#111] px-2 py-1 border border-[#222]">
+                            <span class="text-white font-bold">${step.step}</span>: <span class="${color}">${step.status}</span>
                         </div>`;
                     });
                 }
 
-                // 2. Render Service Table
-                function renderTable(services) {
-                    const tbody = document.getElementById('svc-table');
-                    tbody.innerHTML = '';
+                function renderSummary(s) {
+                    document.getElementById('val-active').innerText = s.active;
+                    document.getElementById('val-warn').innerText = s.warning;
+                    document.getElementById('val-crit').innerText = s.critical;
+                }
+
+                function renderGrid(services) {
+                    const tbody = document.getElementById('grid-body');
+                    // 대량 데이터 렌더링 성능을 위해 HTML 문자열 한 번에 구성
+                    let html = '';
                     services.forEach(svc => {
-                        const color = svc.status === 'CRITICAL' ? 'st-critical' : 'st-active';
-                        tbody.innerHTML += `
-                        <tr class="hover:bg-slate-800/50 transition">
-                            <td class="p-2 text-slate-300 font-bold">${svc.id}</td>
-                            <td class="p-2 text-xs text-slate-500">${svc.region}</td>
-                            <td class="p-2 ${color} text-xs">[ ${svc.status} ]</td>
+                        let stClass = 'text-good';
+                        if(svc.status === 'CRITICAL') stClass = 'text-crit font-bold';
+                        if(svc.status === 'WARNING') stClass = 'text-warn';
+                        
+                        // CPU Bar Color
+                        let cpuColor = '#00cc66';
+                        if(svc.metrics.cpu > 70) cpuColor = '#ffbb33';
+                        if(svc.metrics.cpu > 90) cpuColor = '#ff4444';
+
+                        html += `
+                        <tr>
+                            <td class="text-white">${svc.id}</td>
+                            <td>${svc.region}</td>
+                            <td class="${stClass}">${svc.status}</td>
+                            <td>
+                                <div class="flex items-center gap-1">
+                                    <span class="w-6 text-right">${svc.metrics.cpu}%</span>
+                                    <div class="bar-bg"><div class="bar-fill" style="width:${svc.metrics.cpu}%; background:${cpuColor}"></div></div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-1">
+                                    <span class="w-6 text-right">${svc.metrics.mem}%</span>
+                                    <div class="bar-bg"><div class="bar-fill" style="width:${svc.metrics.mem}%; background:#3b82f6"></div></div>
+                                </div>
+                            </td>
+                            <td>${svc.metrics.lat}ms</td>
+                            <td class="text-[9px] text-slate-500">⬇${svc.metrics.net_in} ⬆${svc.metrics.net_out}</td>
+                            <td class="text-right text-slate-600 italic">${svc.last_log}</td>
                         </tr>`;
                     });
+                    tbody.innerHTML = html;
                 }
 
-                // 3. Render Logs (Boot & Error)
-                function renderLogs(services, pipeline) {
-                    const bootBox = document.getElementById('boot-logs');
-                    const errBox = document.getElementById('error-logs');
-                    
-                    // Boot Logs (Simulated from pipeline data)
-                    bootBox.innerHTML = '';
-                    if(pipeline) {
-                        pipeline.forEach(p => {
-                            bootBox.innerHTML += `<div class="text-green-400"> > [${p.time}] PROCESS: ${p.step} initialized... OK</div>`;
-                        });
-                    }
-                    bootBox.innerHTML += `<div class="text-blue-400"> > [NOW] Dashboard rendering complete.</div>`;
-                    
-                    // Error Logs
-                    errBox.innerHTML = '';
-                    const errs = services.filter(s => s.status === 'CRITICAL');
-                    if(errs.length === 0) errBox.innerHTML = '<div class="text-center text-slate-600 mt-4">No Active Alerts</div>';
-                    
-                    errs.forEach(s => {
-                        errBox.innerHTML += `
-                        <div class="bg-red-900/10 border-l-2 border-red-500 p-2 text-[10px] text-red-200">
-                            <div class="font-bold">${s.id}</div>
-                            <div>${s.events[0].msg}</div>
-                        </div>`;
-                    });
-                }
-
-                // 4. Render Chart
                 function renderChart(history) {
                     if(!history) return;
-                    const ctx = document.getElementById('trendChart').getContext('2d');
+                    const ctx = document.getElementById('mainChart').getContext('2d');
                     new Chart(ctx, {
                         type: 'line',
                         data: {
                             labels: history.map(h => h.ts),
-                            datasets: [{
-                                label: 'System Load',
-                                data: history.map(h => h.active),
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                fill: true,
-                                tension: 0.4
-                            }]
+                            datasets: [
+                                { label: 'Active', data: history.map(h => h.stats.active), borderColor: '#00cc66', pointRadius: 0, tension: 0.2 },
+                                { label: 'Warning', data: history.map(h => h.stats.warning), borderColor: '#ffbb33', pointRadius: 0, tension: 0.2 },
+                                { label: 'Critical', data: history.map(h => h.stats.critical), borderColor: '#ff4444', pointRadius: 0, tension: 0.2 }
+                            ]
                         },
                         options: {
                             responsive: true,
@@ -318,19 +360,37 @@ jobs:
                             plugins: { legend: { display: false } },
                             scales: {
                                 x: { display: false },
-                                y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
-                            }
+                                y: { display: false }
+                            },
+                            animation: false
                         }
                     });
                 }
-                
-                loadData();
+
+                function startLogStream(services) {
+                    const stream = document.getElementById('log-stream');
+                    // Simulate live streaming logs from the static data
+                    setInterval(() => {
+                        const randomSvc = services[Math.floor(Math.random() * services.length)];
+                        const time = new Date().toISOString().split('T')[1].split('.')[0];
+                        const logColor = randomSvc.status === 'CRITICAL' ? 'text-red-400' : 'text-slate-400';
+                        
+                        const logLine = document.createElement('div');
+                        logLine.className = `font-mono ${logColor}`;
+                        logLine.innerHTML = `<span class="opacity-50">[${time}]</span> ${randomSvc.id} :: ${randomSvc.metrics.cpu}% Load - ${randomSvc.last_log}`;
+                        
+                        stream.prepend(logLine);
+                        if(stream.children.length > 50) stream.lastChild.remove();
+                    }, 800);
+                }
+
+                init();
             </script>
         </body>
         </html>
         EOF
 
-    # 8. 빌드 및 배포 준비
+    # 8. 배포용 빌드
     - name: 🧪 Build & Publish
       run: |
         cat <<'EOF' > _web_portal/app.py
@@ -362,7 +422,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: process-visualizer
+    needs: massive-data-ops
     permissions:
       pages: write
       id-token: write
