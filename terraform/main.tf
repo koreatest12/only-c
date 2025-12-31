@@ -1,69 +1,47 @@
-# ---------------------------------------------------------
-# 1. OIDC 공급자 생성 (에러 해결의 핵심)
-# ---------------------------------------------------------
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  # GitHub의 공식 OIDC 지문(Thumbprint)입니다. (고정값)
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+# 1. 파일 읽기 및 디코딩
+locals {
+  # 다운로드된 JSON 파일을 읽어서 객체로 변환
+  config_data = jsondecode(file("${path.module}/mass_config.json"))
+  
+  # DB 목록 추출 (JSON 구조에 따라 조정)
+  db_list = try(local.config_data.databases, [])
+  
+  # 디스크 목록 추출
+  disk_list = try(local.config_data.disks, [])
 }
 
-# ---------------------------------------------------------
-# 2. GitHub Actions가 사용할 역할(Role) 생성
-# ---------------------------------------------------------
-resource "aws_iam_role" "github_action_role" {
-  name = "GitHubAction-Infra-Role"
-
-  # 신뢰 관계 정책 (GitHub의 특정 리포지토리만 접속 허용)
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
-        }
-        Condition = {
-          StringLike = {
-            # [중요] 본인의 ID와 리포지토리명으로 정확히 제한
-            "token.actions.githubusercontent.com:sub": "repo:koreatest12/only-c:*"
-          }
-        }
-      }
-    ]
-  })
+variable "action_type" {
+  description = "워크플로우에서 선택한 작업 유형"
+  type        = string
 }
 
-# ---------------------------------------------------------
-# 3. 역할에 권한 부여 (DB, EC2 등을 생성할 수 있는 권한)
-# ---------------------------------------------------------
-resource "aws_iam_role_policy" "github_action_policy" {
-  name = "GitHubAction-Infra-Policy"
-  role = aws_iam_role.github_action_role.id
+# 2. DB 대량 생성 (다운로드된 정보 기반)
+resource "aws_db_instance" "mass_db" {
+  # action_type이 create_db일 때만 작동하며, JSON 내의 모든 DB를 순회함
+  for_each = var.action_type == "create_db" ? { for db in local.db_list : db.id => db } : {}
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ec2:*",
-          "rds:*",
-          "s3:*",
-          "iam:*",
-          "dynamodb:*"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
+  identifier        = each.value.id          # JSON의 id 값 (예: db-main-01)
+  allocated_storage = each.value.size_gb     # JSON의 size_gb 값 (예: 100)
+  instance_class    = each.value.class       # JSON의 class 값 (예: db.t3.medium)
+  engine            = "mysql"
+  username          = "admin"
+  password          = "password1234"
+  skip_final_snapshot = true
+  
+  tags = {
+    Owner = each.value.owner
+    Team  = "DevOps"
+  }
 }
 
-# ---------------------------------------------------------
-# 4. 출력값 (워크플로우에 넣을 Role ARN 확인용)
-# ---------------------------------------------------------
-output "role_arn" {
-  value       = aws_iam_role.github_action_role.arn
-  description = "GitHub Actions 워크플로우 파일에 붙여넣을 ARN"
+# 3. 디스크 대량 생성
+resource "aws_ebs_volume" "mass_disk" {
+  for_each = var.action_type == "add_disk" ? { for disk in local.disk_list : disk.id => disk } : {}
+
+  availability_zone = "ap-northeast-2a"
+  size              = each.value.size_gb
+  
+  tags = {
+    Name = each.value.id
+  }
 }
