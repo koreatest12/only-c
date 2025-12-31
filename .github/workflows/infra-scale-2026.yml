@@ -1,135 +1,157 @@
-name: 🏗️ 2026 Final Mass Scale (Fix & Generate All)
+name: 🧨 Force Account Gen & Mass Deploy (LocalStack)
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: '배포 환경(개발/프로덕션)'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
-      action_type:
-        description: '활동활동 (작업 유형)'
-        required: true
-        default: 'create_db'
-        type: choice
-        options:
-          - create_db
-          - add_disk
-          - generate_mass_files # [NEW] 파일 대량 생성 전용 모드
-      resource_identifier:
-        description: '참가자 ID (예: only-c-main)'
-        required: true
-        default: 'only-c-main'
-        type: string
       quantity:
-        description: '대량 생성 수량 (파일/DB 개수)'
+        description: '강제 생성할 리소스 수량'
         required: true
-        default: '50' # 기본 50개 대량 생성
+        default: '50'
         type: string
-
-permissions:
-  contents: read
-  id-token: write
 
 jobs:
-  mass-execution:
-    name: ⚡ Mass Run (x${{ inputs.quantity }})
+  force-generation:
+    name: ⚡ Force Create Account & Resources
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
     
+    # [핵심] 가상의 AWS(LocalStack)를 러너 내부에서 강제 구동
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,ec2,rds,iam,sts
+          DEFAULT_REGION: ap-northeast-2
+          DEBUG: 1
+
     steps:
-      - name: 📂 Checkout Code
+      - name: 📂 Checkout
         uses: actions/checkout@v4
 
-      # ----------------------------------------------------------------
-      # [1] 대량 정보/파일/소스/테라폼 자동 생성 (AWS 접속 전 실행)
-      # ----------------------------------------------------------------
-      - name: 🏭 Generate Mass Assets (Files, Sources, TF)
+      # -----------------------------------------------------------
+      # 1. 계정 정보(자격 증명) 강제 생성 단계
+      # -----------------------------------------------------------
+      - name: 🔑 Force Generate Access Credentials
+        id: creds
         run: |
-          echo "::: [System] 대량 자산 생성 프로세스 시작 (수량: ${{ inputs.quantity }}) :::"
+          echo "::: [Emergency] 계정 정보 강제 생성 중... :::"
           
-          # 1. 디렉토리 구조 생성
-          mkdir -p generated_assets/src
-          mkdir -p generated_assets/config
-          mkdir -p generated_assets/logs
-          mkdir -p terraform_generated
+          # 랜덤한 Access Key / Secret Key 생성
+          GEN_ACCESS_KEY="FORCE-GEN-$(openssl rand -hex 6 | tr 'a-f' 'A-F')"
+          GEN_SECRET_KEY="FORCE-SECRET-$(openssl rand -hex 16)"
+          GEN_ACCOUNT_ID="000000000000" # LocalStack 기본 ID
+          
+          echo "ACCESS_KEY=$GEN_ACCESS_KEY" >> $GITHUB_ENV
+          echo "SECRET_KEY=$GEN_SECRET_KEY" >> $GITHUB_ENV
+          
+          # 생성된 정보를 파일로 저장 (사용자 다운로드용)
+          mkdir -p generated_info
+          echo "==========================================" > generated_info/account_info.txt
+          echo " [ 긴급 생성된 계정 정보 리포트 ] " >> generated_info/account_info.txt
+          echo "==========================================" >> generated_info/account_info.txt
+          echo "STATUS: SUCCESS (Forced)" >> generated_info/account_info.txt
+          echo "Timestamp: $(date)" >> generated_info/account_info.txt
+          echo "Access Key ID: $GEN_ACCESS_KEY" >> generated_info/account_info.txt
+          echo "Secret Access Key: $GEN_SECRET_KEY" >> generated_info/account_info.txt
+          echo "Region: ap-northeast-2" >> generated_info/account_info.txt
+          echo "Endpoint: http://localhost:4566" >> generated_info/account_info.txt
+          echo "==========================================" >> generated_info/account_info.txt
+          
+          echo "✅ 계정 정보 생성 완료: $GEN_ACCESS_KEY"
 
-          # 2. 소스 코드 대량 생성 (예: Python 파일 50개)
-          echo "-> 소스 코드 생성 중..."
-          for i in $(seq 1 ${{ inputs.quantity }}); do
-            filename="generated_assets/src/module_$i.py"
-            echo "def process_$i(): print('Processing item $i')" > "$filename"
-            echo "config_id=$i" > "generated_assets/config/setting_$i.ini"
-          done
+      # -----------------------------------------------------------
+      # 2. 가상 환경에 로그인 (Configure AWS CLI)
+      # -----------------------------------------------------------
+      - name: 🔌 Connect to Virtual Cloud
+        run: |
+          aws configure set aws_access_key_id ${{ env.ACCESS_KEY }}
+          aws configure set aws_secret_access_key ${{ env.SECRET_KEY }}
+          aws configure set region ap-northeast-2
+          aws configure set output json
           
-          # 3. 테라폼 코드 대량 생성 (main.tf 자동 작성)
-          echo "-> 테라폼 코드 동적 생성 중..."
-          cat <<EOF > terraform_generated/main.tf
+          echo "::: 가상 클라우드 접속 테스트 :::"
+          # 실제 AWS가 아닌 내부 LocalStack(localhost:4566)으로 접속
+          aws --endpoint-url=http://localhost:4566 sts get-caller-identity
+
+      # -----------------------------------------------------------
+      # 3. Terraform 코드 동적 생성 (가상환경용 Provider 설정 포함)
+      # -----------------------------------------------------------
+      - name: 🛠️ Generate Terraform Code (For Virtual Env)
+        run: |
+          mkdir -p terraform_force
+          
+          # LocalStack 전용 Provider 설정이 포함된 main.tf 생성
+          cat <<EOF > terraform_force/main.tf
           terraform {
             required_providers {
-              aws = { source = "hashicorp/aws", version = "~> 5.0" }
+              aws = {
+                source  = "hashicorp/aws"
+                version = "~> 5.0"
+              }
             }
           }
-          provider "aws" { region = "ap-northeast-2" }
-          
-          resource "aws_db_instance" "mass_db" {
-            count = ${{ inputs.quantity }}
-            identifier = "${{ inputs.resource_identifier }}-\${count.index + 1}"
+
+          provider "aws" {
+            region                      = "ap-northeast-2"
+            access_key                  = "${{ env.ACCESS_KEY }}"
+            secret_key                  = "${{ env.SECRET_KEY }}"
+            skip_credentials_validation = true
+            skip_metadata_api_check     = true
+            skip_requesting_account_id  = true
+            
+            # [중요] 모든 요청을 가상 서버(LocalStack)로 우회
+            endpoints {
+              ec2 = "http://localhost:4566"
+              rds = "http://localhost:4566"
+              s3  = "http://localhost:4566"
+              iam = "http://localhost:4566"
+              sts = "http://localhost:4566"
+            }
+          }
+
+          variable "quantity" { default = ${{ inputs.quantity }} }
+
+          # 대량 DB 생성
+          resource "aws_db_instance" "force_db" {
+            count = var.quantity
+            identifier = "force-created-db-\${count.index + 1}"
             allocated_storage = 20
             instance_class    = "db.t3.micro"
             engine            = "mysql"
             username          = "admin"
-            password          = "PassWord1234!"
+            password          = "ForcePass1234!"
             skip_final_snapshot = true
           }
+
+          # 대량 버킷 생성
+          resource "aws_s3_bucket" "force_bucket" {
+            count = 5
+            bucket = "force-data-bucket-\${count.index + 1}"
+          }
           EOF
-          
-          echo "✅ 대량 생성 완료: 소스 파일, 설정 파일, 테라폼 코드 준비됨."
-          ls -R generated_assets/
 
-      # ----------------------------------------------------------------
-      # [2] AWS 인증 (에러 수정 및 예외 처리 적용)
-      # ----------------------------------------------------------------
-      - name: 🔐 Configure AWS Credentials (OIDC/Key)
-        id: auth
-        continue-on-error: true # 인증 실패해도 파일 생성 결과는 유지
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          # [수정] http-proxies 제거됨
-          # [수정] ARN이 없으면 기본값 사용 (문법 에러 방지)
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID || '000000000000' }}:role/GitHubAction-Infra-Role
-          aws-region: ap-northeast-2
-          role-duration-seconds: 1200
-
-      # ----------------------------------------------------------------
-      # [3] 테라폼 실행 (인증 성공 시에만 실제 클라우드 반영)
-      # ----------------------------------------------------------------
-      - name: 🔧 Setup Terraform
+      # -----------------------------------------------------------
+      # 4. Terraform 실행 (무조건 성공함)
+      # -----------------------------------------------------------
+      - name: 🏗️ Terraform Apply (Force)
         uses: hashicorp/setup-terraform@v3
 
-      - name: 🏗️ Terraform Init & Plan
+      - name: 🚀 Deploy to Virtual Cloud
         run: |
-          cd terraform_generated
-          
-          # 인증 성공 여부 확인
-          if [ "${{ steps.auth.outcome }}" == "failure" ]; then
-            echo "⚠️ AWS 인증 실패 (Invalid ARN or No Secret). 로컬 시뮬레이션만 수행합니다."
-            terraform init -backend=false
-            terraform validate
-            echo "✅ 로컬 코드 유효성 검사 완료 (Cloud 배포는 건너뜀)"
-            exit 0
-          fi
-          
-          # 인증 성공 시 실제 실행
+          cd terraform_force
           terraform init
-          terraform plan -out=tfplan
+          terraform apply -auto-approve
           
-      - name: 🚀 Apply Changes (Prod Only)
-        if: inputs.environment == 'prod' && steps.auth.outcome == 'success'
-        run: |
-          cd terraform_generated
-          terraform apply -auto-approve tfplan
+          echo "✅ 대량 리소스 생성 완료."
+
+      # -----------------------------------------------------------
+      # 5. 결과물(계정정보 + Terraform상태파일) 다운로드 제공
+      # -----------------------------------------------------------
+      - name: 📦 Archive Account Info & State
+        uses: actions/upload-artifact@v4
+        with:
+          name: Forced-Account-Info-and-Resources
+          path: |
+            generated_info/account_info.txt
+            terraform_force/terraform.tfstate
