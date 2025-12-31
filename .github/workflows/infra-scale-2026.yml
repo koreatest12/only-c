@@ -1,10 +1,10 @@
-name: 🏗️ 2026 Mass Infra Scaling (Keyless OIDC)
+name: 🏗️ 2026 Mass Infra Scaling (All Info & Capacity)
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: '배포 환경(개발/프로덕션)'
+        description: '배포 환경(개발/프로덕션)' # [고정]
         required: true
         default: 'dev'
         type: choice
@@ -12,7 +12,7 @@ on:
           - dev
           - prod
       action_type:
-        description: '활동활동'
+        description: '활동활동' # [고정]
         required: true
         default: 'create_db'
         type: choice
@@ -22,22 +22,28 @@ on:
           - add_disk
           - expand_disk
       resource_identifier:
-        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)'
+        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)' # [고정]
         required: true
         type: string
       target_size_gb:
-        description: '목표 화분 (GB 단위) 또는 생성 수량' # 대량 생성을 위해 설명 보강
+        description: '목표 화분 (GB 단위)' # [고정] - 용량 정보
         required: true
+        default: '50'
+        type: string
+      quantity:
+        description: '생성 수량 (대량 작업 시 정보)' # [추가] - "정보 생성"을 위한 수량
+        required: true
+        default: '1'
         type: string
 
-# [중요] 키 없는 인증(OIDC)을 위해 필수 권한 설정
+# OIDC 인증을 위한 권한 설정
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  infra-scaling:
-    name: ⚙️ Run (${{ inputs.action_type }})
+  mass-scaling:
+    name: ⚙️ Mass Action (${{ inputs.action_type }} x ${{ inputs.quantity }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     
@@ -50,42 +56,42 @@ jobs:
         with:
           terraform_version: "1.9.0"
 
-      # [변경] 키 입력 없이 IAM Role을 사용하여 인증
       - name: 🔐 Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # 아래에 생성한 AWS IAM Role의 ARN을 입력하세요
-          role-to-assume: arn:aws:iam::123456789012:role/GitHubAction-Infra-Role
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubAction-Infra-Role # 생성한 IAM Role ARN 입력
           aws-region: ap-northeast-2
 
       - name: 🏗️ Terraform Init
         run: terraform init
         working-directory: ./terraform
 
-      - name: 🔍 Plan Infrastructure Changes (Massive)
+      - name: 🔍 Plan Mass Changes
         run: |
-          echo "::: 대량 생성 및 증설 실행 정보 :::"
+          echo "::: 대량 작업 실행 계획 :::"
           echo "환경: ${{ inputs.environment }}"
           echo "활동: ${{ inputs.action_type }}"
-          echo "대상: ${{ inputs.resource_identifier }}"
-          echo "입력값(수량/크기): ${{ inputs.target_size_gb }}"
+          echo "대상 이름(Prefix): ${{ inputs.resource_identifier }}"
+          echo "개별 용량(화분): ${{ inputs.target_size_gb }} GB"
+          echo "총 생성 수량: ${{ inputs.quantity }} 개"
           
-          # action_type에 따라 대량 생성(count) 변수 처리
+          # Terraform에 용량(size)과 수량(count)을 모두 전달
           if [ "${{ inputs.action_type }}" == "create_db" ]; then
-            # target_size_gb를 '생성 개수'로 활용하는 예시
             terraform plan -var="create_db=true" \
                            -var="db_name_prefix=${{ inputs.resource_identifier }}" \
-                           -var="instance_count=${{ inputs.target_size_gb }}" \
+                           -var="db_storage_size=${{ inputs.target_size_gb }}" \
+                           -var="instance_count=${{ inputs.quantity }}" \
                            -out=tfplan
-                           
+
           elif [ "${{ inputs.action_type }}" == "add_disk" ]; then
-            # 디스크 추가 로직
             terraform plan -var="add_new_disk=true" \
+                           -var="disk_name_prefix=${{ inputs.resource_identifier }}" \
                            -var="disk_size=${{ inputs.target_size_gb }}" \
+                           -var="disk_count=${{ inputs.quantity }}" \
                            -out=tfplan
 
           else
-            # 기존 증설 로직 유지
+            # 증설(Expand) 작업은 보통 기존 리소스 1개를 대상으로 함 (필요시 반복문 로직 추가 가능)
             terraform plan -var="resize_target=${{ inputs.resource_identifier }}" \
                            -var="new_size=${{ inputs.target_size_gb }}" \
                            -out=tfplan
