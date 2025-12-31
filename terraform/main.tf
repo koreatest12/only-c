@@ -1,36 +1,69 @@
-# 변수 선언
-variable "db_storage_size" { default = 20 }
-variable "instance_count" { default = 1 }
-variable "db_name_prefix" { default = "db-node" }
-
-# [DB 대량 생성 로직]
-resource "aws_db_instance" "mass_db" {
-  # 입력받은 수량(instance_count)만큼 반복 생성
-  count = var.create_db ? var.instance_count : 0
-  
-  # 이름 뒤에 번호 붙이기 (예: db-main-01, db-main-02 ...)
-  identifier = "${var.db_name_prefix}-${format("%02d", count.index + 1)}"
-  
-  # 입력받은 용량(target_size_gb) 적용
-  allocated_storage = var.db_storage_size
-  
-  instance_class    = "db.t3.micro"
-  engine            = "mysql"
-  username          = "admin"
-  password          = "password1234" # 실제로는 Secrets Manager 사용 권장
-  skip_final_snapshot = true
+# ---------------------------------------------------------
+# 1. OIDC 공급자 생성 (에러 해결의 핵심)
+# ---------------------------------------------------------
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  # GitHub의 공식 OIDC 지문(Thumbprint)입니다. (고정값)
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-# [디스크 대량 추가 로직]
-resource "aws_ebs_volume" "mass_disk" {
-  count = var.add_new_disk ? var.disk_count : 0
+# ---------------------------------------------------------
+# 2. GitHub Actions가 사용할 역할(Role) 생성
+# ---------------------------------------------------------
+resource "aws_iam_role" "github_action_role" {
+  name = "GitHubAction-Infra-Role"
 
-  availability_zone = "ap-northeast-2a"
-  
-  # 입력받은 용량 적용
-  size = var.disk_size
-  
-  tags = {
-    Name = "${var.disk_name_prefix}-${count.index + 1}"
-  }
+  # 신뢰 관계 정책 (GitHub의 특정 리포지토리만 접속 허용)
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Condition = {
+          StringLike = {
+            # [중요] 본인의 ID와 리포지토리명으로 정확히 제한
+            "token.actions.githubusercontent.com:sub": "repo:koreatest12/only-c:*"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# ---------------------------------------------------------
+# 3. 역할에 권한 부여 (DB, EC2 등을 생성할 수 있는 권한)
+# ---------------------------------------------------------
+resource "aws_iam_role_policy" "github_action_policy" {
+  name = "GitHubAction-Infra-Policy"
+  role = aws_iam_role.github_action_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+          "rds:*",
+          "s3:*",
+          "iam:*",
+          "dynamodb:*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# ---------------------------------------------------------
+# 4. 출력값 (워크플로우에 넣을 Role ARN 확인용)
+# ---------------------------------------------------------
+output "role_arn" {
+  value       = aws_iam_role.github_action_role.arn
+  description = "GitHub Actions 워크플로우 파일에 붙여넣을 ARN"
 }
