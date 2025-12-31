@@ -1,18 +1,18 @@
-name: 🏗️ 2026 Infrastructure Scaling Manager (Fixed UI)
+name: 🏗️ 2026 Mass Infra Scaling (Keyless OIDC)
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: '배포 환경(개발/프로덕션)' # 요청하신 이미지 텍스트 반영
+        description: '배포 환경(개발/프로덕션)'
         required: true
         default: 'dev'
         type: choice
         options:
-          - dev      # 화면상 '개발자'로 번역되어 보일 수 있으나, 실제 값은 dev로 유지 권장
+          - dev
           - prod
       action_type:
-        description: '활동활동' # 요청하신 이미지 텍스트 반영 (Activity)
+        description: '활동활동'
         required: true
         default: 'create_db'
         type: choice
@@ -22,14 +22,15 @@ on:
           - add_disk
           - expand_disk
       resource_identifier:
-        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)' # 요청하신 이미지 텍스트 반영
+        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)'
         required: true
         type: string
       target_size_gb:
-        description: '목표 화분 (GB 단위)' # 요청하신 이미지 텍스트 반영 (Target Size)
+        description: '목표 화분 (GB 단위) 또는 생성 수량' # 대량 생성을 위해 설명 보강
         required: true
         type: string
 
+# [중요] 키 없는 인증(OIDC)을 위해 필수 권한 설정
 permissions:
   contents: read
   id-token: write
@@ -38,10 +39,7 @@ jobs:
   infra-scaling:
     name: ⚙️ Run (${{ inputs.action_type }})
     runs-on: ubuntu-latest
-    env:
-      TF_VAR_environment: ${{ inputs.environment }}
-      TF_VAR_target_resource: ${{ inputs.resource_identifier }}
-      TF_VAR_target_size: ${{ inputs.target_size_gb }}
+    environment: ${{ inputs.environment }}
     
     steps:
       - name: 📂 Checkout Code
@@ -52,34 +50,45 @@ jobs:
         with:
           terraform_version: "1.9.0"
 
-      - name: 🔐 Configure AWS Credentials
+      # [변경] 키 입력 없이 IAM Role을 사용하여 인증
+      - name: 🔐 Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # 아래에 생성한 AWS IAM Role의 ARN을 입력하세요
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubAction-Infra-Role
           aws-region: ap-northeast-2
 
       - name: 🏗️ Terraform Init
         run: terraform init
         working-directory: ./terraform
 
-      # 실제 로직 실행 (입력된 값을 Terraform 변수로 매핑)
-      - name: 🔍 Plan Infrastructure Changes
+      - name: 🔍 Plan Infrastructure Changes (Massive)
         run: |
-          echo "::: 실행 정보 :::"
+          echo "::: 대량 생성 및 증설 실행 정보 :::"
           echo "환경: ${{ inputs.environment }}"
           echo "활동: ${{ inputs.action_type }}"
-          echo "대상(참가자): ${{ inputs.resource_identifier }}"
-          echo "목표 용량(화분): ${{ inputs.target_size_gb }} GB"
+          echo "대상: ${{ inputs.resource_identifier }}"
+          echo "입력값(수량/크기): ${{ inputs.target_size_gb }}"
           
+          # action_type에 따라 대량 생성(count) 변수 처리
           if [ "${{ inputs.action_type }}" == "create_db" ]; then
-            terraform plan -var="create_db=true" -var="db_name=${{ inputs.resource_identifier }}" -out=tfplan
-          elif [ "${{ inputs.action_type }}" == "expand_db_storage" ]; then
-            terraform plan -var="db_storage_size=${{ inputs.target_size_gb }}" -out=tfplan
+            # target_size_gb를 '생성 개수'로 활용하는 예시
+            terraform plan -var="create_db=true" \
+                           -var="db_name_prefix=${{ inputs.resource_identifier }}" \
+                           -var="instance_count=${{ inputs.target_size_gb }}" \
+                           -out=tfplan
+                           
           elif [ "${{ inputs.action_type }}" == "add_disk" ]; then
-            terraform plan -var="add_new_disk=true" -var="disk_size=${{ inputs.target_size_gb }}" -out=tfplan
-          elif [ "${{ inputs.action_type }}" == "expand_disk" ]; then
-            terraform plan -var="resize_disk_id=${{ inputs.resource_identifier }}" -var="new_disk_size=${{ inputs.target_size_gb }}" -out=tfplan
+            # 디스크 추가 로직
+            terraform plan -var="add_new_disk=true" \
+                           -var="disk_size=${{ inputs.target_size_gb }}" \
+                           -out=tfplan
+
+          else
+            # 기존 증설 로직 유지
+            terraform plan -var="resize_target=${{ inputs.resource_identifier }}" \
+                           -var="new_size=${{ inputs.target_size_gb }}" \
+                           -out=tfplan
           fi
         working-directory: ./terraform
 
