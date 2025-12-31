@@ -1,116 +1,153 @@
-name: 🧨 Force Account & Mass Directory Loader
+name: 🧨 2026 Expert Account & Infra Mass Generator
 
 on:
   workflow_dispatch:
     inputs:
       quantity:
-        description: '생성할 프로젝트/폴더 수량'
+        description: '생성할 계정 총 수량 (명)'
         required: true
-        default: '50'
+        default: '100'
         type: string
-      data_type:
-        description: '적재할 데이터 유형'
+      expert_ratio:
+        description: '전문가(관리자) 비율 (%)'
         required: true
-        default: 'mixed'
-        type: choice
-        options:
-          - mixed
-          - log_files
-          - transaction_data
+        default: '20' # 100명 중 20명은 전문가 계정으로 생성
+        type: string
 
 jobs:
-  force-dir-and-load:
-    name: ⚡ Mass Directory & Data Load (x${{ inputs.quantity }})
+  expert-account-generation:
+    name: ⚡ Gen Experts (x${{ inputs.quantity }})
     runs-on: ubuntu-latest
-    
-    # 가상 AWS 환경(LocalStack) 구동
+
+    # IAM(계정관리) 시뮬레이션을 위한 가상 AWS
     services:
       localstack:
         image: localstack/localstack:latest
         ports:
           - 4566:4566
         env:
-          SERVICES: s3,iam,sts
+          SERVICES: iam,sts,s3
           DEFAULT_REGION: ap-northeast-2
-          DEBUG: 1
 
     steps:
       - name: 📂 Checkout
         uses: actions/checkout@v4
 
       # -----------------------------------------------------------
-      # 1. [핵심] 디렉토리 및 데이터 대량 생성 공장 가동
+      # 1. [핵심] 전문가 vs 일반 계정 대량 생성 스크립트
       # -----------------------------------------------------------
-      - name: 🏭 Generate Mass Directories & Data
+      - name: 👨‍💻 Generate Massive Expert Credentials
         run: |
           QTY=${{ inputs.quantity }}
-          BASE_DIR="mass_archive/2026"
+          RATIO=${{ inputs.expert_ratio }}
           
-          echo "::: [System] 디렉토리 대량 생성 및 데이터 적재 시작 (수량: $QTY) :::"
+          mkdir -p security_audit
+          REPORT_FILE="security_audit/2026_account_report.csv"
           
-          # 트리 구조 시각화 도구 설치
-          sudo apt-get install -y tree
-
-          # 반복문으로 디렉토리 구조 생성 및 데이터 적재
+          echo "::: [System] 전문가 계정 포함 대량 생성 시작 (총 $QTY 명) :::"
+          
+          # CSV 헤더 작성 (엑셀 호환)
+          echo "Account_ID,Username,Role,Level,Access_Key,Secret_Key,Initial_Password,MFA_Token" > $REPORT_FILE
+          
           for i in $(seq 1 $QTY); do
-            # 1) 복잡한 디렉토리 계층 구조 생성 (년/월/그룹/유저)
-            TARGET_DIR="$BASE_DIR/01/group_$(($i % 5 + 1))/user_$i"
-            mkdir -p "$TARGET_DIR/logs"
-            mkdir -p "$TARGET_DIR/data"
-            mkdir -p "$TARGET_DIR/backup"
+            # 전문가 비율 계산 (랜덤 또는 순번)
+            # 1~100 사이의 난수가 RATIO보다 작으면 전문가로 판정
+            CHANCE=$(( RANDOM % 100 ))
             
-            # 2) 데이터 적재 (파일 생성)
-            # - 설정 파일 적재
-            echo "user_id=$i, access_level=admin" > "$TARGET_DIR/config.ini"
+            if [ $CHANCE -lt $RATIO ]; then
+              # [전문가 계정 생성 로직]
+              ROLE="Expert_Admin"
+              LEVEL="Lv.9 (Master)"
+              USER_PREFIX="admin_ops"
+              # 복잡한 비밀번호 생성
+              PASS="EXP-$(openssl rand -base64 12)"
+            else
+              # [일반 계정 생성 로직]
+              ROLE="Standard_User"
+              LEVEL="Lv.1 (Staff)"
+              USER_PREFIX="user_staff"
+              PASS="usr-$(openssl rand -hex 4)"
+            fi
             
-            # - 로그 데이터 적재
-            echo "[INFO] $(date) - User $i logged in" > "$TARGET_DIR/logs/access.log"
-            echo "[WARN] Connection latency detected" >> "$TARGET_DIR/logs/error.log"
+            USERNAME="${USER_PREFIX}_$(printf "%03d" $i)"
+            ACCESS_KEY="AKIA$(openssl rand -hex 8 | tr 'a-z' 'A-Z')"
+            SECRET_KEY="$(openssl rand -base64 20)"
+            MFA_DEVICE="arn:aws:iam::2026:mfa/$USERNAME"
             
-            # - 대용량 데이터 시뮬레이션 (CSV)
-            echo "id,timestamp,value" > "$TARGET_DIR/data/transactions.csv"
-            for k in {1..10}; do
-              echo "$k,$(date +%s),$RANDOM" >> "$TARGET_DIR/data/transactions.csv"
-            done
+            # CSV 파일에 한 줄 추가 (데이터 적재)
+            echo "ACC-2026-$i,$USERNAME,$ROLE,$LEVEL,$ACCESS_KEY,$SECRET_KEY,$PASS,$MFA_DEVICE" >> $REPORT_FILE
           done
           
-          echo "✅ 로컬 데이터 적재 완료."
-          echo "::: 생성된 디렉토리 구조 미리보기 (상위 3레벨) :::"
-          tree -L 4 mass_archive | head -n 30
+          echo "✅ 총 $QTY 명의 계정 정보 생성 완료."
+          echo "::: 전문가 계정 샘플 (상위 5명) :::"
+          head -n 6 $REPORT_FILE
 
       # -----------------------------------------------------------
-      # 2. 계정 정보 강제 생성 (무조건 통과)
+      # 2. Terraform을 통한 IAM 리소스 공식 반영 (가상환경)
       # -----------------------------------------------------------
-      - name: 🔑 Force Credentials
+      - name: 🛠️ Generate IAM Terraform Code
         run: |
-          echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=ap-northeast-2" >> $GITHUB_ENV
+          mkdir -p terraform_iam
+          
+          # CSV 파일을 읽어서 Terraform 리소스로 변환하는 로직은 복잡하므로
+          # 여기서는 생성된 수량만큼 IAM User를 Loop로 생성하는 코드 작성
+          
+          cat <<EOF > terraform_iam/main.tf
+          terraform {
+            required_providers {
+              aws = { source = "hashicorp/aws", version = "~> 5.0" }
+            }
+          }
+          provider "aws" {
+            region = "ap-northeast-2"
+            access_key = "test"
+            secret_key = "test"
+            skip_credentials_validation = true
+            skip_requesting_account_id = true
+            endpoints { iam = "http://localhost:4566" }
+          }
+          
+          variable "total_users" { default = ${{ inputs.quantity }} }
+          
+          # 1. 모든 사용자 계정 리소스 생성
+          resource "aws_iam_user" "mass_users" {
+            count = var.total_users
+            name  = "employee-\${count.index + 1}"
+            path  = "/system/"
+          }
+          
+          # 2. 전문가(Admin) 그룹 생성
+          resource "aws_iam_group" "experts" {
+            name = "Expert-Admins-2026"
+          }
+          
+          # 3. 전문가 권한 부여 (AdministratorAccess)
+          resource "aws_iam_group_policy_attachment" "admin_access" {
+            group      = aws_iam_group.experts.name
+            policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+          }
+          EOF
 
       # -----------------------------------------------------------
-      # 3. 가상 스토리지(S3) 생성 및 대량 데이터 업로드 (적재)
+      # 3. 가상 인프라(IAM) 배포 적용
       # -----------------------------------------------------------
-      - name: ☁️ Create Bucket & Sync Data
+      - name: 🏗️ Apply IAM Policies
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 🚀 Deploy Accounts to Virtual Cloud
         run: |
-          ENDPOINT="http://localhost:4566"
-          BUCKET_NAME="mass-data-storage-2026"
-          
-          echo "::: 1. S3 버킷 생성 ($BUCKET_NAME) :::"
-          aws --endpoint-url=$ENDPOINT s3 mb s3://$BUCKET_NAME
-          
-          echo "::: 2. 대량 디렉토리/파일 클라우드 적재 (Sync) :::"
-          # 로컬의 mass_archive 폴더를 통째로 S3로 업로드
-          aws --endpoint-url=$ENDPOINT s3 sync mass_archive s3://$BUCKET_NAME
-          
-          echo "::: 3. 적재 결과 검증 (파일 목록 조회) :::"
-          COUNT=$(aws --endpoint-url=$ENDPOINT s3 ls s3://$BUCKET_NAME --recursive | wc -l)
-          echo "✅ 총 $COUNT 개의 파일이 클라우드 스토리지에 정상 적재되었습니다."
+          cd terraform_iam
+          terraform init
+          terraform apply -auto-approve
+          echo "✅ 가상 클라우드에 IAM 사용자 및 그룹 정책 반영 완료."
 
       # -----------------------------------------------------------
-      # 4. 결과물(디렉토리 전체) 압축 및 다운로드 제공
+      # 4. [중요] 계정 정보 파일(엑셀용) 다운로드 제공
       # -----------------------------------------------------------
-      - name: 📦 Archive Directory Structure
+      - name: 📦 Download Expert Credentials
         uses: actions/upload-artifact@v4
         with:
-          name: Mass-Directories-and-Data
-          path: mass_archive/
+          name: 2026_Expert_Account_List
+          path: |
+            security_audit/2026_account_report.csv
+            terraform_iam/terraform.tfstate
