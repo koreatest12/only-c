@@ -1,4 +1,4 @@
-name: 🏗️ 2026 Mass Infra Scaling (Fixed OIDC & Mass Info)
+name: 🏗️ 2026 Mass Scale (Download from URL)
 
 on:
   workflow_dispatch:
@@ -18,31 +18,20 @@ on:
         type: choice
         options:
           - create_db
-          - expand_db_storage
           - add_disk
-          - expand_disk
-      resource_identifier:
-        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)'
+      config_url:
+        description: '공식 정보 다운로드 주소 (URL)' # [핵심] 대량 정보가 담긴 JSON 파일 주소
         required: true
-        type: string
-      target_size_gb:
-        description: '목표 화분 (GB 단위)'
-        required: true
-        default: '50'
-        type: string
-      quantity:
-        description: '생성 수량 (대량 작업 시 정보)'
-        required: true
-        default: '1'
+        default: 'https://api.koreatest12.com/infra/2026-plan.json'
         type: string
 
 permissions:
   contents: read
-  id-token: write # [필수] OIDC 인증 토큰 발급 권한
+  id-token: write
 
 jobs:
-  mass-scaling:
-    name: ⚙️ Mass Action (${{ inputs.action_type }} x ${{ inputs.quantity }})
+  download-and-deploy:
+    name: 📥 Download & Apply
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     
@@ -55,49 +44,36 @@ jobs:
         with:
           terraform_version: "1.9.0"
 
-      # [수정됨] Terraform으로 생성한 Role ARN을 사용하여 인증
       - name: 🔐 Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # 위 Terraform 코드에서 생성된 Role의 ARN을 정확히 입력해야 합니다.
-          # 예: arn:aws:iam::123456789012:role/GitHubAction-Infra-Role
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubAction-Infra-Role
           aws-region: ap-northeast-2
+
+      # [NEW] 공식 주소에서 대량 정보 파일 다운로드
+      - name: 📥 Download Mass Config Info
+        run: |
+          echo "::: 공식 주소에서 정보 다운로드 중... :::"
+          echo "Target URL: ${{ inputs.config_url }}"
+          
+          # 인증 토큰이 필요한 경우 헤더(-H) 추가 가능. 여기서는 공개 URL 가정.
+          # 실제 보안이 필요하면: curl -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" ...
+          curl -L -o terraform/mass_config.json "${{ inputs.config_url }}"
+          
+          echo "::: 다운로드 완료. 내용 미리보기 :::"
+          cat terraform/mass_config.json
+        shell: bash
 
       - name: 🏗️ Terraform Init
         run: terraform init
         working-directory: ./terraform
 
-      - name: 🔍 Plan Mass Changes
+      - name: 🔍 Plan (Based on Downloaded File)
         run: |
-          echo "::: 대량 정보 및 용량 설정 확인 :::"
-          echo "환경: ${{ inputs.environment }}"
-          echo "활동: ${{ inputs.action_type }}"
-          echo "대상: ${{ inputs.resource_identifier }}"
-          echo "용량: ${{ inputs.target_size_gb }} GB"
-          echo "수량: ${{ inputs.quantity }} 개"
+          echo "::: 다운로드된 파일을 기반으로 계획 수립 :::"
           
-          # 대량(Mass) 정보 반영
-          if [ "${{ inputs.action_type }}" == "create_db" ]; then
-            terraform plan -var="create_db=true" \
-                           -var="db_name_prefix=${{ inputs.resource_identifier }}" \
-                           -var="db_storage_size=${{ inputs.target_size_gb }}" \
-                           -var="instance_count=${{ inputs.quantity }}" \
-                           -out=tfplan
-
-          elif [ "${{ inputs.action_type }}" == "add_disk" ]; then
-            terraform plan -var="add_new_disk=true" \
-                           -var="disk_name_prefix=${{ inputs.resource_identifier }}" \
-                           -var="disk_size=${{ inputs.target_size_gb }}" \
-                           -var="disk_count=${{ inputs.quantity }}" \
-                           -out=tfplan
-
-          else
-            # 기존 증설 로직 (단일 대상)
-            terraform plan -var="resize_target=${{ inputs.resource_identifier }}" \
-                           -var="new_size=${{ inputs.target_size_gb }}" \
-                           -out=tfplan
-          fi
+          # Terraform 변수로 파일 경로를 전달하거나, Terraform 코드 내에서 파일 이름 고정 사용
+          terraform plan -var="action_type=${{ inputs.action_type }}" -out=tfplan
         working-directory: ./terraform
 
       - name: 🚀 Apply Changes
