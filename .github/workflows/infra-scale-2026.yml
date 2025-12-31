@@ -1,0 +1,91 @@
+name: 🏗️ 2026 Infrastructure Scaling Manager (Only-C)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '배포 대상 환경 (dev / prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      action_type:
+        description: '수행할 작업 유형'
+        required: true
+        type: choice
+        options:
+          - create_db          # DB 신규 생성
+          - expand_db_storage  # DB 용량 증설
+          - add_disk           # 디스크 추가
+          - expand_disk        # 디스크 증설
+      resource_identifier:
+        description: '대상 리소스 ID 또는 이름 (예: db-main-01, vol-data-02)'
+        required: true
+        type: string
+      target_size_gb:
+        description: '변경할 목표 용량 (GB 단위)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # 클라우드 인증을 위한 권한
+
+jobs:
+  infra-scaling:
+    name: ⚙️ Manage Infra (${{ inputs.action_type }})
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_environment: ${{ inputs.environment }}
+      TF_VAR_target_resource: ${{ inputs.resource_identifier }}
+      TF_VAR_target_size: ${{ inputs.target_size_gb }}
+    
+    steps:
+      - name: 📂 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      # AWS/GCP/Azure 인증 (예시: AWS)
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: 🏗️ Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: 🔍 Plan Infrastructure Changes
+        id: plan
+        run: |
+          echo "### 🚀 Plan: ${{ inputs.action_type }} for ${{ inputs.resource_identifier }}"
+          
+          # 입력된 작업 유형에 따라 Terraform 변수 동적 할당
+          if [ "${{ inputs.action_type }}" == "create_db" ]; then
+            terraform plan -var="create_db=true" -var="db_name=${{ inputs.resource_identifier }}" -out=tfplan
+          elif [ "${{ inputs.action_type }}" == "expand_db_storage" ]; then
+            terraform plan -var="db_storage_size=${{ inputs.target_size_gb }}" -out=tfplan
+          elif [ "${{ inputs.action_type }}" == "add_disk" ]; then
+            terraform plan -var="add_new_disk=true" -var="disk_size=${{ inputs.target_size_gb }}" -out=tfplan
+          elif [ "${{ inputs.action_type }}" == "expand_disk" ]; then
+            terraform plan -var="resize_disk_id=${{ inputs.resource_identifier }}" -var="new_disk_size=${{ inputs.target_size_gb }}" -out=tfplan
+          fi
+        working-directory: ./terraform
+
+      - name: 🚀 Apply Infrastructure Changes
+        if: github.ref == 'refs/heads/main' && inputs.environment == 'prod' # 메인 브랜치 & Prod 환경일 때만 실제 적용
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform
+
+      - name: 📢 Notification
+        if: always()
+        run: |
+          echo "인프라 작업 ${{ inputs.action_type }} 완료. 대상: ${{ inputs.resource_identifier }}, 크기: ${{ inputs.target_size_gb }}GB"
