@@ -1,4 +1,4 @@
-name: 🏗️ 2026 Infra Scale (Auto-Recovery & Mass Gen)
+name: 🏗️ 2026 Final Mass Scale (Fix & Generate All)
 
 on:
   workflow_dispatch:
@@ -12,149 +12,124 @@ on:
           - dev
           - prod
       action_type:
-        description: '활동활동'
+        description: '활동활동 (작업 유형)'
         required: true
         default: 'create_db'
         type: choice
         options:
           - create_db
-          - expand_db_storage
           - add_disk
+          - generate_mass_files # [NEW] 파일 대량 생성 전용 모드
       resource_identifier:
-        description: '참가자 ID 또는 이름 (예: db-main-01)'
+        description: '참가자 ID (예: only-c-main)'
         required: true
+        default: 'only-c-main'
         type: string
-      target_size_gb:
-        description: '목표 화분 (GB 단위)'
+      quantity:
+        description: '대량 생성 수량 (파일/DB 개수)'
         required: true
-        default: '50'
-        type: string
-      config_url:
-        description: '공식 정보 다운로드 주소 (실패 시 사용)'
-        required: false
-        default: 'https://api.koreatest12.com/infra/emergency-plan.json'
+        default: '50' # 기본 50개 대량 생성
         type: string
 
 permissions:
   contents: read
-  id-token: write # OIDC 인증 필수 권한
+  id-token: write
 
 jobs:
-  # ------------------------------------------------------------------
-  # [1단계] 정규 실행 시도 (Standard Run)
-  # ------------------------------------------------------------------
-  primary-deploy:
-    name: 🚀 Primary Deployment
+  mass-execution:
+    name: ⚡ Mass Run (x${{ inputs.quantity }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    outputs:
-      status: ${{ job.status }}
     
     steps:
-      - name: 📂 Checkout
-        uses: actions/checkout@v4
-
-      - name: 🔐 Configure AWS (OIDC)
-        id: auth
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubAction-Infra-Role
-          aws-region: ap-northeast-2
-          # 실패 시 너무 오래 걸리지 않도록 타임아웃/재시도 설정
-          role-duration-seconds: 900
-          http-proxies: "" 
-
-      - name: 🔧 Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: 🏗️ Terraform Init & Apply
-        run: |
-          terraform init
-          terraform plan -var="db_name=${{ inputs.resource_identifier }}" -out=tfplan
-          if [ "${{ inputs.environment }}" == "prod" ]; then
-            terraform apply -auto-approve tfplan
-          fi
-
-  # ------------------------------------------------------------------
-  # [2단계] 실패 시 발동: 대량 생성 및 강제 복구 (Emergency Recovery)
-  # ------------------------------------------------------------------
-  emergency-recovery:
-    name: 🚑 Mass Recovery & Generation
-    needs: primary-deploy
-    if: failure() # 앞 단계가 실패했을 때만 실행됨
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-
-    steps:
-      - name: 🚨 Failure Detected
-        run: echo "1차 시도 실패 감지. 대량 복구 프로세스를 시작합니다."
-
       - name: 📂 Checkout Code
         uses: actions/checkout@v4
 
-      # 1. 대량 정보 다운로드 시도
-      - name: 📥 Download Mass Config
-        continue-on-error: true # 다운로드 실패해도 다음 단계 진행
+      # ----------------------------------------------------------------
+      # [1] 대량 정보/파일/소스/테라폼 자동 생성 (AWS 접속 전 실행)
+      # ----------------------------------------------------------------
+      - name: 🏭 Generate Mass Assets (Files, Sources, TF)
         run: |
-          echo "::: 긴급 복구: 대량 구성 정보 다운로드 중 :::"
-          curl -L -o mass_recovery.json "${{ inputs.config_url }}" || echo "다운로드 실패, 로컬 생성으로 전환합니다."
-
-      # 2. 대량 파일/소스/테라폼 코드 즉석 생성 (스크립트)
-      - name: ⚙️ Generate Mass Sources & Terraform
-        run: |
-          echo "::: 대량 파일 생성 및 테라폼 코드 재생성 시작 :::"
-          mkdir -p terraform_recovery
+          echo "::: [System] 대량 자산 생성 프로세스 시작 (수량: ${{ inputs.quantity }}) :::"
           
-          # [자동 생성] 1. 메인 테라폼 파일 강제 생성
-          cat <<EOF > terraform_recovery/main.tf
+          # 1. 디렉토리 구조 생성
+          mkdir -p generated_assets/src
+          mkdir -p generated_assets/config
+          mkdir -p generated_assets/logs
+          mkdir -p terraform_generated
+
+          # 2. 소스 코드 대량 생성 (예: Python 파일 50개)
+          echo "-> 소스 코드 생성 중..."
+          for i in $(seq 1 ${{ inputs.quantity }}); do
+            filename="generated_assets/src/module_$i.py"
+            echo "def process_$i(): print('Processing item $i')" > "$filename"
+            echo "config_id=$i" > "generated_assets/config/setting_$i.ini"
+          done
+          
+          # 3. 테라폼 코드 대량 생성 (main.tf 자동 작성)
+          echo "-> 테라폼 코드 동적 생성 중..."
+          cat <<EOF > terraform_generated/main.tf
+          terraform {
+            required_providers {
+              aws = { source = "hashicorp/aws", version = "~> 5.0" }
+            }
+          }
           provider "aws" { region = "ap-northeast-2" }
           
-          variable "recovery_count" { default = 10 } # 기본 10개 대량 생성
-          
-          resource "aws_db_instance" "emergency_db" {
-            count = var.recovery_count
-            identifier = "recovery-db-\${count.index}"
-            allocated_storage = 50
-            instance_class = "db.t3.micro"
-            engine = "mysql"
-            username = "admin"
-            password = "RecoveryPass1234!"
+          resource "aws_db_instance" "mass_db" {
+            count = ${{ inputs.quantity }}
+            identifier = "${{ inputs.resource_identifier }}-\${count.index + 1}"
+            allocated_storage = 20
+            instance_class    = "db.t3.micro"
+            engine            = "mysql"
+            username          = "admin"
+            password          = "PassWord1234!"
             skip_final_snapshot = true
           }
           EOF
           
-          # [자동 생성] 2. 소스 코드 및 구성 파일 대량 생성 시뮬레이션
-          for i in {1..50}; do
-            echo "config_id=$i, status=active" > "terraform_recovery/config_$i.ini"
-          done
-          
-          echo "✅ 파일 50개 및 테라폼 코드 생성 완료."
-          ls -R terraform_recovery/
+          echo "✅ 대량 생성 완료: 소스 파일, 설정 파일, 테라폼 코드 준비됨."
+          ls -R generated_assets/
 
-      # 3. 자격 증명 재시도 (OIDC 실패 시 Access Key 방식 시도 등)
-      - name: 🔐 Retry Auth (Fallback)
+      # ----------------------------------------------------------------
+      # [2] AWS 인증 (에러 수정 및 예외 처리 적용)
+      # ----------------------------------------------------------------
+      - name: 🔐 Configure AWS Credentials (OIDC/Key)
+        id: auth
+        continue-on-error: true # 인증 실패해도 파일 생성 결과는 유지
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # OIDC가 실패했으므로, 시크릿 키가 있다면 키 방식으로 시도 (없으면 다시 OIDC 재시도)
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # [수정] http-proxies 제거됨
+          # [수정] ARN이 없으면 기본값 사용 (문법 에러 방지)
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID || '000000000000' }}:role/GitHubAction-Infra-Role
           aws-region: ap-northeast-2
-          # 키가 없을 경우를 대비해 continue-on-error 설정
-        continue-on-error: true
+          role-duration-seconds: 1200
 
-      # 4. 생성된 대량 정보 반영
-      - name: 🚀 Apply Mass Recovery Changes
+      # ----------------------------------------------------------------
+      # [3] 테라폼 실행 (인증 성공 시에만 실제 클라우드 반영)
+      # ----------------------------------------------------------------
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 🏗️ Terraform Init & Plan
         run: |
-          cd terraform_recovery
-          terraform init
+          cd terraform_generated
           
-          echo "::: 대량 생성된 복구 계획 적용 :::"
-          terraform plan -out=recovery_plan
-          
-          # 프로덕션 환경이면 즉시 적용, 아니면 계획만 출력
-          if [ "${{ inputs.environment }}" == "prod" ]; then
-            terraform apply -auto-approve recovery_plan
-            echo "✅ 대량 복구 리소스 배포 완료."
-          else
-             echo "🚧 개발 환경: 대량 생성 계획(Plan) 수립 완료."
+          # 인증 성공 여부 확인
+          if [ "${{ steps.auth.outcome }}" == "failure" ]; then
+            echo "⚠️ AWS 인증 실패 (Invalid ARN or No Secret). 로컬 시뮬레이션만 수행합니다."
+            terraform init -backend=false
+            terraform validate
+            echo "✅ 로컬 코드 유효성 검사 완료 (Cloud 배포는 건너뜀)"
+            exit 0
           fi
+          
+          # 인증 성공 시 실제 실행
+          terraform init
+          terraform plan -out=tfplan
+          
+      - name: 🚀 Apply Changes (Prod Only)
+        if: inputs.environment == 'prod' && steps.auth.outcome == 'success'
+        run: |
+          cd terraform_generated
+          terraform apply -auto-approve tfplan
