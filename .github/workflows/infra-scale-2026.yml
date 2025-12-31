@@ -1,10 +1,10 @@
-name: 🏗️ 2026 Mass Infra Scaling (All Info & Capacity)
+name: 🏗️ 2026 Mass Infra Scaling (Fixed OIDC & Mass Info)
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: '배포 환경(개발/프로덕션)' # [고정]
+        description: '배포 환경(개발/프로덕션)'
         required: true
         default: 'dev'
         type: choice
@@ -12,7 +12,7 @@ on:
           - dev
           - prod
       action_type:
-        description: '활동활동' # [고정]
+        description: '활동활동'
         required: true
         default: 'create_db'
         type: choice
@@ -22,24 +22,23 @@ on:
           - add_disk
           - expand_disk
       resource_identifier:
-        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)' # [고정]
+        description: '참가자 ID 또는 이름 (예: db-main-01, vol-data-02)'
         required: true
         type: string
       target_size_gb:
-        description: '목표 화분 (GB 단위)' # [고정] - 용량 정보
+        description: '목표 화분 (GB 단위)'
         required: true
         default: '50'
         type: string
       quantity:
-        description: '생성 수량 (대량 작업 시 정보)' # [추가] - "정보 생성"을 위한 수량
+        description: '생성 수량 (대량 작업 시 정보)'
         required: true
         default: '1'
         type: string
 
-# OIDC 인증을 위한 권한 설정
 permissions:
   contents: read
-  id-token: write
+  id-token: write # [필수] OIDC 인증 토큰 발급 권한
 
 jobs:
   mass-scaling:
@@ -56,10 +55,13 @@ jobs:
         with:
           terraform_version: "1.9.0"
 
+      # [수정됨] Terraform으로 생성한 Role ARN을 사용하여 인증
       - name: 🔐 Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::123456789012:role/GitHubAction-Infra-Role # 생성한 IAM Role ARN 입력
+          # 위 Terraform 코드에서 생성된 Role의 ARN을 정확히 입력해야 합니다.
+          # 예: arn:aws:iam::123456789012:role/GitHubAction-Infra-Role
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubAction-Infra-Role
           aws-region: ap-northeast-2
 
       - name: 🏗️ Terraform Init
@@ -68,14 +70,14 @@ jobs:
 
       - name: 🔍 Plan Mass Changes
         run: |
-          echo "::: 대량 작업 실행 계획 :::"
+          echo "::: 대량 정보 및 용량 설정 확인 :::"
           echo "환경: ${{ inputs.environment }}"
           echo "활동: ${{ inputs.action_type }}"
-          echo "대상 이름(Prefix): ${{ inputs.resource_identifier }}"
-          echo "개별 용량(화분): ${{ inputs.target_size_gb }} GB"
-          echo "총 생성 수량: ${{ inputs.quantity }} 개"
+          echo "대상: ${{ inputs.resource_identifier }}"
+          echo "용량: ${{ inputs.target_size_gb }} GB"
+          echo "수량: ${{ inputs.quantity }} 개"
           
-          # Terraform에 용량(size)과 수량(count)을 모두 전달
+          # 대량(Mass) 정보 반영
           if [ "${{ inputs.action_type }}" == "create_db" ]; then
             terraform plan -var="create_db=true" \
                            -var="db_name_prefix=${{ inputs.resource_identifier }}" \
@@ -91,7 +93,7 @@ jobs:
                            -out=tfplan
 
           else
-            # 증설(Expand) 작업은 보통 기존 리소스 1개를 대상으로 함 (필요시 반복문 로직 추가 가능)
+            # 기존 증설 로직 (단일 대상)
             terraform plan -var="resize_target=${{ inputs.resource_identifier }}" \
                            -var="new_size=${{ inputs.target_size_gb }}" \
                            -out=tfplan
