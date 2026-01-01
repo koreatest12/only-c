@@ -1,25 +1,31 @@
 name: 🧨 2026 Expert Account & Infra Mass Generator
 
 on:
+  # 1. 수동 실행 (기본 1,000명 대량 테스트)
   workflow_dispatch:
     inputs:
       quantity:
         description: '생성할 계정 총 수량 (명)'
         required: true
-        default: '100' # 대량 테스트 시 1000 이상 입력 가능
+        default: '1000'
         type: string
       expert_ratio:
         description: '전문가(관리자) 비율 (%)'
         required: true
-        default: '20' # 상위 20%는 Admin 권한 부여
+        default: '20'
         type: string
+
+  # 2. 자동 스케줄 실행 (매 20분마다 반복 검증)
+  schedule:
+    - cron: '*/20 * * * *'
 
 jobs:
   expert-account-generation:
-    name: ⚡ Mass Gen Experts (x${{ inputs.quantity }})
+    name: ⚡ Mass Gen & Chaos Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20 # 대량 복구 테스트 시간을 고려하여 타임아웃 연장
     
-    # IAM 시뮬레이션을 위한 LocalStack (가상 AWS) 서비스
+    # IAM 시뮬레이션을 위한 가상 AWS (LocalStack)
     services:
       localstack:
         image: localstack/localstack:latest
@@ -34,159 +40,164 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------------------------------------
-      # 1. [핵심] 대량 계정 데이터 생성 (CSV & JSON)
+      # 1. [데이터 생성] 1,000명 규모의 계정 데이터 생성
       # -----------------------------------------------------------
       - name: 👨‍💻 Generate Massive Expert Data
         id: gen_data
         run: |
-          QTY=${{ inputs.quantity }}
-          RATIO=${{ inputs.expert_ratio }}
+          # 입력값 Fallback 처리 (자동 실행 시 기본값 적용)
+          INPUT_QTY="${{ inputs.quantity }}"
+          INPUT_RATIO="${{ inputs.expert_ratio }}"
+          QTY="${INPUT_QTY:-500}"      # 자동 실행 시 500명
+          RATIO="${INPUT_RATIO:-20}"
           
           mkdir -p security_audit terraform_iam
-          
           CSV_FILE="security_audit/2026_account_report.csv"
           JSON_FILE="terraform_iam/users.json"
           
-          echo "::: [System] 대량 계정 데이터 생성 시작 (총 $QTY 명 / 전문가 비율 $RATIO%) :::"
+          echo "::: [Init] 대량 계정 데이터 생성 (규모: $QTY 명) :::"
           
-          # 1. CSV 헤더 작성
+          # CSV 헤더 & JSON 시작
           echo "Account_ID,Username,Group,Access_Key,Secret_Key,Initial_Password" > $CSV_FILE
-          
-          # 2. JSON 시작 (배열 시작)
           echo "[" > $JSON_FILE
           
-          # 3. 대량 루프 처리
           for i in $(seq 1 $QTY); do
-            # 전문가 판별 로직
             CHANCE=$(( RANDOM % 100 ))
             if [ $CHANCE -lt $RATIO ]; then
               GROUP="Expert-Admins"
               USER_PREFIX="admin_ops"
-              PASS="EXP-$(openssl rand -base64 12)"
             else
               GROUP="Standard-Users"
               USER_PREFIX="user_staff"
-              PASS="usr-$(openssl rand -hex 4)"
             fi
             
-            USERNAME="${USER_PREFIX}_$(printf "%04d" $i)" # 4자리 숫자로 확장
-            ACCESS_KEY="AKIA$(openssl rand -hex 8 | tr 'a-z' 'A-Z')"
-            SECRET_KEY="$(openssl rand -base64 20)"
+            # 고유 식별자 (중복 방지)
+            SUFFIX=$(date +%s%N | cut -b10-13)
+            USERNAME="${USER_PREFIX}_$(printf "%04d" $i)_$SUFFIX"
+            PASS="pw-$(openssl rand -hex 4)"
             
-            # CSV 기록
-            echo "ACC-2026-$i,$USERNAME,$GROUP,$ACCESS_KEY,$SECRET_KEY,$PASS" >> $CSV_FILE
+            echo "ACC-2026-$i,$USERNAME,$GROUP,KEY,SECRET,$PASS" >> $CSV_FILE
             
-            # JSON 기록 (Terraform 연동용) - 마지막 콤마 처리는 루프 후반부에서 정리하거나 단순화
-            # 여기서는 편의상 마지막 항목 뒤에도 콤마가 붙지 않도록 조건 처리
             if [ "$i" -eq "$QTY" ]; then
               echo "  { \"username\": \"$USERNAME\", \"group\": \"$GROUP\" }" >> $JSON_FILE
             else
               echo "  { \"username\": \"$USERNAME\", \"group\": \"$GROUP\" }," >> $JSON_FILE
             fi
           done
-          
-          # JSON 종료
           echo "]" >> $JSON_FILE
-          
           echo "✅ 데이터 생성 완료."
-          echo ":: Generate Report Summary ::"
-          echo "Total Accounts: $QTY"
-          grep -c "Expert-Admins" $CSV_FILE | awk '{print "Experts Generated: " $1}'
 
       # -----------------------------------------------------------
-      # 2. Terraform 코드 생성 (JSON 데이터 연동형)
+      # 2. [Terraform] 코드 생성
       # -----------------------------------------------------------
       - name: 🛠️ Generate Scalable Terraform Code
         run: |
           cat <<EOF > terraform_iam/main.tf
           terraform {
-            required_providers {
-              aws = { source = "hashicorp/aws", version = "~> 5.0" }
-            }
+            required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } }
           }
-
           provider "aws" {
-            region                      = "ap-northeast-2"
-            access_key                  = "test"
-            secret_key                  = "test"
+            region = "ap-northeast-2"
+            access_key = "test"
+            secret_key = "test"
             skip_credentials_validation = true
-            skip_requesting_account_id  = true
-            endpoints {
-              iam = "http://localhost:4566"
-            }
+            skip_requesting_account_id = true
+            endpoints { iam = "http://localhost:4566" }
           }
-
-          # 1. JSON 데이터 로드 (Bash에서 생성한 파일)
-          locals {
-            users_data = jsondecode(file("\${path.module}/users.json"))
-          }
-
-          # 2. IAM 그룹 생성 (전문가 / 일반)
-          resource "aws_iam_group" "expert_group" {
-            name = "Expert-Admins"
-          }
-
-          resource "aws_iam_group" "standard_group" {
-            name = "Standard-Users"
-          }
-
-          # 3. IAM 정책 연결 (전문가는 Admin, 일반은 ReadOnly)
-          resource "aws_iam_group_policy_attachment" "expert_policy" {
-            group      = aws_iam_group.expert_group.name
-            policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-          }
-
-          resource "aws_iam_group_policy_attachment" "standard_policy" {
-            group      = aws_iam_group.standard_group.name
-            policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
-          }
-
-          # 4. [대량] IAM 사용자 생성 (for_each 사용)
+          locals { users_data = jsondecode(file("\${path.module}/users.json")) }
+          
+          resource "aws_iam_group" "expert_group" { name = "Expert-Admins" }
+          resource "aws_iam_group" "standard_group" { name = "Standard-Users" }
+          
           resource "aws_iam_user" "mass_users" {
             for_each = { for user in local.users_data : user.username => user }
             name     = each.value.username
             path     = "/system/"
           }
-
-          # 5. [대량] 사용자-그룹 멤버십 매핑
+          
           resource "aws_iam_user_group_membership" "mass_membership" {
             for_each = { for user in local.users_data : user.username => user }
-
             user   = aws_iam_user.mass_users[each.key].name
-            groups = [
-              each.value.group == "Expert-Admins" ? aws_iam_group.expert_group.name : aws_iam_group.standard_group.name
-            ]
+            groups = [ each.value.group == "Expert-Admins" ? aws_iam_group.expert_group.name : aws_iam_group.standard_group.name ]
           }
           EOF
 
       # -----------------------------------------------------------
-      # 3. 가상 인프라 배포 (Terraform Apply)
+      # 3. [초기 배포] 1차 대량 배포 실행
       # -----------------------------------------------------------
-      - name: 🏗️ Terraform Init & Apply
+      - name: 🏗️ Terraform Init & Apply (Initial)
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_wrapper: false # 대량 출력 시 로그 깨짐 방지
+          terraform_wrapper: false
 
-      - name: 🚀 Deploy Massive Infra
+      - name: 🚀 Deploy Massive Infra (x100 Parallelism)
+        run: |
+          cd terraform_iam
+          terraform init
+          echo "::: 1차 배포 시작 :::"
+          terraform apply -auto-approve -parallelism=100
+          echo "✅ 1차 배포 완료."
+
+      # -----------------------------------------------------------
+      # 4. [핵심 기능] 컨테이너 정지(Stop) -> 재시작(Start) 시뮬레이션
+      # -----------------------------------------------------------
+      - name: 🛑 Simulate System Crash (Container Stop)
+        run: |
+          echo "::: ⚠️ [카오스 테스트] 시스템 강제 정지 시뮬레이션 시작 :::"
+          
+          # LocalStack 컨테이너 ID 찾기
+          CONTAINER_ID=$(docker ps -q --filter ancestor=localstack/localstack)
+          echo "Target Container ID: $CONTAINER_ID"
+          
+          # 컨테이너 강제 정지
+          docker stop $CONTAINER_ID
+          
+          echo "✅ 컨테이너 정지 완료. 서비스 다운 상태입니다."
+          echo "::: 5초간 대기 (장애 상황 유지) :::"
+          sleep 5
+
+      - name: ♻️ System Recovery (Container Start)
+        run: |
+          echo "::: 🚑 [복구 모드] 시스템 재가동 시작 :::"
+          
+          # 정지된 컨테이너 다시 시작
+          # (GitHub Actions Service 컨테이너는 docker start로 재개 가능)
+          CONTAINER_ID=$(docker ps -a -q --filter ancestor=localstack/localstack)
+          docker start $CONTAINER_ID
+          
+          echo "✅ 컨테이너 재시작 명령 전달됨. 헬스 체크 대기 중..."
+          
+          # 서비스가 완전히 올라올 때까지 대기 (Health Check Loop)
+          timeout 60s bash -c 'until curl -s http://localhost:4566/_localstack/health | grep "\"iam\": \"available\""; do echo "Waiting for IAM service..."; sleep 2; done'
+          
+          echo "✅ 시스템 정상 가동 확인 완료."
+
+      # -----------------------------------------------------------
+      # 5. [재실행 및 복구] 대량 인프라 자가 치유(Self-Healing) 검증
+      # -----------------------------------------------------------
+      - name: 🚑 Self-Healing & Re-Execution
         run: |
           cd terraform_iam
           
-          echo "::: Terraform 초기화 :::"
-          terraform init
+          echo "::: [재실행] 시스템 재부팅 후 인프라 상태 동기화 (Drift Detection) :::"
+          # LocalStack(Community)은 재시작 시 메모리 데이터가 휘발되므로
+          # Terraform이 이를 감지하고 1,000명의 유저를 '다시 생성'하는지 검증합니다.
           
-          echo "::: Terraform 대량 적용 (Parallelism 증가) :::"
-          # 대량 리소스 처리 속도를 위해 병렬 처리 수 증가
-          terraform apply -auto-approve -parallelism=50
+          echo "Running Terraform Plan..."
+          terraform plan -out=recovery_plan
           
-          echo "✅ 가상 클라우드에 대량 계정 및 권한 배포 완료."
+          echo "::: [대량 복구] 사라진 리소스 즉시 복구 수행 :::"
+          terraform apply -auto-approve -parallelism=100 recovery_plan
+          
+          echo "✅ 시스템 재해 복구(Disaster Recovery) 테스트 성공."
 
       # -----------------------------------------------------------
-      # 4. 결과물 다운로드
+      # 6. 결과물 저장
       # -----------------------------------------------------------
-      - name: 📦 Archive Credentials & State
+      - name: 📦 Archive Logs & Reports
         uses: actions/upload-artifact@v4
         with:
-          name: 2026_Massive_Account_Export
+          name: 2026_Chaos_Test_Result_${{ github.run_id }}
           path: |
             security_audit/2026_account_report.csv
             terraform_iam/users.json
