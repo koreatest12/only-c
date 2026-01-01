@@ -1,4 +1,4 @@
-name: 🧨 2026 Enterprise Migration & Admin Dashboard System
+name: 🧨 2026 Enterprise Migration & Admin Dashboard System (Final Fix)
 
 on:
   workflow_dispatch:
@@ -111,25 +111,40 @@ jobs:
           echo "✅ 데이터 이관 완료."
 
       # -----------------------------------------------------------
-      # 3. [Terraform] 인프라 배포
+      # 3. [Terraform] 인프라 배포 (문법 에러 수정됨)
       # -----------------------------------------------------------
       - name: 🛠️ Provision Infrastructure
         run: |
+          # [수정됨] Terraform 블록을 표준 포맷(Multi-line)으로 변경하여 에러 해결
           cat <<EOF > terraform_iam/main.tf
-          terraform { required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } } }
-          provider "aws" {
-            region = "ap-northeast-2"
-            access_key = "test"
-            secret_key = "test"
-            skip_credentials_validation = true
-            skip_requesting_account_id = true
-            endpoints { iam = "http://localhost:4566" }
+          terraform {
+            required_providers {
+              aws = {
+                source  = "hashicorp/aws"
+                version = "~> 5.0"
+              }
+            }
           }
-          locals { users = jsondecode(file("\${path.module}/users.json")) }
+
+          provider "aws" {
+            region                      = "ap-northeast-2"
+            access_key                  = "test"
+            secret_key                  = "test"
+            skip_credentials_validation = true
+            skip_requesting_account_id  = true
+            endpoints {
+              iam = "http://localhost:4566"
+            }
+          }
+
+          locals {
+            users = jsondecode(file("\${path.module}/users.json"))
+          }
+
           resource "aws_iam_user" "u" {
             for_each = { for u in local.users : u.username => u }
-            name = each.value.username
-            tags = each.value.tags
+            name     = each.value.username
+            tags     = each.value.tags
           }
           EOF
           
@@ -141,6 +156,7 @@ jobs:
         run: |
           cd terraform_iam
           terraform init
+          # 대량 처리를 위한 병렬성 옵션 유지
           terraform apply -auto-approve -parallelism=100
 
       # -----------------------------------------------------------
@@ -148,10 +164,15 @@ jobs:
       # -----------------------------------------------------------
       - name: 🛑 Chaos Test (Stop/Start)
         run: |
+          echo "::: 시스템 강제 중단 시뮬레이션 :::"
           docker stop $(docker ps -q --filter ancestor=localstack/localstack)
           sleep 5
+          
+          echo "::: 시스템 복구 및 재가동 :::"
           docker start $(docker ps -a -q --filter ancestor=localstack/localstack)
           timeout 60s bash -c 'until curl -s http://localhost:4566/_localstack/health | grep "\"iam\": \"available\""; do sleep 2; done'
+          
+          echo "::: 인프라 상태 동기화 (Healing) :::"
           cd terraform_iam
           terraform apply -auto-approve -parallelism=100
           echo "System Recovered at $(date)" > ../admin_dashboard/system_health.txt
