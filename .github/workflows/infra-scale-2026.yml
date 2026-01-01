@@ -1,494 +1,391 @@
-name: 🚀 2026 Ultimate Enterprise NOC System (Massive Fix V4)
+name: 🚀 2026 Ultimate Hyper-Speed System (Parallel Unlocked)
 
 on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ "main", "master" ]
+  
+  # [NEW] 다른 워크플로우에서 이 워크플로우를 호출할 수 있도록 기능 추가 (재사용성 극대화)
+  workflow_call:
+    inputs:
+      data_count:
+        description: 'Caller로부터 전달받을 데이터 수'
+        required: false
+        default: '500000'
+        type: string
+
   workflow_dispatch:
     inputs:
-      quantity:
-        description: '생성 리소스 수량 (User/Bucket/Table)'
+      data_count:
+        description: '생성할 데이터 행 수 (기본: 1,000,000)'
         required: true
-        default: '10000' # 기본값 설정
+        default: '1000000'
         type: string
-      expert_ratio:
-        description: '관리자(High Tier) 비율 (%)'
-        required: true
-        default: '20'
-        type: string
-  push:
-    branches: ["main"]
-  schedule:
-    - cron: '0 */4 * * *'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PYTHONIOENCODING: "utf-8"
+  # 입력값 우선순위 처리 (Dispatch > Call > Default)
+  DATA_COUNT: ${{ inputs.data_count || '1000000' }}
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
+  packages: write
+  actions: write
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+# [CRITICAL] 동시성 제한(Concurrency) 제거
+# 기존의 concurrency: group: ... 구문을 삭제하여
+# 여러 인스턴스가 동시에 폭발적으로 실행되도록 허용함.
 
 jobs:
   # ==================================================================================
-  # JOB 1: 차세대 플랫폼 구축 및 대량 데이터 생성/이관
+  # JOB 1: 초고속 병렬 빌드 & 데이터 생성 (충돌 방지 아키텍처 적용)
   # ==================================================================================
-  build-platform:
-    name: ⚡ Phase 1 - Build & Monitor
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+  managed-build:
+    name: ⚡ Hyper-Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
 
-    services:
-      localstack:
-        image: localstack/localstack:latest
-        ports:
-          - 4566:4566
+    steps:
+    - name: 📂 Checkout Repository
+      uses: actions/checkout@v4
+
+    # [Isolation] 실행 ID를 기반으로 아티팩트 이름 동적 생성 (중복 실행 시 충돌 방지)
+    - name: ⚙️ Set Dynamic Environment
+      run: |
+        RUN_ID="${{ github.run_id }}"
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          echo "ARTIFACT_NAME=Binary-Linux-${RUN_ID}" >> $GITHUB_ENV
+          echo "OS_TYPE=Linux" >> $GITHUB_ENV
+        else
+          echo "ARTIFACT_NAME=Binary-Windows-${RUN_ID}" >> $GITHUB_ENV
+          echo "OS_TYPE=Windows" >> $GITHUB_ENV
+        fi
+        echo "✅ Dynamic Isolation ID: $RUN_ID"
+
+    # 1. [Speed] 컴파일러 캐시 및 필수 도구 설치
+    - name: 🛠️ Setup Optimization Tools
+      run: |
+        echo "::: Initializing High-Performance Env for $OS_TYPE :::"
+        if [[ "$OS_TYPE" == "Linux" ]]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake cppcheck tree g++ ccache
+          echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+        else
+          choco install cppcheck -y --no-progress
+        fi
+
+    # 2. [Speed] Python 환경
+    - name: 🐍 Setup Python 3.12 with Cache
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: 📦 Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install Pillow qrcode pandas matplotlib
+
+    # 3. [Speed] Ccache 캐시 복구
+    - name: ⚡ Restore Compiler Cache
+      if: runner.os == 'Linux'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        # OS와 함께 Run ID가 아닌 브랜치 등을 키로 사용하여 캐시 효율 극대화
+        key: ${{ runner.os }}-ccache-${{ github.ref_name }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+
+    # ----------------------------------------------------------------
+    # 4. [Core] Upgrade Manager: 대량 처리 및 I/O 최적화 엔진
+    # ----------------------------------------------------------------
+    - name: 📝 Generate Optimized Upgrade Manager
+      run: |
+        cat <<'EOF' > upgrade_manager.py
+        import os
+        import sys
+        
+        SYSTEM_VERSION = "2026.3.0 (Parallel Edition)"
+        GCC_FLAGS = "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
+
+        def log(msg):
+            try: print(f"[⚙️ MANAGER] {msg}")
+            except: pass
+
+        def generate_cpp_source():
+            log(f"Generating Optimized C++20 Source (v{SYSTEM_VERSION})...")
+            
+            content = """
+        #include <iostream>
+        #include <fstream>
+        #include <filesystem>
+        #include <vector>
+        #include <string>
+        #include <thread>
+        #include <future>
+        #include <random>
+        #include <iomanip>
+        
+        namespace fs = std::filesystem;
+        
+        long long get_target_count() {
+            const char* env_p = std::getenv("DATA_COUNT");
+            if(env_p) return std::stoll(env_p);
+            return 100000;
+        }
+
+        void optimizeIO() {
+            std::ios_base::sync_with_stdio(false);
+            std::cin.tie(NULL);
+        }
+
+        // --- Optimized Data Managers (Buffer Tuning) ---
+        class VirtualAccountManager {
+        public:
+            static void generate(long long count) {
+                std::ofstream file("output/data/va_dump.csv");
+                char buffer[1024 * 1024]; // 1MB Buffer
+                file.rdbuf()->pubsetbuf(buffer, sizeof(buffer));
+                
+                file << "Bank,Account,Holder,Balance,Status,RiskScore\\n";
+                for(long long i=0; i<count; ++i) {
+                    file << (i%2==0 ? "KB-2026" : "WOORI-2026") << ","
+                         << "562-" << std::setw(8) << std::setfill('0') << i << ","
+                         << "User_" << i << ","
+                         << (i * 1500) << ","
+                         << (i%10==0 ? "Inactive" : "Active") << ","
+                         << (i%100) 
+                         << "\\n";
+                }
+                std::cout << "✅ Accounts Generated: " << count << std::endl;
+            }
+        };
+
+        class VirtualCardManager {
+        public:
+            static void generate(long long count) {
+                std::ofstream file("output/data/card_dump.csv");
+                char buffer[1024 * 1024];
+                file.rdbuf()->pubsetbuf(buffer, sizeof(buffer));
+
+                file << "CardNum,CVC,Expiry,Type,Limit\\n";
+                for(long long i=0; i<count; ++i) {
+                    file << "4222-" << (2026 + i%5) << "-" << std::setw(4) << std::setfill('0') << i%10000 << "-XXXX,"
+                         << (i%999) << ",12/30,"
+                         << (i%3==0 ? "VISA" : (i%3==1 ? "MASTER" : "AMEX")) << ","
+                         << (5000 + (i%10)*1000)
+                         << "\\n";
+                }
+                std::cout << "✅ Cards Generated: " << count << std::endl;
+            }
+        };
+
+        int main(int argc, char* argv[]) {
+            optimizeIO();
+            fs::create_directories("output/data");
+            
+            long long target = get_target_count();
+            std::cout << "🚀 Starting Parallel Engine v{SYSTEM_VERSION} (Target: " << target << ")..." << std::endl;
+            
+            // Async Execution
+            auto f1 = std::async(std::launch::async, VirtualAccountManager::generate, target);
+            auto f2 = std::async(std::launch::async, VirtualCardManager::generate, target);
+            
+            f1.get(); f2.get();
+            
+            std::cout << "✨ Data Generation Completed." << std::endl;
+            return 0;
+        }
+            """
+            final_content = content.replace("{SYSTEM_VERSION}", SYSTEM_VERSION)
+            with open("enterprise_main.cpp", "w", encoding="utf-8") as f:
+                f.write(final_content.strip())
+
+        def generate_build_files():
+            log("Generating Build Systems...")
+            makefile_content = f"""
+        CXX = ccache g++
+        CXXFLAGS = {GCC_FLAGS}
+        TARGET = server_app_core
+        SRCS = enterprise_main.cpp
+        all: $(TARGET)
+        $(TARGET): $(SRCS)
+        \t$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
+        clean:
+        \trm -f $(TARGET)
+            """
+            with open("Makefile", "w", encoding="utf-8") as f: f.write(makefile_content.strip())
+
+            cmake = """
+        cmake_minimum_required(VERSION 3.15)
+        project(MassiveServer2026)
+        set(CMAKE_CXX_STANDARD 20)
+        add_executable(enterprise_main enterprise_main.cpp)
+        if(UNIX)
+            add_compile_options(-O3 -Wall -Wextra -pthread -march=native)
+        endif()
+        """
+            with open("CMakeLists.txt", "w", encoding="utf-8") as f: f.write(cmake.strip())
+
+        if __name__ == "__main__":
+            generate_cpp_source()
+            generate_build_files()
+            log("✅ Optimization Applied.")
+        EOF
+
+    - name: 🔄 Execute Upgrade Manager
+      run: python upgrade_manager.py
+
+    # 5. 빌드 및 실행
+    - name: 💥 Build & Run (Parallel Safe)
+      run: |
+        mkdir -p output_data/data
+        
+        if [[ "$OS_TYPE" == "Linux" ]]; then
+          make -j$(nproc) all
+          chmod +x server_app_core
+          cp server_app_core final_binary
+          ./server_app_core
+        else
+          mkdir -p build
+          cd build
+          cmake ..
+          cmake --build . --config Release --parallel
+          cd ..
+          cp build/Release/enterprise_main.exe final_binary.exe
+          ./build/Release/enterprise_main.exe
+        fi
+        
+        if [ -d "output" ]; then cp -r output/* output_data/; fi
+
+    # 6. 리포트 생성
+    - name: 📊 Generate Report
+      run: |
+        cat <<'EOF' > gen_report.py
+        import os
+        with open("output_data/report.html", "w") as f: f.write("<h1>Done</h1>")
+        EOF
+        python gen_report.py
+
+    # 7. 아티팩트 업로드 (격리된 이름 사용)
+    - name: 🏁 Finalize
+      run: |
+        if [[ "$OS_TYPE" == "Linux" ]]; then sha256sum final_binary > checksum.sha256; else sha256sum final_binary.exe > checksum.sha256; fi
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}  # Run ID가 포함된 고유 이름
+        path: |
+          final_binary*
+          checksum.sha256
+          output_data/
+
+  # ==================================================================================
+  # JOB 2: Docker 빌드 (병렬 실행 시 태그 충돌 방지)
+  # ==================================================================================
+  docker-publish:
+    name: 🐳 Dockerize
+    needs: managed-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      # [Isolation] Linux 아티팩트 다운로드 (동적 이름 대응)
+      - uses: actions/download-artifact@v4
+        with:
+          name: Binary-Linux-${{ github.run_id }} # 정확히 내 Run ID의 아티팩트만 가져옴
+
+      - name: ⚙️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔨 Build Docker Context
+        run: |
+          cat <<EOF > Dockerfile
+          FROM ubuntu:24.04
+          WORKDIR /app
+          COPY final_binary /app/server_app
+          COPY output_data /app/data
+          RUN chmod +x /app/server_app
+          CMD ["./server_app"]
+          EOF
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # [Concurrency] 여러 workflow가 동시에 돌아도 각자의 Run Number로 태깅하여 충돌 없음
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.run_number }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==================================================================================
+  # JOB 3: 통합 릴리즈 (병렬 안전 모드)
+  # ==================================================================================
+  release-manager:
+    name: 📦 Managed Release V3
+    needs: [managed-build, docker-publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # 내 Run ID에 해당하는 Windows/Linux 파일만 다운로드
+      - uses: actions/download-artifact@v4
+        with:
+          name: Binary-Linux-${{ github.run_id }}
+          path: linux_pkg
+      - uses: actions/download-artifact@v4
+        with:
+          name: Binary-Windows-${{ github.run_id }}
+          path: windows_pkg
+
+      - name: 📦 Create Release Package
+        run: |
+          mkdir release_assets
+          cp windows_pkg/final_binary.exe release_assets/server_app_2026.exe
+          cp linux_pkg/final_binary release_assets/server_app_linux_2026
+          cp -r linux_pkg/output_data release_assets/dataset_2026
+          cd release_assets
+          zip -r ../parallel_system_v${{ github.run_number }}.zip .
+
+      # 릴리즈 생성 (Main 브랜치일 때만, 태그 충돌 방지)
+      - uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v2026.3.0.${{ github.run_number }}
+          name: 🚀 Parallel System v${{ github.run_number }} (Unlocked)
+          body: |
+            ## 🚀 2026 Parallel Execution Update
+            
+            This release enables **Concurrent Workflow Execution**.
+            
+            ### 🔓 Unlocked Features
+            - **Non-Blocking:** Multiple workflows can run simultaneously without waiting.
+            - **Workflow Call:** Can be triggered by other pipelines as a submodule.
+            - **Isolated Artifacts:** Uses `${{ github.run_id }}` to prevent file collisions.
+            
+            👉 **Managed by 2026 Ultimate Pipeline**
+          files: parallel_system_v${{ github.run_number }}.zip
         env:
-          SERVICES: iam,sts,s3,dynamodb,sns,sqs,cloudwatch
-          DEFAULT_REGION: ap-northeast-2
-
-    steps:
-      - name: 📂 Checkout Source
-        uses: actions/checkout@v4
-
-      # ------------------------------------------------------------------------
-      # 1. [Setup] 시스템 권한 및 환경 설정
-      # ------------------------------------------------------------------------
-      - name: 🛡️ Setup Permissions & Env
-        run: |
-          echo "::: [System] 시스템 권한 및 필수 패키지 대량 설정 :::"
-          
-          # 웹 루트 권한 확보
-          sudo mkdir -p /var/www/html
-          sudo chown -R $USER:$USER /var/www/html
-          sudo chmod -R 755 /var/www/html
-          
-          # Terraform 설치
-          if ! command -v terraform &> /dev/null; then
-              wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-              echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-              sudo apt-get update && sudo apt-get install terraform
-          fi
-          
-          # Python 및 분석 도구 설치
-          python -m pip install --upgrade pip
-          pip install pandas numpy matplotlib faker
-          sudo apt-get install -y nginx apache2-utils
-          
-          echo "✅ All Dependencies Ready."
-
-      # ------------------------------------------------------------------------
-      # 2. [Data Gen] Python 기반 고속 대량 데이터 생성 (에러 수정됨)
-      # ------------------------------------------------------------------------
-      - name: 🏢 Generate Massive Enterprise Data
-        id: data-gen
-        env:
-          # [FIX] 입력값을 환경 변수로 주입하여 파이썬에서 안전하게 호출
-          INPUT_QTY: ${{ inputs.quantity }}
-          INPUT_RATIO: ${{ inputs.expert_ratio }}
-        run: |
-          mkdir -p terraform_infra admin_dashboard logs
-          
-          # Python 스크립트 생성
-          cat <<'EOF' > generate_data.py
-          import json
-          import random
-          import uuid
-          import datetime
-          import os
-
-          # [FIXED] 안전한 입력값 처리 로직 (빈 값일 경우 기본값 100,000 적용)
-          def get_env_int(key, default):
-              val = os.getenv(key, "")
-              if val and val.isdigit():
-                  return int(val)
-              return default
-
-          QTY = get_env_int("INPUT_QTY", 100000) # 기본 10만건
-          RATIO = get_env_int("INPUT_RATIO", 20)
-          
-          departments = ["DevOps", "DataScience", "Backend", "Frontend", "SecOps", "HR", "Finance"]
-          resources = []
-          
-          # 대량 처리를 위한 CSV 버퍼링
-          cost_data_lines = ["Service,Resource,Region,Cost"]
-          event_log_lines = [f"[{datetime.datetime.now()}] SYSTEM_BOOT: Mass Data Generation Started for {QTY} records"]
-
-          print(f"::: Generating {QTY} resources sets (Expert Ratio: {RATIO}%)...")
-
-          for i in range(1, QTY + 1):
-              is_expert = random.randint(0, 100) < RATIO
-              uid = str(uuid.uuid4())[:8]
-              
-              # 1. User Account Info
-              username = f"usr_{i:04d}_{uid}"
-              access_key = f"AKIA{uuid.uuid4().hex[:16].upper()}"
-              dept = random.choice(departments)
-              
-              # 2. Storage & Database Info
-              bucket = f"bkt-{i:04d}-{dept.lower()}-{uid}"
-              table = f"tbl_{i:04d}_{dept.lower()}"
-              
-              # 3. Attributes & Cost
-              tier = "High" if is_expert else "Standard"
-              s3_cost = 15.50 if is_expert else 2.30
-              ddb_cost = 25.00 if is_expert else 5.00
-              
-              # 4. Table Schema Configuration
-              pk = "UserId"
-              sk = "Timestamp"
-              gsi_name = f"GSI_{dept}_Index"
-
-              # 리소스 메타데이터 저장 (Terraform용)
-              resource = {
-                  "username": username,
-                  "access_key": access_key,
-                  "bucket": bucket,
-                  "table": table,
-                  "dept": dept,
-                  "tier": tier,
-                  "pk": pk,
-                  "sk": sk,
-                  "gsi": gsi_name
-              }
-              resources.append(resource)
-
-              # Cost Log Append
-              cost_data_lines.append(f"IAM,{username},ap-northeast-2,0.00")
-              cost_data_lines.append(f"S3,{bucket},ap-northeast-2,{s3_cost}")
-              cost_data_lines.append(f"DynamoDB,{table},ap-northeast-2,{ddb_cost}")
-
-              if is_expert:
-                  event_log_lines.append(f"[{datetime.datetime.now()}] AUDIT_WARN: High privilege account {username} created.")
-
-          # Finalize Files
-          print("::: Writing JSON and CSV files...")
-          with open("terraform_infra/resources.json", "w") as f:
-              json.dump(resources, f, indent=2)
-          
-          with open("admin_dashboard/cost_breakdown.csv", "w") as f:
-              f.write("\n".join(cost_data_lines))
-
-          event_log_lines.append(f"[{datetime.datetime.now()}] DATA_GEN: Completed generating {QTY} complex datasets.")
-          with open("admin_dashboard/system_events.log", "w") as f:
-              f.write("\n".join(event_log_lines))
-          
-          print("✅ Data Generation Complete.")
-          EOF
-          
-          # 실행
-          python generate_data.py
-
-      # ------------------------------------------------------------------------
-      # 3. [IaC] 대량 리소스 Terraform 코드 생성 (GSI 포함)
-      # ------------------------------------------------------------------------
-      - name: 🛠️ Generate & Audit IaC Code
-        run: |
-          cat <<EOF > terraform_infra/main.tf
-          terraform {
-            required_providers {
-              aws = { source = "hashicorp/aws", version = "~> 5.0" }
-            }
-          }
-          provider "aws" {
-            region = "ap-northeast-2"
-            access_key = "test"
-            secret_key = "test"
-            endpoints {
-              iam      = "http://localhost:4566"
-              s3       = "http://localhost:4566"
-              dynamodb = "http://localhost:4566"
-            }
-            skip_credentials_validation = true
-            skip_requesting_account_id  = true
-            s3_use_path_style           = true
-          }
-          
-          locals { resources = jsondecode(file("\${path.module}/resources.json")) }
-          
-          # 1. IAM User Mass Creation
-          resource "aws_iam_user" "users" {
-            for_each = { for r in local.resources : r.username => r }
-            name     = each.value.username
-            tags     = { Dept = each.value.dept, Generated = "True" }
-          }
-          
-          # 2. S3 Bucket Mass Creation
-          resource "aws_s3_bucket" "buckets" {
-            for_each = { for r in local.resources : r.bucket => r }
-            bucket   = each.value.bucket
-            tags     = { Tier = each.value.tier }
-          }
-          
-          # 3. DynamoDB Table Mass Creation with GSI
-          resource "aws_dynamodb_table" "tables" {
-            for_each     = { for r in local.resources : r.table => r }
-            name         = each.value.table
-            billing_mode = "PAY_PER_REQUEST"
-            hash_key     = each.value.pk
-            range_key    = each.value.sk
-            
-            attribute {
-              name = each.value.pk
-              type = "S"
-            }
-            attribute {
-              name = each.value.sk
-              type = "S"
-            }
-            
-            # Global Secondary Index for Mass Migration Simulation
-            global_secondary_index {
-              name               = each.value.gsi
-              hash_key           = each.value.sk
-              projection_type    = "ALL"
-            }
-            
-            tags = { Owner = each.value.username }
-          }
-          EOF
-          
-          cd terraform_infra
-          terraform init
-          terraform validate
-          echo "✅ IaC Configuration for Massive Migration Validated."
-
-      # ------------------------------------------------------------------------
-      # 4. [Deploy] 인프라 대량 배포 (병렬 처리 최적화)
-      # ------------------------------------------------------------------------
-      - name: 🚀 Deploy Cloud Platform
-        run: |
-          cd terraform_infra
-          # 병렬 처리(parallelism)를 높여 대량 배포 속도 향상
-          terraform apply -auto-approve -parallelism=50
-          echo "[$(date '+%Y-%m-%d %H:%M:%S')] DEPLOY_SUCCESS: Massive Infrastructure provisioned to LocalStack" >> ../admin_dashboard/system_events.log
-
-      # ------------------------------------------------------------------------
-      # 5. [Simulation] 시스템 시뮬레이션 및 메트릭 수집
-      # ------------------------------------------------------------------------
-      - name: 🔬 Comprehensive System Simulation
-        run: |
-          EVENT_LOG="admin_dashboard/system_events.log"
-          
-          # 1. Nginx Setup
-          echo "events { worker_connections 2048; } http { server { listen 80; root /var/www/html; } }" > nginx_temp.conf
-          sudo mv nginx_temp.conf /etc/nginx/nginx.conf
-          echo "Dashboard Loading..." > /var/www/html/index.html
-          sudo service nginx restart
-          
-          # 2. Chaos Test
-          echo "[$(date '+%Y-%m-%d %H:%M:%S')] CHAOS_TEST: Simulating partial outage" >> $EVENT_LOG
-          START=$(date +%s%3N)
-          docker pause $(docker ps -q --filter ancestor=localstack/localstack)
-          sleep 2
-          docker unpause $(docker ps -q --filter ancestor=localstack/localstack)
-          END=$(date +%s%3N)
-          echo "Full_Recovery_Time: $((END-START)) ms" > admin_dashboard/recovery_metrics.txt
-          
-          # 3. Load Test
-          ab -n 1500 -c 100 http://localhost/ > admin_dashboard/load_test.txt
-          echo "[$(date '+%Y-%m-%d %H:%M:%S')] PERF_TEST: Load testing completed" >> $EVENT_LOG
-          
-          # 4. Service Health Snapshot
-          cat <<EOF > admin_dashboard/service_health.json
-          { "IAM": "Healthy", "S3": "Healthy", "DynamoDB": "Migrated", "Nginx": "Active", "Billing": "Active" }
-          EOF
-
-      # ------------------------------------------------------------------------
-      # 6. [Dashboard] NOC 대시보드 구축 (계정 정보 테이블 포함)
-      # ------------------------------------------------------------------------
-      - name: 🖥️ Build NOC Dashboard V3
-        run: |
-          cat <<'EOF' > build_dashboard.py
-          import pandas as pd
-          import json, re, datetime, os
-
-          # 1. Load Data
-          try:
-              df_cost = pd.read_csv('admin_dashboard/cost_breakdown.csv')
-              total_cost = df_cost['Cost'].sum()
-              cost_by_service = df_cost.groupby('Service')['Cost'].sum().to_dict()
-          except: total_cost=0; cost_by_service={}
-
-          try:
-              with open('terraform_infra/resources.json') as f:
-                  resources = json.load(f)
-          except: resources = []
-
-          try:
-              with open('admin_dashboard/load_test.txt') as f:
-                  log = f.read()
-                  rps = re.search(r'Requests per second:\s+([\d.]+)', log).group(1)
-          except: rps="N/A"
-
-          try:
-              with open('admin_dashboard/recovery_metrics.txt') as f:
-                  rec_time = f.read().split(': ')[1].strip()
-          except: rec_time="N/A"
-          
-          try:
-              with open('admin_dashboard/system_events.log') as f:
-                  events = f.readlines()[-15:] # Last 15 events
-          except: events = []
-
-          # 2. HTML Template
-          html = f"""
-          <!DOCTYPE html>
-          <html lang="en" data-bs-theme="dark">
-          <head>
-              <meta charset="UTF-8">
-              <title>2026 Enterprise NOC - Massive Migration</title>
-              <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-              <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-              <style>
-                  body {{ background-color: #050505; color: #e0e0e0; font-family: 'Consolas', sans-serif; }}
-                  .card {{ background-color: #1a1a1a; border: 1px solid #333; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }}
-                  .text-neon {{ color: #00ff41; text-shadow: 0 0 5px #00ff41; }}
-                  .text-warn {{ color: #ffeb3b; }}
-                  .status-dot {{ height: 10px; width: 10px; background-color: #00ff41; border-radius: 50%; display: inline-block; margin-right: 5px; }}
-                  .console {{ background: #000; color: #0f0; padding: 10px; height: 250px; overflow-y: auto; font-size: 0.8rem; border: 1px solid #333; }}
-                  .table-custom {{ font-size: 0.85rem; }}
-                  .scrollable-table {{ max_height: 400px; overflow-y: auto; }}
-              </style>
-          </head>
-          <body>
-              <div class="container-fluid p-4">
-                  <header class="d-flex justify-content-between mb-4 border-bottom border-secondary pb-2">
-                      <div>
-                          <h2 class="text-neon">🚀 2026 Enterprise NOC</h2>
-                          <small class="text-muted">Massive Data Migration & Monitoring V4 (Fix)</small>
-                      </div>
-                      <div class="text-end">
-                          <h4 class="text-white"><span class="status-dot"></span>OPERATIONAL</h4>
-                          <small>{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</small>
-                      </div>
-                  </header>
-
-                  <div class="row text-center mb-3">
-                      <div class="col-md-3"><div class="card p-3"><h6 class="text-muted">Est. Monthly Cost</h6><h3 class="text-warn">${total_cost:,.2f}</h3></div></div>
-                      <div class="col-md-3"><div class="card p-3"><h6 class="text-muted">Total Resources</h6><h3 class="text-info">{len(resources)} Sets</h3></div></div>
-                      <div class="col-md-3"><div class="card p-3"><h6 class="text-muted">Throughput (RPS)</h6><h3 class="text-white">{rps}</h3></div></div>
-                      <div class="col-md-3"><div class="card p-3"><h6 class="text-muted">Recovery Time</h6><h3 class="text-success">{rec_time}</h3></div></div>
-                  </div>
-
-                  <div class="row">
-                      <div class="col-md-4">
-                          <div class="card p-3">
-                              <h5>💰 Cost Distribution</h5>
-                              <canvas id="costChart"></canvas>
-                          </div>
-                          <div class="card p-3">
-                              <h5>📜 Live System Logs</h5>
-                              <div class="console">
-          """
-          for line in events:
-              html += f"<div>> {line.strip()}</div>"
-          
-          html += """
-                              </div>
-                          </div>
-                      </div>
-
-                      <div class="col-md-8">
-                          <div class="card p-3">
-                              <div class="d-flex justify-content-between align-items-center mb-2">
-                                  <h5>🗄️ Migrated Account & Table Configuration (Top 500 View)</h5>
-                                  <span class="badge bg-primary">Total: """ + str(len(resources)) + """</span>
-                              </div>
-                              <div class="scrollable-table">
-                                  <table class="table table-dark table-striped table-hover table-custom">
-                                      <thead>
-                                          <tr>
-                                              <th>User</th>
-                                              <th>Access Key</th>
-                                              <th>Dept</th>
-                                              <th>DynamoDB Table</th>
-                                              <th>Primary Key</th>
-                                              <th>GSI (Migrated)</th>
-                                          </tr>
-                                      </thead>
-                                      <tbody>
-          """
-          # Show up to 500 rows to prevent browser crash
-          for r in resources[:500]: 
-              html += f"<tr><td>{r['username']}</td><td><code>{r['access_key']}</code></td><td>{r['dept']}</td><td>{r['table']}</td><td>{r['pk']}</td><td>{r['gsi']}</td></tr>"
-
-          html += f"""
-                                      </tbody>
-                                  </table>
-                              </div>
-                              <small class="text-muted mt-2">* Displaying top 500 records only for performance. Full logs available in artifacts.</small>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <script>
-                  const ctxCost = document.getElementById('costChart').getContext('2d');
-                  new Chart(ctxCost, {{
-                      type: 'doughnut',
-                      data: {{
-                          labels: {list(cost_by_service.keys())},
-                          datasets: [{{
-                              data: {list(cost_by_service.values())},
-                              backgroundColor: ['#00ff41', '#00b8ff', '#ffeb3b', '#ff3d00'],
-                              borderWidth: 0
-                          }}]
-                      }},
-                      options: {{ plugins: {{ legend: {{ position: 'right', labels: {{ color: 'white' }} }} }} }}
-                  }});
-              </script>
-          </body>
-          </html>
-          """
-          
-          with open('admin_dashboard/index.html', 'w') as f: f.write(html)
-          
-          # Jekyll Config
-          with open('admin_dashboard/_config.yml', 'w') as f:
-              f.write("title: 2026 Enterprise NOC\ntheme: jekyll-theme-hacker\n")
-          EOF
-          
-          python build_dashboard.py
-
-      - name: 📤 Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: website-content
-          path: admin_dashboard/
-
-  # ==================================================================================
-  # JOB 2: Jekyll 빌드
-  # ==================================================================================
-  build-pages:
-    name: 🏗️ Phase 2 - Build Site
-    runs-on: ubuntu-latest
-    needs: build-platform
-    steps:
-      - name: 📥 Download
-        uses: actions/download-artifact@v4
-        with:
-          name: website-content
-          path: .
-      - name: ⚙️ Setup Pages
-        uses: actions/configure-pages@v5
-      - name: 🔨 Build Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./
-          destination: ./_site
-      - name: 📦 Upload Pages
-        uses: actions/upload-pages-artifact@v3
-
-  # ==================================================================================
-  # JOB 3: 배포
-  # ==================================================================================
-  deploy-pages:
-    name: 🚀 Phase 3 - Deploy
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build-pages
-    steps:
-      - name: 🌍 Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
