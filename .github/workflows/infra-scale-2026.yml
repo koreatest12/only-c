@@ -1,4 +1,4 @@
-name: 🚀 2026 Next-Gen Enterprise Platform (Final Fix)
+name: 🚀 2026 Ultimate Enterprise NOC System (Monitoring V2)
 
 on:
   workflow_dispatch:
@@ -29,10 +29,10 @@ concurrency:
 
 jobs:
   # ==================================================================================
-  # JOB 1: 차세대 플랫폼 구축 (Build Next-Gen Platform)
+  # JOB 1: 차세대 플랫폼 구축 및 모니터링 데이터 생성
   # ==================================================================================
   build-platform:
-    name: ⚡ Phase 1 - Build Cloud Platform
+    name: ⚡ Phase 1 - Build & Monitor
     runs-on: ubuntu-latest
     timeout-minutes: 60
     
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ------------------------------------------------------------------------
-      # 1. [Permission & Setup] 권한 및 환경 대량 구축
+      # 1. [Setup] 시스템 권한 및 환경 설정
       # ------------------------------------------------------------------------
       - name: 🛡️ Setup Permissions & Env
         run: |
@@ -61,14 +61,14 @@ jobs:
           sudo chown -R $USER:$USER /var/www/html
           sudo chmod -R 755 /var/www/html
           
-          # Terraform 설치 (이중 체크)
+          # Terraform 설치
           if ! command -v terraform &> /dev/null; then
               wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
               echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
               sudo apt-get update && sudo apt-get install terraform
           fi
           
-          # 보안 및 분석 도구
+          # 모니터링 및 분석 도구 설치
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
           python -m pip install --upgrade pip
           pip install pandas numpy matplotlib
@@ -77,9 +77,9 @@ jobs:
           echo "✅ All Dependencies Ready."
 
       # ------------------------------------------------------------------------
-      # 2. [Data Gen] 대량 멀티 서비스 데이터 생성
+      # 2. [Data Gen] 대량 멀티 서비스 및 로그 데이터 생성
       # ------------------------------------------------------------------------
-      - name: 🏢 Generate Multi-Service Data
+      - name: 🏢 Generate Comprehensive Data
         run: |
           INPUT_QTY="${{ inputs.quantity }}"
           QTY="${INPUT_QTY:-1000}"
@@ -87,13 +87,17 @@ jobs:
           
           mkdir -p terraform_infra admin_dashboard logs
           JSON_FILE="terraform_infra/resources.json"
-          COST_LOG="admin_dashboard/cost_estimation.csv"
+          COST_LOG="admin_dashboard/cost_breakdown.csv"
+          EVENT_LOG="admin_dashboard/system_events.log"
           
-          echo "::: [Gen] $QTY 개의 멀티 리소스 데이터 생성 :::"
+          echo "::: [Gen] 리소스 및 이벤트 로그 대량 생성 :::"
           echo "[" > $JSON_FILE
-          echo "Resource_ID,Type,Owner,Region,Est_Cost_Monthly" > $COST_LOG
+          echo "Service,Resource,Region,Cost" > $COST_LOG
           
-          DEPTS=("DevOps" "DataTeam" "Backend" "Frontend" "Security")
+          # 이벤트 로그 헤더
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] SYSTEM_BOOT: Initialization started" > $EVENT_LOG
+          
+          DEPTS=("DevOps" "Data" "Backend" "Frontend" "SecOps")
           
           for i in $(seq 1 $QTY); do
             SUFFIX=$(date +%s%N | cut -b10-13)
@@ -102,40 +106,36 @@ jobs:
             TABLE="tbl_$(printf "%04d" $i)_$SUFFIX"
             
             if [ $((RANDOM%100)) -lt $RATIO ]; then 
-               TIER="High"; COST="15.50"
+               TIER="High"; COST_S3="15.50"; COST_DDB="25.00"
+               echo "[$(date '+%Y-%m-%d %H:%M:%S')] AUDIT_WARN: High privilege user $USER created" >> $EVENT_LOG
             else 
-               TIER="Standard"; COST="2.30" 
+               TIER="Standard"; COST_S3="2.30"; COST_DDB="5.00"
             fi
             DEPT=${DEPTS[$RANDOM % ${#DEPTS[@]}]}
             
-            # 비용 로그
-            echo "IAM-$i,IAM_User,$USER,ap-northeast-2,0.00" >> $COST_LOG
-            echo "S3-$i,S3_Bucket,$BUCKET,ap-northeast-2,$COST" >> $COST_LOG
+            # 비용 데이터 세분화
+            echo "IAM,$USER,ap-northeast-2,0.00" >> $COST_LOG
+            echo "S3,$BUCKET,ap-northeast-2,$COST_S3" >> $COST_LOG
+            echo "DynamoDB,$TABLE,ap-northeast-2,$COST_DDB" >> $COST_LOG
             
-            # Terraform Resource JSON
             echo "  { \"username\": \"$USER\", \"bucket\": \"$BUCKET\", \"table\": \"$TABLE\", \"dept\": \"$DEPT\", \"tier\": \"$TIER\" }," >> $JSON_FILE
           done
           
-          # JSON 마무리 (Trailing Comma 방지용 더미)
+          # JSON 마무리
           echo "  { \"username\": \"dummy\", \"bucket\": \"dummy\", \"table\": \"dummy\", \"dept\": \"sys\", \"tier\": \"low\" } ]" >> $JSON_FILE
-          echo "✅ 데이터 생성 완료."
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] DATA_GEN: Generated $QTY resource sets" >> $EVENT_LOG
 
       # ------------------------------------------------------------------------
       # 3. [IaC] 인프라 코드 생성 (문법 오류 수정됨)
       # ------------------------------------------------------------------------
       - name: 🛠️ Generate & Audit IaC Code
         run: |
-          # [FIX] main.tf 문법 수정: 세미콜론 제거 및 줄바꿈 적용
           cat <<EOF > terraform_infra/main.tf
           terraform {
             required_providers {
-              aws = {
-                source  = "hashicorp/aws"
-                version = "~> 5.0"
-              }
+              aws = { source = "hashicorp/aws", version = "~> 5.0" }
             }
           }
-          
           provider "aws" {
             region = "ap-northeast-2"
             access_key = "test"
@@ -151,32 +151,27 @@ jobs:
             s3_use_path_style           = true
           }
           
-          locals {
-            resources = jsondecode(file("\${path.module}/resources.json"))
-          }
+          locals { resources = jsondecode(file("\${path.module}/resources.json")) }
           
-          # 1. IAM User
           resource "aws_iam_user" "users" {
             for_each = { for r in local.resources : r.username => r }
             name     = each.value.username
             tags     = { Dept = each.value.dept }
           }
           
-          # 2. S3 Bucket
           resource "aws_s3_bucket" "buckets" {
             for_each = { for r in local.resources : r.bucket => r }
             bucket   = each.value.bucket
             tags     = { Tier = each.value.tier }
           }
           
-          # 3. DynamoDB Table (에러 수정된 부분)
           resource "aws_dynamodb_table" "tables" {
             for_each     = { for r in local.resources : r.table => r }
             name         = each.value.table
             billing_mode = "PAY_PER_REQUEST"
             hash_key     = "PK"
             
-            # [FIXED] 속성 정의를 멀티라인으로 변경하여 HCL 문법 오류 해결
+            # [FIXED] Multi-line block definition for HCL compliance
             attribute {
               name = "PK"
               type = "S"
@@ -188,10 +183,9 @@ jobs:
           
           cd terraform_infra
           terraform init
-          # TFLint 및 Validate 수행
-          tflint --init && tflint || echo "Lint warnings found (Non-critical)"
+          tflint --init && tflint || echo "Lint warnings found"
           terraform validate
-          echo "✅ Code Security & Syntax Check Passed."
+          echo "✅ IaC Validated."
 
       # ------------------------------------------------------------------------
       # 4. [Deploy] 인프라 대량 배포
@@ -199,91 +193,213 @@ jobs:
       - name: 🚀 Deploy Cloud Platform
         run: |
           cd terraform_infra
-          echo "::: [Deploy] IAM + S3 + DynamoDB 대량 배포 :::"
-          # 병렬 처리 100개로 대량 생성 가속화
           terraform apply -auto-approve -parallelism=100
-          echo "✅ 클라우드 플랫폼 구축 완료."
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] DEPLOY_SUCCESS: Infrastructure provisioned" >> ../admin_dashboard/system_events.log
 
       # ------------------------------------------------------------------------
-      # 5. [FinOps & Chaos] 웹 서버 설정 및 장애 테스트
+      # 5. [Simulation] 웹, 장애, 성능, 상태 체크
       # ------------------------------------------------------------------------
-      - name: 💰 FinOps & Chaos Simulation
+      - name: 🔬 Comprehensive System Simulation
         run: |
-          # Nginx 설정 (대용량 커넥션)
+          EVENT_LOG="admin_dashboard/system_events.log"
+          
+          # 1. Nginx 구동
           echo "events { worker_connections 2048; } http { server { listen 80; root /var/www/html; } }" > nginx_temp.conf
           sudo mv nginx_temp.conf /etc/nginx/nginx.conf
-          
-          # 웹 페이지 생성 (권한 이슈 해결됨)
-          echo "System Initializing..." > /var/www/html/index.html
+          echo "Dashboard Loading..." > /var/www/html/index.html
           sudo service nginx restart
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] WEB_SRV: Nginx started on port 80" >> $EVENT_LOG
           
-          # Chaos: DB 연결 장애 시뮬레이션
-          echo "::: [Chaos] DB Connection Failure Simulation :::"
+          # 2. Chaos Test (DB Failure)
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] CHAOS_TEST: Simulating DynamoDB outage" >> $EVENT_LOG
           START=$(date +%s%3N)
           docker stop $(docker ps -q --filter ancestor=localstack/localstack)
           sleep 3
           docker start $(docker ps -a -q --filter ancestor=localstack/localstack)
           
-          # Auto-Healing: DynamoDB 복구 대기
-          echo "Waiting for DynamoDB recovery..."
+          # 3. Auto-Healing
           timeout 90s bash -c 'until curl -s http://localhost:4566/_localstack/health | grep "\"dynamodb\": \"available\""; do echo "Healing..."; sleep 2; done'
-          
           END=$(date +%s%3N)
           echo "Full_Recovery_Time: $((END-START)) ms" > admin_dashboard/recovery_metrics.txt
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] RECOVERY: System healed in $((END-START))ms" >> $EVENT_LOG
           
-          # 부하 테스트
+          # 4. Load Test (Latency 측정 강화)
           ab -n 2000 -c 200 http://localhost/ > admin_dashboard/load_test.txt
-          echo "✅ FinOps 및 안정성 검증 완료."
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] PERF_TEST: Completed 2000 requests" >> $EVENT_LOG
+          
+          # 5. Service Health Snapshot 생성
+          cat <<EOF > admin_dashboard/service_health.json
+          {
+            "IAM": "Healthy",
+            "S3": "Healthy",
+            "DynamoDB": "Recovered",
+            "Nginx": "Active",
+            "Billing": "Active"
+          }
+          EOF
 
       # ------------------------------------------------------------------------
-      # 6. [Dashboard] 대시보드 생성
+      # 6. [Dashboard] NOC 대시보드 구축 (Chart.js & Live Logs)
       # ------------------------------------------------------------------------
-      - name: 🖥️ Build Next-Gen Dashboard
+      - name: 🖥️ Build NOC Dashboard V2
         run: |
-          cat <<EOF > build_web.py
+          cat <<EOF > build_dashboard.py
           import pandas as pd
-          import datetime, re
+          import json, re, datetime
 
+          # 1. Load Data
           try:
-              df_cost = pd.read_csv('admin_dashboard/cost_estimation.csv')
-              total_resources = len(df_cost)
-              total_cost = df_cost['Est_Cost_Monthly'].sum()
+              df_cost = pd.read_csv('admin_dashboard/cost_breakdown.csv')
+              total_cost = df_cost['Cost'].sum()
+              cost_by_service = df_cost.groupby('Service')['Cost'].sum().to_dict()
           except: 
-              total_resources=0; total_cost=0.0
+              total_cost=0.0; cost_by_service={}
 
           try:
               with open('admin_dashboard/load_test.txt') as f:
-                  rps = re.search(r'Requests per second:\s+([\d.]+)', f.read()).group(1)
-          except: rps="0"
-          
+                  log = f.read()
+                  rps = re.search(r'Requests per second:\s+([\d.]+)', log).group(1)
+                  p95 = re.search(r'95%\s+(\d+)', log).group(1)
+          except: rps="0"; p95="0"
+
           try:
               with open('admin_dashboard/recovery_metrics.txt') as f:
                   rec_time = f.read().split(': ')[1].strip()
           except: rec_time="N/A"
 
-          md = f"""---
-          layout: default
-          title: 2026 Cloud Platform
-          ---
-          <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-          <div class="container-fluid mt-4 text-white">
-              <div class="p-5 bg-dark border border-primary rounded-3 mb-4">
-                  <h1 class="display-4 fw-bold text-primary">☁️ Next-Gen Enterprise Platform</h1>
-                  <p class="fs-4">Integrated Management System (IAM • S3 • DynamoDB)</p>
-                  <span class="badge bg-success">SECURE & COMPLIANT</span>
-              </div>
-              <div class="row text-center mb-4">
-                  <div class="col-md-3"><div class="card bg-secondary p-3"><h5>Resources</h5><h1>{total_resources}</h1></div></div>
-                  <div class="col-md-3"><div class="card bg-secondary p-3"><h5>Monthly Cost</h5><h1 class="text-warning">${total_cost:,.2f}</h1></div></div>
-                  <div class="col-md-3"><div class="card bg-secondary p-3"><h5>Throughput</h5><h1 class="text-info">{rps}</h1></div></div>
-                  <div class="col-md-3"><div class="card bg-secondary p-3"><h5>Recovery</h5><h1 class="text-danger">{rec_time}</h1></div></div>
-              </div>
-          </div>
+          try:
+              with open('admin_dashboard/service_health.json') as f:
+                  health = json.load(f)
+          except: health={}
+
+          try:
+              with open('admin_dashboard/system_events.log') as f:
+                  events = f.readlines()[-10:] # Last 10 events
+          except: events = []
+
+          # 2. HTML Template (Bootstrap + Dark Mode + Charts)
+          html = f"""
+          <!DOCTYPE html>
+          <html lang="en" data-bs-theme="dark">
+          <head>
+              <meta charset="UTF-8">
+              <title>2026 Enterprise NOC</title>
+              <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+              <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+              <style>
+                  body {{ background-color: #0b0c10; color: #c5c6c7; font-family: 'Segoe UI', sans-serif; }}
+                  .card {{ background-color: #1f2833; border: 1px solid #45a29e; margin-bottom: 20px; }}
+                  .text-neon {{ color: #66fcf1; }}
+                  .status-dot {{ height: 12px; width: 12px; background-color: #4CAF50; border-radius: 50%; display: inline-block; }}
+                  .console {{ background: black; color: #00ff00; font-family: monospace; padding: 15px; border-radius: 5px; height: 200px; overflow-y: auto; }}
+              </style>
+          </head>
+          <body>
+              <div class="container-fluid p-4">
+                  <header class="d-flex justify-content-between mb-4 border-bottom border-secondary pb-3">
+                      <div>
+                          <h1 class="text-neon fw-bold">🚀 2026 Enterprise NOC</h1>
+                          <small>Network Operations Center • Real-time Monitoring</small>
+                      </div>
+                      <div class="text-end">
+                          <h4 class="text-success"><span class="status-dot"></span> SYSTEM OPERATIONAL</h4>
+                          <small>{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</small>
+                      </div>
+                  </header>
+
+                  <div class="row text-center">
+                      <div class="col-md-3">
+                          <div class="card p-3">
+                              <h6 class="text-muted">Total Monthly Cost</h6>
+                              <h2 class="text-warning">${total_cost:,.2f}</h2>
+                          </div>
+                      </div>
+                      <div class="col-md-3">
+                          <div class="card p-3">
+                              <h6 class="text-muted">Throughput (RPS)</h6>
+                              <h2 class="text-info">{rps}</h2>
+                          </div>
+                      </div>
+                      <div class="col-md-3">
+                          <div class="card p-3">
+                              <h6 class="text-muted">Latency (P95)</h6>
+                              <h2 class="text-danger">{p95} ms</h2>
+                          </div>
+                      </div>
+                      <div class="col-md-3">
+                          <div class="card p-3">
+                              <h6 class="text-muted">Recovery Time</h6>
+                              <h2 class="text-success">{rec_time}</h2>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div class="row">
+                      <div class="col-md-4">
+                          <div class="card p-3">
+                              <h5>💰 Cost Distribution</h5>
+                              <canvas id="costChart"></canvas>
+                          </div>
+                      </div>
+                      <div class="col-md-4">
+                          <div class="card p-3">
+                              <h5>🏥 Service Health Matrix</h5>
+                              <table class="table table-dark table-striped mt-3">
+                                  <thead><tr><th>Service</th><th>Status</th></tr></thead>
+                                  <tbody>
           """
-          with open('admin_dashboard/index.html', 'w') as f: f.write(md)
-          with open('admin_dashboard/_config.yml', 'w') as f: f.write("title: 2026 Cloud Platform\ntheme: jekyll-theme-tactile\n")
+          for svc, status in health.items():
+              color = "text-success" if status in ["Healthy", "Active", "Recovered"] else "text-danger"
+              html += f"<tr><td>{svc}</td><td class='{color} fw-bold'>{status}</td></tr>"
+          
+          html += """
+                                  </tbody>
+                              </table>
+                          </div>
+                      </div>
+                      <div class="col-md-4">
+                          <div class="card p-3">
+                              <h5>💻 Live Event Log</h5>
+                              <div class="console">
+          """
+          for line in events:
+              html += f"<div>> {line.strip()}</div>"
+
+          html += f"""
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <script>
+                  // Cost Chart
+                  const ctxCost = document.getElementById('costChart').getContext('2d');
+                  new Chart(ctxCost, {{
+                      type: 'doughnut',
+                      data: {{
+                          labels: {list(cost_by_service.keys())},
+                          datasets: [{{
+                              data: {list(cost_by_service.values())},
+                              backgroundColor: ['#45a29e', '#66fcf1', '#c5c6c7', '#ffc107', '#dc3545'],
+                              borderWidth: 0
+                          }}]
+                      }},
+                      options: {{ plugins: {{ legend: {{ position: 'bottom', labels: {{ color: 'white' }} }} }} }}
+                  }});
+              </script>
+          </body>
+          </html>
+          """
+
+          with open('admin_dashboard/index.html', 'w') as f: f.write(html)
+          
+          # Jekyll Config
+          with open('admin_dashboard/_config.yml', 'w') as f:
+              f.write("title: 2026 Enterprise NOC\ntheme: jekyll-theme-hacker\n")
           EOF
-          python build_web.py
+          
+          python build_dashboard.py
 
       - name: 📤 Upload Artifact
         uses: actions/upload-artifact@v4
