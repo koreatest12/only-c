@@ -1,4 +1,4 @@
-name: 🚀 2026 Ultimate Enterprise NOC System (Massive Data V3)
+name: 🚀 2026 Ultimate Enterprise NOC System (Massive Fix V4)
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       quantity:
         description: '생성 리소스 수량 (User/Bucket/Table)'
         required: true
-        default: '1000'
+        default: '10000' # 기본값 설정
         type: string
       expert_ratio:
         description: '관리자(High Tier) 비율 (%)'
@@ -34,7 +34,7 @@ jobs:
   build-platform:
     name: ⚡ Phase 1 - Build & Monitor
     runs-on: ubuntu-latest
-    timeout-minutes: 120  # 대량 처리를 위해 시간 연장
+    timeout-minutes: 120
 
     services:
       localstack:
@@ -76,30 +76,43 @@ jobs:
           echo "✅ All Dependencies Ready."
 
       # ------------------------------------------------------------------------
-      # 2. [Data Gen] Python 기반 고속 대량 데이터 생성 (계정/테이블/권한)
+      # 2. [Data Gen] Python 기반 고속 대량 데이터 생성 (에러 수정됨)
       # ------------------------------------------------------------------------
       - name: 🏢 Generate Massive Enterprise Data
         id: data-gen
+        env:
+          # [FIX] 입력값을 환경 변수로 주입하여 파이썬에서 안전하게 호출
+          INPUT_QTY: ${{ inputs.quantity }}
+          INPUT_RATIO: ${{ inputs.expert_ratio }}
         run: |
           mkdir -p terraform_infra admin_dashboard logs
           
-          # Python 스크립트로 대량 데이터 생성 로직 작성
-          cat <<EOF > generate_data.py
+          # Python 스크립트 생성
+          cat <<'EOF' > generate_data.py
           import json
           import random
           import uuid
           import datetime
           import os
 
-          QTY = int("${{ inputs.quantity }}")
-          RATIO = int("${{ inputs.expert_ratio }}")
+          # [FIXED] 안전한 입력값 처리 로직 (빈 값일 경우 기본값 100,000 적용)
+          def get_env_int(key, default):
+              val = os.getenv(key, "")
+              if val and val.isdigit():
+                  return int(val)
+              return default
+
+          QTY = get_env_int("INPUT_QTY", 100000) # 기본 10만건
+          RATIO = get_env_int("INPUT_RATIO", 20)
           
           departments = ["DevOps", "DataScience", "Backend", "Frontend", "SecOps", "HR", "Finance"]
           resources = []
-          cost_data = "Service,Resource,Region,Cost\n"
-          event_log = f"[{datetime.datetime.now()}] SYSTEM_BOOT: Mass Data Generation Started\n"
+          
+          # 대량 처리를 위한 CSV 버퍼링
+          cost_data_lines = ["Service,Resource,Region,Cost"]
+          event_log_lines = [f"[{datetime.datetime.now()}] SYSTEM_BOOT: Mass Data Generation Started for {QTY} records"]
 
-          print(f"::: Generating {QTY} resources sets...")
+          print(f"::: Generating {QTY} resources sets (Expert Ratio: {RATIO}%)...")
 
           for i in range(1, QTY + 1):
               is_expert = random.randint(0, 100) < RATIO
@@ -119,11 +132,12 @@ jobs:
               s3_cost = 15.50 if is_expert else 2.30
               ddb_cost = 25.00 if is_expert else 5.00
               
-              # 4. Table Schema Configuration (Migration Info)
+              # 4. Table Schema Configuration
               pk = "UserId"
               sk = "Timestamp"
               gsi_name = f"GSI_{dept}_Index"
 
+              # 리소스 메타데이터 저장 (Terraform용)
               resource = {
                   "username": username,
                   "access_key": access_key,
@@ -138,23 +152,24 @@ jobs:
               resources.append(resource)
 
               # Cost Log Append
-              cost_data += f"IAM,{username},ap-northeast-2,0.00\n"
-              cost_data += f"S3,{bucket},ap-northeast-2,{s3_cost}\n"
-              cost_data += f"DynamoDB,{table},ap-northeast-2,{ddb_cost}\n"
+              cost_data_lines.append(f"IAM,{username},ap-northeast-2,0.00")
+              cost_data_lines.append(f"S3,{bucket},ap-northeast-2,{s3_cost}")
+              cost_data_lines.append(f"DynamoDB,{table},ap-northeast-2,{ddb_cost}")
 
               if is_expert:
-                  event_log += f"[{datetime.datetime.now()}] AUDIT_WARN: High privilege account {username} created.\n"
+                  event_log_lines.append(f"[{datetime.datetime.now()}] AUDIT_WARN: High privilege account {username} created.")
 
           # Finalize Files
+          print("::: Writing JSON and CSV files...")
           with open("terraform_infra/resources.json", "w") as f:
               json.dump(resources, f, indent=2)
           
           with open("admin_dashboard/cost_breakdown.csv", "w") as f:
-              f.write(cost_data)
+              f.write("\n".join(cost_data_lines))
 
-          event_log += f"[{datetime.datetime.now()}] DATA_GEN: Completed generating {QTY} complex datasets.\n"
+          event_log_lines.append(f"[{datetime.datetime.now()}] DATA_GEN: Completed generating {QTY} complex datasets.")
           with open("admin_dashboard/system_events.log", "w") as f:
-              f.write(event_log)
+              f.write("\n".join(event_log_lines))
           
           print("✅ Data Generation Complete.")
           EOF
@@ -262,7 +277,6 @@ jobs:
           # 2. Chaos Test
           echo "[$(date '+%Y-%m-%d %H:%M:%S')] CHAOS_TEST: Simulating partial outage" >> $EVENT_LOG
           START=$(date +%s%3N)
-          # Localstack 일시 정지/재개로 장애 시뮬레이션
           docker pause $(docker ps -q --filter ancestor=localstack/localstack)
           sleep 2
           docker unpause $(docker ps -q --filter ancestor=localstack/localstack)
@@ -283,7 +297,7 @@ jobs:
       # ------------------------------------------------------------------------
       - name: 🖥️ Build NOC Dashboard V3
         run: |
-          cat <<EOF > build_dashboard.py
+          cat <<'EOF' > build_dashboard.py
           import pandas as pd
           import json, re, datetime, os
 
@@ -321,7 +335,7 @@ jobs:
           <html lang="en" data-bs-theme="dark">
           <head>
               <meta charset="UTF-8">
-              <title>2026 Enterprise NOC - Migration Status</title>
+              <title>2026 Enterprise NOC - Massive Migration</title>
               <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
               <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
               <style>
@@ -340,7 +354,7 @@ jobs:
                   <header class="d-flex justify-content-between mb-4 border-bottom border-secondary pb-2">
                       <div>
                           <h2 class="text-neon">🚀 2026 Enterprise NOC</h2>
-                          <small class="text-muted">Massive Data Migration & Monitoring V3</small>
+                          <small class="text-muted">Massive Data Migration & Monitoring V4 (Fix)</small>
                       </div>
                       <div class="text-end">
                           <h4 class="text-white"><span class="status-dot"></span>OPERATIONAL</h4>
@@ -393,7 +407,7 @@ jobs:
                                       </thead>
                                       <tbody>
           """
-          # Show up to 500 rows to prevent browser crash, but data is generated
+          # Show up to 500 rows to prevent browser crash
           for r in resources[:500]: 
               html += f"<tr><td>{r['username']}</td><td><code>{r['access_key']}</code></td><td>{r['dept']}</td><td>{r['table']}</td><td>{r['pk']}</td><td>{r['gsi']}</td></tr>"
 
