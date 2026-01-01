@@ -1,4 +1,4 @@
-name: 🧨 2026 Enterprise Migration & Admin Dashboard System (Final Fix)
+name: 🧨 2026 Enterprise Migration & Admin Dashboard System (Final Complete)
 
 on:
   workflow_dispatch:
@@ -35,6 +35,24 @@ jobs:
     steps:
       - name: 📂 Checkout System Code
         uses: actions/checkout@v4
+
+      # -----------------------------------------------------------
+      # 0. [NEW] 데이터 분석 서버 환경 및 모듈 대량 설치
+      # -----------------------------------------------------------
+      - name: ⚙️ Setup Analytics Server Environment
+        run: |
+          echo "::: [System] 홈페이지 구축을 위한 데이터 분석 모듈 대량 설치 시작 :::"
+          
+          # Pip 업그레이드
+          python -m pip install --upgrade pip
+          
+          # 핵심 데이터 분석 라이브러리 설치 (Pandas, Numpy 등)
+          # 모듈이 없어서 발생한 에러를 해결하는 핵심 단계입니다.
+          pip install pandas numpy
+          
+          echo "✅ Python Data Science Environment Ready."
+          python --version
+          pip list | grep pandas
 
       # -----------------------------------------------------------
       # 1. [Legacy Gen] 온프레미스 데이터 생성 (디렉토리 구조화)
@@ -111,11 +129,11 @@ jobs:
           echo "✅ 데이터 이관 완료."
 
       # -----------------------------------------------------------
-      # 3. [Terraform] 인프라 배포 (문법 에러 수정됨)
+      # 3. [Terraform] 인프라 배포 (문법 수정 완료)
       # -----------------------------------------------------------
       - name: 🛠️ Provision Infrastructure
         run: |
-          # [수정됨] Terraform 블록을 표준 포맷(Multi-line)으로 변경하여 에러 해결
+          # Multi-line 문법 적용으로 에러 해결
           cat <<EOF > terraform_iam/main.tf
           terraform {
             required_providers {
@@ -156,7 +174,6 @@ jobs:
         run: |
           cd terraform_iam
           terraform init
-          # 대량 처리를 위한 병렬성 옵션 유지
           terraform apply -auto-approve -parallelism=100
 
       # -----------------------------------------------------------
@@ -178,7 +195,7 @@ jobs:
           echo "System Recovered at $(date)" > ../admin_dashboard/system_health.txt
 
       # -----------------------------------------------------------
-      # 5. [Web] 통합 관제 홈페이지 구축 (Python Generator)
+      # 5. [Web] 통합 관제 홈페이지 구축 (Pandas 사용)
       # -----------------------------------------------------------
       - name: 🖥️ Build Admin Dashboard (HTML/JS)
         run: |
@@ -187,14 +204,15 @@ jobs:
           import pandas as pd
           import datetime
 
-          # 데이터 로드
+          # 데이터 로드 (Pandas 모듈 사용)
           try:
               df = pd.read_csv('admin_dashboard/full_database.csv')
               total_users = len(df)
               expert_count = len(df[df['Role'] == 'Expert-Admin'])
               depts = df['Dept'].value_counts().to_dict()
               regions = df['Region'].value_counts().to_dict()
-          except:
+          except Exception as e:
+              print(f"Error loading data: {e}")
               total_users = 0
               expert_count = 0
               depts = {}
@@ -279,7 +297,7 @@ jobs:
                               <tbody>
           """
 
-          # 테이블 데이터 주입 (상위 50개만 표시)
+          # 테이블 데이터 주입
           if 'df' in locals():
               for index, row in df.head(50).iterrows():
                   html_content += f"<tr><td>{row['Emp_ID']}</td><td>{row['Username']}</td><td>{row['Dept']}</td><td>{row['Role']}</td><td>{row['Region']}</td><td>{row['Risk']}</td></tr>"
@@ -293,7 +311,6 @@ jobs:
               </div>
 
               <script>
-                  // 부서 차트
                   new Chart(document.getElementById('deptChart'), {
                       type: 'doughnut',
                       data: {
@@ -304,7 +321,6 @@ jobs:
                           }]
                       }
                   });
-                  // 리전 차트
                   new Chart(document.getElementById('regionChart'), {
                       type: 'bar',
                       data: {
