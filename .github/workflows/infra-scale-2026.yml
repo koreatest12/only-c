@@ -1,11 +1,10 @@
-name: 🧨 2026 Expert Account & Infra Mass Generator
+name: 🧨 2026 Enterprise Migration & Mass Infra Generator
 
 on:
-  # 1. 수동 실행 (기본 1,000명 대량 테스트)
   workflow_dispatch:
     inputs:
       quantity:
-        description: '생성할 계정 총 수량 (명)'
+        description: '이관 및 생성할 계정 수량 (명)'
         required: true
         default: '1000'
         type: string
@@ -15,24 +14,22 @@ on:
         default: '20'
         type: string
 
-  # 2. 자동 스케줄 실행 (매 20분마다 반복 검증)
   schedule:
     - cron: '*/20 * * * *'
 
 jobs:
-  expert-account-generation:
-    name: ⚡ Mass Gen & Chaos Test
+  enterprise-migration-simulation:
+    name: ⚡ Migration & Mass Gen (x${{ inputs.quantity || 500 }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20 # 대량 복구 테스트 시간을 고려하여 타임아웃 연장
+    timeout-minutes: 25 # 이관 작업 시간 고려하여 연장
     
-    # IAM 시뮬레이션을 위한 가상 AWS (LocalStack)
     services:
       localstack:
         image: localstack/localstack:latest
         ports:
           - 4566:4566
         env:
-          SERVICES: iam,sts
+          SERVICES: iam,sts,s3
           DEFAULT_REGION: ap-northeast-2
 
     steps:
@@ -40,57 +37,117 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------------------------------------
-      # 1. [데이터 생성] 1,000명 규모의 계정 데이터 생성
+      # 1. [On-Premise] 레거시 데이터 생성 (부서별 디렉토리 구조화)
       # -----------------------------------------------------------
-      - name: 👨‍💻 Generate Massive Expert Data
-        id: gen_data
+      - name: 🏢 Generate Legacy Data (Directory Structured)
+        id: gen_legacy
         run: |
-          # 입력값 Fallback 처리 (자동 실행 시 기본값 적용)
+          # 입력값 Fallback
           INPUT_QTY="${{ inputs.quantity }}"
-          INPUT_RATIO="${{ inputs.expert_ratio }}"
-          QTY="${INPUT_QTY:-500}"      # 자동 실행 시 500명
-          RATIO="${INPUT_RATIO:-20}"
+          QTY="${INPUT_QTY:-500}"
+          RATIO="${{ inputs.expert_ratio || 20 }}"
           
-          mkdir -p security_audit terraform_iam
-          CSV_FILE="security_audit/2026_account_report.csv"
-          JSON_FILE="terraform_iam/users.json"
+          # [핵심] 부서별 디렉토리 구조 정의
+          BASE_DIR="legacy_on_premise_server"
+          DEPTS=("DevOps_Team" "Security_Ops" "HR_Admin" "Sales_Global" "Finance_Audit" "R_and_D_Core")
           
-          echo "::: [Init] 대량 계정 데이터 생성 (규모: $QTY 명) :::"
+          echo "::: [Phase 1] 온프레미스 레거시 데이터 생성 시작 (총 $QTY 명) :::"
           
-          # CSV 헤더 & JSON 시작
-          echo "Account_ID,Username,Group,Access_Key,Secret_Key,Initial_Password" > $CSV_FILE
-          echo "[" > $JSON_FILE
+          # 디렉토리 일괄 생성
+          for DEPT in "${DEPTS[@]}"; do
+            mkdir -p "$BASE_DIR/$DEPT/user_data"
+            echo "Created Directory: $BASE_DIR/$DEPT/user_data"
+          done
           
+          # 데이터 생성 및 분산 저장 Loop
           for i in $(seq 1 $QTY); do
+            # 랜덤 부서 선정
+            DEPT=${DEPTS[$RANDOM % ${#DEPTS[@]}]}
+            TARGET_FILE="$BASE_DIR/$DEPT/user_data/personnel_record.csv"
+            
+            # 헤더가 없으면 생성
+            if [ ! -f "$TARGET_FILE" ]; then
+              echo "Emp_ID,Username,Dept,Role,Email,Phone,Created_At" > "$TARGET_FILE"
+            fi
+            
+            # 전문가 여부
             CHANCE=$(( RANDOM % 100 ))
             if [ $CHANCE -lt $RATIO ]; then
-              GROUP="Expert-Admins"
-              USER_PREFIX="admin_ops"
+              ROLE="Expert-Admin"
+              PREFIX="admin"
             else
-              GROUP="Standard-Users"
-              USER_PREFIX="user_staff"
+              ROLE="Standard-User"
+              PREFIX="staff"
             fi
             
-            # 고유 식별자 (중복 방지)
             SUFFIX=$(date +%s%N | cut -b10-13)
-            USERNAME="${USER_PREFIX}_$(printf "%04d" $i)_$SUFFIX"
-            PASS="pw-$(openssl rand -hex 4)"
+            USERNAME="${PREFIX}_$(printf "%04d" $i)_$SUFFIX"
+            EMP_ID="EMP-LEGACY-$(printf "%05d" $i)"
+            EMAIL="${USERNAME}@legacy-system.local"
+            PHONE="010-$((RANDOM%9000+1000))-$((RANDOM%9000+1000))"
+            CREATED=$(date -I)
             
-            echo "ACC-2026-$i,$USERNAME,$GROUP,KEY,SECRET,$PASS" >> $CSV_FILE
-            
-            if [ "$i" -eq "$QTY" ]; then
-              echo "  { \"username\": \"$USERNAME\", \"group\": \"$GROUP\" }" >> $JSON_FILE
-            else
-              echo "  { \"username\": \"$USERNAME\", \"group\": \"$GROUP\" }," >> $JSON_FILE
-            fi
+            # 해당 부서 디렉토리 파일에 기록
+            echo "$EMP_ID,$USERNAME,$DEPT,$ROLE,$EMAIL,$PHONE,$CREATED" >> "$TARGET_FILE"
           done
-          echo "]" >> $JSON_FILE
-          echo "✅ 데이터 생성 완료."
+          
+          echo "✅ 온프레미스 데이터 생성 및 디렉토리 분류 완료."
+          tree $BASE_DIR || echo "Tree command not found, skipping visual check."
 
       # -----------------------------------------------------------
-      # 2. [Terraform] 코드 생성
+      # 2. [Migration] 데이터 이관 및 변환 (ETL Process)
       # -----------------------------------------------------------
-      - name: 🛠️ Generate Scalable Terraform Code
+      - name: 🚚 Data Migration (On-Prem -> Cloud Staging)
+        run: |
+          SOURCE_DIR="legacy_on_premise_server"
+          TARGET_DIR="cloud_migration_staging"
+          JSON_OUTPUT="terraform_iam/users.json"
+          
+          mkdir -p $TARGET_DIR
+          mkdir -p terraform_iam
+          
+          echo "::: [Phase 2] 데이터 이관(Migration) 및 병합 시작 :::"
+          
+          # 통합 JSON 시작
+          echo "[" > $JSON_OUTPUT
+          
+          # 모든 부서 디렉토리 순회하며 데이터 수집
+          find $SOURCE_DIR -name "*.csv" | while read CSV_FILE; do
+            echo "Migrating: $CSV_FILE -> $TARGET_DIR..."
+            
+            # CSV 파싱 및 JSON 변환 (첫줄 헤더 제외)
+            tail -n +2 "$CSV_FILE" | while IFS=, read -r EMP_ID USER DEPT ROLE EMAIL PHONE DATE; do
+              # 이관 로그 기록
+              echo "[MIGRATED] $EMP_ID ($USER) moved to Cloud." >> "$TARGET_DIR/migration_log.txt"
+              
+              # Terraform용 JSON 생성
+              cat <<EOF_JSON >> $JSON_OUTPUT
+                {
+                  "username": "$USER",
+                  "group": "$(if [ "$ROLE" == "Expert-Admin" ]; then echo "Expert-Admins"; else echo "Standard-Users"; fi)",
+                  "tags": {
+                    "Origin": "On-Premise-Migration",
+                    "Department": "$DEPT",
+                    "EmployeeID": "$EMP_ID",
+                    "MigratedAt": "$(date)"
+                  }
+                },
+          EOF_JSON
+            done
+          done
+          
+          # JSON 포맷 정리 (마지막 콤마 제거 로직은 단순화를 위해 sed 사용)
+          sed -i '$ s/,$//' $JSON_OUTPUT
+          echo "]" >> $JSON_OUTPUT
+          
+          echo "✅ 데이터 이관 및 클라우드용 포맷 변환 완료."
+          echo "::: 이관된 데이터 샘플 :::"
+          head -n 5 "$TARGET_DIR/migration_log.txt"
+
+      # -----------------------------------------------------------
+      # 3. [Terraform] 이관된 데이터로 인프라 생성
+      # -----------------------------------------------------------
+      - name: 🛠️ Generate Terraform Code (Based on Migrated Data)
         run: |
           cat <<EOF > terraform_iam/main.tf
           terraform {
@@ -104,15 +161,26 @@ jobs:
             skip_requesting_account_id = true
             endpoints { iam = "http://localhost:4566" }
           }
+          
           locals { users_data = jsondecode(file("\${path.module}/users.json")) }
           
           resource "aws_iam_group" "expert_group" { name = "Expert-Admins" }
           resource "aws_iam_group" "standard_group" { name = "Standard-Users" }
           
+          resource "aws_iam_group_policy_attachment" "expert_policy" {
+            group      = aws_iam_group.expert_group.name
+            policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+          }
+          resource "aws_iam_group_policy_attachment" "standard_policy" {
+            group      = aws_iam_group.standard_group.name
+            policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+          }
+          
           resource "aws_iam_user" "mass_users" {
             for_each = { for user in local.users_data : user.username => user }
             name     = each.value.username
-            path     = "/system/"
+            path     = "/migrated-users/"
+            tags     = each.value.tags
           }
           
           resource "aws_iam_user_group_membership" "mass_membership" {
@@ -123,82 +191,51 @@ jobs:
           EOF
 
       # -----------------------------------------------------------
-      # 3. [초기 배포] 1차 대량 배포 실행
+      # 4. [Deploy] 대량 배포 실행
       # -----------------------------------------------------------
-      - name: 🏗️ Terraform Init & Apply (Initial)
+      - name: 🏗️ Terraform Init & Apply
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
 
-      - name: 🚀 Deploy Massive Infra (x100 Parallelism)
+      - name: 🚀 Deploy Migrated Infra (x100 Parallelism)
         run: |
           cd terraform_iam
           terraform init
-          echo "::: 1차 배포 시작 :::"
+          echo "::: [Phase 3] 클라우드 인프라 대량 배포 :::"
           terraform apply -auto-approve -parallelism=100
-          echo "✅ 1차 배포 완료."
+          echo "✅ 배포 완료."
 
       # -----------------------------------------------------------
-      # 4. [핵심 기능] 컨테이너 정지(Stop) -> 재시작(Start) 시뮬레이션
+      # 5. [Chaos Test] 재해 복구 시뮬레이션
       # -----------------------------------------------------------
       - name: 🛑 Simulate System Crash (Container Stop)
         run: |
-          echo "::: ⚠️ [카오스 테스트] 시스템 강제 정지 시뮬레이션 시작 :::"
-          
-          # LocalStack 컨테이너 ID 찾기
+          echo "::: [Phase 4] 재해 발생 시뮬레이션 (서비스 다운) :::"
           CONTAINER_ID=$(docker ps -q --filter ancestor=localstack/localstack)
-          echo "Target Container ID: $CONTAINER_ID"
-          
-          # 컨테이너 강제 정지
           docker stop $CONTAINER_ID
-          
-          echo "✅ 컨테이너 정지 완료. 서비스 다운 상태입니다."
-          echo "::: 5초간 대기 (장애 상황 유지) :::"
           sleep 5
 
-      - name: ♻️ System Recovery (Container Start)
+      - name: ♻️ System Recovery (Self-Healing)
         run: |
-          echo "::: 🚑 [복구 모드] 시스템 재가동 시작 :::"
-          
-          # 정지된 컨테이너 다시 시작
-          # (GitHub Actions Service 컨테이너는 docker start로 재개 가능)
+          echo "::: [Recovery] 서비스 복구 및 데이터 정합성 확인 :::"
           CONTAINER_ID=$(docker ps -a -q --filter ancestor=localstack/localstack)
           docker start $CONTAINER_ID
+          timeout 60s bash -c 'until curl -s http://localhost:4566/_localstack/health | grep "\"iam\": \"available\""; do echo "Waiting..."; sleep 2; done'
           
-          echo "✅ 컨테이너 재시작 명령 전달됨. 헬스 체크 대기 중..."
-          
-          # 서비스가 완전히 올라올 때까지 대기 (Health Check Loop)
-          timeout 60s bash -c 'until curl -s http://localhost:4566/_localstack/health | grep "\"iam\": \"available\""; do echo "Waiting for IAM service..."; sleep 2; done'
-          
-          echo "✅ 시스템 정상 가동 확인 완료."
-
-      # -----------------------------------------------------------
-      # 5. [재실행 및 복구] 대량 인프라 자가 치유(Self-Healing) 검증
-      # -----------------------------------------------------------
-      - name: 🚑 Self-Healing & Re-Execution
-        run: |
           cd terraform_iam
-          
-          echo "::: [재실행] 시스템 재부팅 후 인프라 상태 동기화 (Drift Detection) :::"
-          # LocalStack(Community)은 재시작 시 메모리 데이터가 휘발되므로
-          # Terraform이 이를 감지하고 1,000명의 유저를 '다시 생성'하는지 검증합니다.
-          
-          echo "Running Terraform Plan..."
-          terraform plan -out=recovery_plan
-          
-          echo "::: [대량 복구] 사라진 리소스 즉시 복구 수행 :::"
-          terraform apply -auto-approve -parallelism=100 recovery_plan
-          
-          echo "✅ 시스템 재해 복구(Disaster Recovery) 테스트 성공."
+          terraform apply -auto-approve -parallelism=100
+          echo "✅ 모든 데이터 및 인프라 복구 완료."
 
       # -----------------------------------------------------------
-      # 6. 결과물 저장
+      # 6. [Artifacts] 결과물 저장
       # -----------------------------------------------------------
-      - name: 📦 Archive Logs & Reports
+      - name: 📦 Archive Migration Reports
         uses: actions/upload-artifact@v4
         with:
-          name: 2026_Chaos_Test_Result_${{ github.run_id }}
+          name: 2026_Migration_Report_${{ github.run_id }}
           path: |
-            security_audit/2026_account_report.csv
+            legacy_on_premise_server/
+            cloud_migration_staging/migration_log.txt
             terraform_iam/users.json
             terraform_iam/terraform.tfstate
