@@ -1,7 +1,6 @@
-name: 🧨 2026 Enterprise System & GitHub Pages Live Deploy
+name: 🧨 2026 Ultimate Enterprise System (All-in-One)
 
 on:
-  # 1. 수동 실행
   workflow_dispatch:
     inputs:
       quantity:
@@ -14,32 +13,28 @@ on:
         required: true
         default: '20'
         type: string
-  # 2. 코드 푸시 시 실행
   push:
     branches: ["main"]
-  # 3. 스케줄 실행 (20분 주기)
   schedule:
     - cron: '*/20 * * * *'
 
-# [필수] GitHub Pages 배포 권한 설정
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# 동시 배포 제어
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   # ==================================================================================
-  # JOB 1: 엔터프라이즈 시스템 시뮬레이션 & 대시보드 생성 (The Heavy Lifting)
+  # JOB 1: 시스템 구축 및 시뮬레이션 (System Build & Simulation)
   # ==================================================================================
-  system-generation:
-    name: ⚡ Phase 1 - Mass Generation & Monitoring
+  full-stack-build:
+    name: ⚡ Phase 1 - Build Infra, Web, Dashboard
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     
     services:
       localstack:
@@ -54,18 +49,45 @@ jobs:
       - name: 📂 Checkout
         uses: actions/checkout@v4
 
-      # 1. 환경 설정
-      - name: ⚙️ Setup Environment
+      # ------------------------------------------------------------------------
+      # [CRITICAL FIX] Terraform 설치 (Action 사용 + 수동 설치 Fallback)
+      # ------------------------------------------------------------------------
+      - name: 🛠️ Setup Terraform (Dual-Check)
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+          terraform_wrapper: false # 로그 파싱을 위해 Wrapper 비활성화
+
+      - name: ⚙️ Setup Environment (Python, Nginx, Utils)
         run: |
+          echo "::: [System] 필수 패키지 대량 설치 및 검증 :::"
+          
+          # 1. Terraform 설치 확인 (없으면 수동 설치 - 이중 안전장치)
+          if ! command -v terraform &> /dev/null; then
+              echo "Terraform not found via Action. Installing manually..."
+              wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+              echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+              sudo apt-get update && sudo apt-get install terraform
+          fi
+          terraform --version
+          
+          # 2. Python 데이터 분석 환경
           python -m pip install --upgrade pip
           pip install pandas numpy matplotlib
-          sudo apt-get update && sudo apt-get install -y nginx apache2-utils
+          
+          # 3. 웹 서버 및 부하 테스트 도구
+          sudo apt-get update
+          sudo apt-get install -y nginx apache2-utils
+          
+          echo "✅ 모든 환경 설정 완료 (All Green)"
 
-      # 2. 데이터 생성 및 이관 (Migration)
+      # ------------------------------------------------------------------------
+      # [Phase 1] 대량 데이터 생성 및 이관 (Migration ETL)
+      # ------------------------------------------------------------------------
       - name: 🏢 Generate & Migrate Data
         run: |
           INPUT_QTY="${{ inputs.quantity }}"
-          QTY="${INPUT_QTY:-500}"
+          QTY="${INPUT_QTY:-1000}"
           RATIO="${{ inputs.expert_ratio || 20 }}"
           
           mkdir -p legacy_data cloud_staging admin_dashboard terraform_iam
@@ -73,29 +95,48 @@ jobs:
           MIG_LOG="admin_dashboard/migration.log"
           DB_CSV="admin_dashboard/database.csv"
           
-          echo "::: Creating $QTY Users :::"
+          echo "::: [Migration] $QTY 명의 데이터 이관 시작 :::"
           echo "[" > $JSON_FILE
-          echo "EmpID,User,Role,Status" > $DB_CSV
+          echo "EmpID,User,Role,Dept,Region,Status" > $DB_CSV
+          
+          DEPTS=("DevOps" "Security" "HR" "Sales")
+          REGIONS=("ap-northeast-2" "us-east-1")
           
           for i in $(seq 1 $QTY); do
             SUFFIX=$(date +%s%N | cut -b10-13)
             USER="user_$(printf "%04d" $i)_$SUFFIX"
-            if [ $((RANDOM%100)) -lt $RATIO ]; then ROLE="Expert"; else ROLE="Staff"; fi
             
-            echo "[$(date '+%T')] $USER migrated." >> $MIG_LOG
-            echo "EMP-$i,$USER,$ROLE,Active" >> $DB_CSV
+            # 전문가/일반 판별
+            if [ $((RANDOM%100)) -lt $RATIO ]; then ROLE="Expert-Admin"; else ROLE="Staff-User"; fi
             
-            # JSON 생성
-            echo "  { \"username\": \"$USER\", \"group\": \"$ROLE\" }," >> $JSON_FILE
+            DEPT=${DEPTS[$RANDOM % ${#DEPTS[@]}]}
+            REGION=${REGIONS[$RANDOM % ${#REGIONS[@]}]}
+            
+            # 로그 및 DB 기록
+            echo "[$(date '+%T')] MIGRATION SUCCESS: $USER -> Cloud($REGION)" >> $MIG_LOG
+            echo "EMP-$i,$USER,$ROLE,$DEPT,$REGION,Active" >> $DB_CSV
+            
+            # Terraform용 JSON 생성
+            echo "  { \"username\": \"$USER\", \"group\": \"$ROLE\", \"tags\": {\"Dept\":\"$DEPT\"} }," >> $JSON_FILE
           done
-          # JSON 문법 수정 (마지막 콤마 제거를 위한 단순 처리)
-          echo "  { \"username\": \"dummy\", \"group\": \"none\" } ]" >> $JSON_FILE
+          
+          # JSON 마무리 (마지막 콤마 처리용 더미 데이터)
+          echo "  { \"username\": \"system_dummy\", \"group\": \"none\", \"tags\": {} } ]" >> $JSON_FILE
+          echo "✅ 데이터 생성 및 이관 완료."
 
-      # 3. Terraform 인프라 배포
-      - name: 🛠️ Provision Infra
+      # ------------------------------------------------------------------------
+      # [Phase 2] 인프라 배포 (Terraform Infra Provisioning)
+      # ------------------------------------------------------------------------
+      - name: 🚀 Provision Infrastructure
         run: |
+          echo "::: [Infra] Terraform 코드 생성 및 배포 :::"
+          
           cat <<EOF > terraform_iam/main.tf
-          terraform { required_providers { aws = { source = "hashicorp/aws", version = "~> 5.0" } } }
+          terraform {
+            required_providers {
+              aws = { source = "hashicorp/aws", version = "~> 5.0" }
+            }
+          }
           provider "aws" {
             region = "ap-northeast-2"
             access_key = "test"
@@ -104,97 +145,130 @@ jobs:
             skip_credentials_validation = true
             skip_requesting_account_id = true
           }
+          
           locals { users = jsondecode(file("\${path.module}/users.json")) }
+          
           resource "aws_iam_user" "users" {
             for_each = { for u in local.users : u.username => u }
             name = each.value.username
+            tags = each.value.tags
           }
           EOF
-          cd terraform_iam && terraform init && terraform apply -auto-approve -parallelism=100
+          
+          cd terraform_iam
+          terraform init
+          terraform apply -auto-approve -parallelism=100
+          echo "✅ 인프라 배포 완료."
 
-      # 4. Chaos Test (부하 및 복구 테스트)
+      # ------------------------------------------------------------------------
+      # [Phase 3] 웹 서버 구동 및 부하/장애 테스트 (Chaos & Load Test)
+      # ------------------------------------------------------------------------
       - name: 🛑 Chaos & Performance Test
         run: |
-          # Nginx 설정 및 가동
-          echo "events { worker_connections 1024; } http { server { listen 80; root /var/www/html; } }" > nginx.conf
+          echo "::: [Web] Nginx 웹 서버 구동 :::"
+          echo "events { worker_connections 1024; } http { server { listen 80; root /var/www/html; index index.html; } }" > nginx.conf
           sudo mv nginx.conf /etc/nginx/nginx.conf
+          sudo mkdir -p /var/www/html
           sudo service nginx restart
           
-          # 부하 테스트 (Apache Bench)
-          ab -n 1000 -c 100 http://localhost/ > admin_dashboard/load_test.txt
-          
-          # 장애 복구 시뮬레이션
+          echo "::: [Chaos] 시스템 장애(Down) 시뮬레이션 :::"
           START=$(date +%s%3N)
           docker stop $(docker ps -q --filter ancestor=localstack/localstack)
+          sleep 2
           docker start $(docker ps -a -q --filter ancestor=localstack/localstack)
+          
+          # Health Check Loop
+          timeout 60s bash -c 'until curl -s http://localhost:4566/_localstack/health | grep "\"iam\": \"available\""; do echo "Waiting for recovery..."; sleep 1; done'
           END=$(date +%s%3N)
-          echo "Recovery Time: $((END-START)) ms" > admin_dashboard/recovery.txt
+          RECOVERY_TIME=$((END-START))
+          echo "Recovery Time: $RECOVERY_TIME ms" > admin_dashboard/recovery.txt
+          
+          echo "::: [Load Test] 대량 트래픽 부하 테스트 (1,000 Req) :::"
+          # 대시보드 파일이 아직 없으므로 임시 파일 생성하여 테스트
+          sudo echo "Load Test Pending" > /var/www/html/index.html
+          ab -n 1000 -c 100 http://localhost/ > admin_dashboard/load_test.txt
+          
+          echo "✅ 시스템 안정성 검증 완료."
 
-      # 5. [중요] GitHub Pages용 대시보드(index.html) 생성
-      - name: 🖥️ Build Dashboard for Pages
+      # ------------------------------------------------------------------------
+      # [Phase 4] 관제 대시보드(Jekyll용) 생성
+      # ------------------------------------------------------------------------
+      - name: 🖥️ Build Dashboard for GitHub Pages
         run: |
           cat <<EOF > build_web.py
           import pandas as pd
           import datetime, re
           
+          # 데이터 로드
           try:
               df = pd.read_csv('admin_dashboard/database.csv')
               total = len(df)
-              experts = len(df[df['Role']=='Expert'])
-          except: total=0; experts=0
+              experts = len(df[df['Role'].str.contains('Expert')])
+              depts = df['Dept'].value_counts().to_dict()
+          except: total=0; experts=0; depts={}
           
+          # 성능 지표 로드
           try:
               with open('admin_dashboard/load_test.txt') as f:
-                  rps = re.search(r'Requests per second:\s+([\d.]+)', f.read()).group(1)
+                  log = f.read()
+                  rps = re.search(r'Requests per second:\s+([\d.]+)', log).group(1)
           except: rps="0"
           
-          html = f"""
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="UTF-8">
-              <title>2026 Enterprise Monitor</title>
-              <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-              <style>
-                  body {{ background: #0f172a; color: white; padding: 20px; }}
-                  .card {{ background: #1e293b; border: 1px solid #334155; margin-bottom: 20px; }}
-                  .display-4 {{ font-weight: bold; color: #38bdf8; }}
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <header class="mb-5 border-bottom pb-3">
-                      <h1>🚀 2026 Enterprise Live Dashboard</h1>
-                      <p class="text-muted">Deployed via GitHub Pages | Updated: {datetime.datetime.now()}</p>
-                  </header>
-                  
-                  <div class="row text-center">
-                      <div class="col-md-4"><div class="card p-4"><h3>Total Users</h3><div class="display-4">{total}</div></div></div>
-                      <div class="col-md-4"><div class="card p-4"><h3>Experts</h3><div class="display-4 text-warning">{experts}</div></div></div>
-                      <div class="col-md-4"><div class="card p-4"><h3>Web RPS</h3><div class="display-4 text-success">{rps}</div></div></div>
-                  </div>
-                  
-                  <div class="card p-4 mt-4">
-                      <h3>Deployment Status</h3>
-                      <ul>
-                          <li><strong>Migration:</strong> Completed Successfully</li>
-                          <li><strong>Infrastructure:</strong> Terraform Applied (LocalStack)</li>
-                          <li><strong>Security Audit:</strong> Passed</li>
-                      </ul>
+          try:
+              with open('admin_dashboard/recovery.txt') as f:
+                  rec_time = f.read()
+          except: rec_time="N/A"
+          
+          # HTML 생성 (Markdown + HTML 혼용 for Jekyll)
+          md_content = f"""---
+          layout: default
+          title: 2026 Enterprise Monitor
+          ---
+          
+          <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+          
+          <div class="container mt-4 text-white">
+              <div class="p-5 mb-4 bg-dark rounded-3 border border-secondary">
+                  <div class="container-fluid py-5">
+                      <h1 class="display-5 fw-bold text-info">🚀 2026 Enterprise Live Dashboard</h1>
+                      <p class="col-md-8 fs-4">Real-time infrastructure monitoring system deployed via GitHub Actions.</p>
+                      <p>Last Updated: {datetime.datetime.now()}</p>
+                      <span class="badge bg-success">SYSTEM OPERATIONAL</span>
                   </div>
               </div>
-          </body>
-          </html>
-          """
-          with open('admin_dashboard/index.html', 'w') as f: f.write(html)
           
-          # Jekyll 설정 파일 생성 (테마 적용)
+              <div class="row text-center mb-4">
+                  <div class="col-md-3"><div class="card bg-secondary p-3"><h3>Total Accounts</h3><h1>{total}</h1></div></div>
+                  <div class="col-md-3"><div class="card bg-secondary p-3"><h3>Admin Users</h3><h1 class="text-warning">{experts}</h1></div></div>
+                  <div class="col-md-3"><div class="card bg-secondary p-3"><h3>Web Performance</h3><h1 class="text-success">{rps} req/s</h1></div></div>
+                  <div class="col-md-3"><div class="card bg-secondary p-3"><h3>Recovery Time</h3><h1 class="text-danger">{rec_time}</h1></div></div>
+              </div>
+
+              <div class="card bg-dark text-white p-4">
+                  <h3>Deparment Distribution</h3>
+                  <ul>
+          """
+          for dept, count in depts.items():
+              md_content += f"<li><strong>{dept}:</strong> {count} users</li>"
+              
+          md_content += """
+                  </ul>
+              </div>
+          </div>
+          """
+          
+          with open('admin_dashboard/index.html', 'w') as f: f.write(md_content)
+          
+          # Jekyll Config 생성
           with open('admin_dashboard/_config.yml', 'w') as f:
-              f.write("title: 2026 Enterprise Monitor\ntheme: jekyll-theme-primer\n")
+              f.write("title: 2026 Enterprise Monitor\ntheme: jekyll-theme-slate\n")
           EOF
+          
           python build_web.py
 
-      # 6. 다음 Job을 위해 생성된 웹사이트 데이터 업로드
+      # ------------------------------------------------------------------------
+      # [Phase 5] 아티팩트 업로드 (다음 Job으로 전달)
+      # ------------------------------------------------------------------------
       - name: 📤 Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -202,33 +276,30 @@ jobs:
           path: admin_dashboard/
 
   # ==================================================================================
-  # JOB 2: Jekyll 빌드 (Build with Jekyll)
+  # JOB 2: Jekyll 사이트 빌드 (Build Pages)
   # ==================================================================================
   build-pages:
     name: 🏗️ Phase 2 - Build Jekyll Site
     runs-on: ubuntu-latest
-    needs: system-generation
+    needs: full-stack-build
     steps:
       - name: 📥 Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: website-content
-          path: . 
-          
+          path: .
       - name: ⚙️ Setup Pages
         uses: actions/configure-pages@v5
-        
       - name: 🔨 Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./
           destination: ./_site
-          
       - name: 📦 Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
 
   # ==================================================================================
-  # JOB 3: GitHub Pages 배포 (Deploy to GitHub Pages)
+  # JOB 3: GitHub Pages 배포 (Deploy Pages)
   # ==================================================================================
   deploy-pages:
     name: 🚀 Phase 3 - Deploy to Global
