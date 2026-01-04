@@ -6,8 +6,6 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ "main", "master" ]
-  
-  # [NEW] 다른 워크플로우에서 이 워크플로우를 호출할 수 있도록 기능 추가 (재사용성 극대화)
   workflow_call:
     inputs:
       data_count:
@@ -15,7 +13,6 @@ on:
         required: false
         default: '500000'
         type: string
-
   workflow_dispatch:
     inputs:
       data_count:
@@ -28,7 +25,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   PYTHONIOENCODING: "utf-8"
-  # 입력값 우선순위 처리 (Dispatch > Call > Default)
   DATA_COUNT: ${{ inputs.data_count || '1000000' }}
 
 permissions:
@@ -36,17 +32,15 @@ permissions:
   packages: write
   actions: write
 
-# [CRITICAL] 동시성 제한(Concurrency) 제거
-# 기존의 concurrency: group: ... 구문을 삭제하여
-# 여러 인스턴스가 동시에 폭발적으로 실행되도록 허용함.
-
 jobs:
   # ==================================================================================
-  # JOB 1: 초고속 병렬 빌드 & 데이터 생성 (충돌 방지 아키텍처 적용)
+  # JOB 1: 초고속 병렬 빌드 & 데이터 생성 (충돌 방지 및 자원 확보 아키텍처)
   # ==================================================================================
   managed-build:
     name: ⚡ Hyper-Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # [CRITICAL] 타임아웃을 최대치(360분=6시간)로 설정하여 강제 종료 방지
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
@@ -54,12 +48,27 @@ jobs:
     defaults:
       run:
         shell: bash
-
     steps:
     - name: 📂 Checkout Repository
       uses: actions/checkout@v4
 
-    # [Isolation] 실행 ID를 기반으로 아티팩트 이름 동적 생성 (중복 실행 시 충돌 방지)
+    # [Resource] 대량 데이터 처리를 위한 디스크 정리 및 Swap 메모리 생성 (Linux Only)
+    - name: 🧹 Free Disk Space & Create Swap (Prevention of OOM)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        echo "::: Cleaning Disk Space for Massive Data :::"
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        
+        echo "::: Creating 7GB Swap File :::"
+        sudo fallocate -l 7G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        df -h
+        free -h
+
     - name: ⚙️ Set Dynamic Environment
       run: |
         RUN_ID="${{ github.run_id }}"
@@ -72,7 +81,6 @@ jobs:
         fi
         echo "✅ Dynamic Isolation ID: $RUN_ID"
 
-    # 1. [Speed] 컴파일러 캐시 및 필수 도구 설치
     - name: 🛠️ Setup Optimization Tools
       run: |
         echo "::: Initializing High-Performance Env for $OS_TYPE :::"
@@ -84,7 +92,6 @@ jobs:
           choco install cppcheck -y --no-progress
         fi
 
-    # 2. [Speed] Python 환경
     - name: 🐍 Setup Python 3.12 with Cache
       uses: actions/setup-python@v5
       with:
@@ -96,19 +103,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install Pillow qrcode pandas matplotlib
 
-    # 3. [Speed] Ccache 캐시 복구
     - name: ⚡ Restore Compiler Cache
       if: runner.os == 'Linux'
       uses: actions/cache@v4
       with:
         path: ~/.cache/ccache
-        # OS와 함께 Run ID가 아닌 브랜치 등을 키로 사용하여 캐시 효율 극대화
         key: ${{ runner.os }}-ccache-${{ github.ref_name }}
         restore-keys: |
           ${{ runner.os }}-ccache-
 
     # ----------------------------------------------------------------
-    # 4. [Core] Upgrade Manager: 대량 처리 및 I/O 최적화 엔진
+    # 4. [Core] Upgrade Manager: 메모리 안전 설계 및 Heartbeat 추가
     # ----------------------------------------------------------------
     - name: 📝 Generate Optimized Upgrade Manager
       run: |
@@ -116,13 +121,13 @@ jobs:
         import os
         import sys
         
-        SYSTEM_VERSION = "2026.3.0 (Parallel Edition)"
+        SYSTEM_VERSION = "2026.4.0 (Anti-Crash Edition)"
         GCC_FLAGS = "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
-
+        
         def log(msg):
             try: print(f"[⚙️ MANAGER] {msg}")
             except: pass
-
+        
         def generate_cpp_source():
             log(f"Generating Optimized C++20 Source (v{SYSTEM_VERSION})...")
             
@@ -144,19 +149,20 @@ jobs:
             if(env_p) return std::stoll(env_p);
             return 100000;
         }
-
+        
         void optimizeIO() {
             std::ios_base::sync_with_stdio(false);
             std::cin.tie(NULL);
         }
-
-        // --- Optimized Data Managers (Buffer Tuning) ---
+        
+        // --- Optimized Data Managers (Heap Allocation for Safety) ---
         class VirtualAccountManager {
         public:
             static void generate(long long count) {
                 std::ofstream file("output/data/va_dump.csv");
-                char buffer[1024 * 1024]; // 1MB Buffer
-                file.rdbuf()->pubsetbuf(buffer, sizeof(buffer));
+                // [FIX] Stack Overflow 방지를 위해 std::vector(Heap) 사용
+                std::vector<char> buffer(2 * 1024 * 1024); // 2MB Buffer
+                file.rdbuf()->pubsetbuf(buffer.data(), buffer.size());
                 
                 file << "Bank,Account,Holder,Balance,Status,RiskScore\\n";
                 for(long long i=0; i<count; ++i) {
@@ -167,18 +173,23 @@ jobs:
                          << (i%10==0 ? "Inactive" : "Active") << ","
                          << (i%100) 
                          << "\\n";
+                    
+                    // [HEARTBEAT] 로그 침묵 방지 (10만 건마다 점 출력)
+                    if (i % 100000 == 0) {
+                        std::cout << "." << std::flush;
+                    }
                 }
-                std::cout << "✅ Accounts Generated: " << count << std::endl;
+                std::cout << "\\n✅ Accounts Generated: " << count << std::endl;
             }
         };
-
+        
         class VirtualCardManager {
         public:
             static void generate(long long count) {
                 std::ofstream file("output/data/card_dump.csv");
-                char buffer[1024 * 1024];
-                file.rdbuf()->pubsetbuf(buffer, sizeof(buffer));
-
+                std::vector<char> buffer(2 * 1024 * 1024);
+                file.rdbuf()->pubsetbuf(buffer.data(), buffer.size());
+                
                 file << "CardNum,CVC,Expiry,Type,Limit\\n";
                 for(long long i=0; i<count; ++i) {
                     file << "4222-" << (2026 + i%5) << "-" << std::setw(4) << std::setfill('0') << i%10000 << "-XXXX,"
@@ -186,11 +197,15 @@ jobs:
                          << (i%3==0 ? "VISA" : (i%3==1 ? "MASTER" : "AMEX")) << ","
                          << (5000 + (i%10)*1000)
                          << "\\n";
+                         
+                    if (i % 100000 == 0) {
+                        std::cout << "+" << std::flush;
+                    }
                 }
-                std::cout << "✅ Cards Generated: " << count << std::endl;
+                std::cout << "\\n✅ Cards Generated: " << count << std::endl;
             }
         };
-
+        
         int main(int argc, char* argv[]) {
             optimizeIO();
             fs::create_directories("output/data");
@@ -198,20 +213,26 @@ jobs:
             long long target = get_target_count();
             std::cout << "🚀 Starting Parallel Engine v{SYSTEM_VERSION} (Target: " << target << ")..." << std::endl;
             
-            // Async Execution
-            auto f1 = std::async(std::launch::async, VirtualAccountManager::generate, target);
-            auto f2 = std::async(std::launch::async, VirtualCardManager::generate, target);
+            // Async Execution with Exception Handling
+            try {
+                auto f1 = std::async(std::launch::async, VirtualAccountManager::generate, target);
+                auto f2 = std::async(std::launch::async, VirtualCardManager::generate, target);
+                
+                f1.get(); 
+                f2.get();
+            } catch (const std::exception& e) {
+                std::cerr << "CRITICAL ERROR: " << e.what() << std::endl;
+                return 1;
+            }
             
-            f1.get(); f2.get();
-            
-            std::cout << "✨ Data Generation Completed." << std::endl;
+            std::cout << "✨ Data Generation Completed Successfully." << std::endl;
             return 0;
         }
             """
             final_content = content.replace("{SYSTEM_VERSION}", SYSTEM_VERSION)
             with open("enterprise_main.cpp", "w", encoding="utf-8") as f:
                 f.write(final_content.strip())
-
+        
         def generate_build_files():
             log("Generating Build Systems...")
             makefile_content = f"""
@@ -219,25 +240,30 @@ jobs:
         CXXFLAGS = {GCC_FLAGS}
         TARGET = server_app_core
         SRCS = enterprise_main.cpp
+        
         all: $(TARGET)
+        
         $(TARGET): $(SRCS)
         \t$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
+        
         clean:
         \trm -f $(TARGET)
             """
             with open("Makefile", "w", encoding="utf-8") as f: f.write(makefile_content.strip())
-
+            
             cmake = """
         cmake_minimum_required(VERSION 3.15)
         project(MassiveServer2026)
         set(CMAKE_CXX_STANDARD 20)
+        
         add_executable(enterprise_main enterprise_main.cpp)
+        
         if(UNIX)
             add_compile_options(-O3 -Wall -Wextra -pthread -march=native)
         endif()
         """
             with open("CMakeLists.txt", "w", encoding="utf-8") as f: f.write(cmake.strip())
-
+        
         if __name__ == "__main__":
             generate_cpp_source()
             generate_build_files()
@@ -247,7 +273,6 @@ jobs:
     - name: 🔄 Execute Upgrade Manager
       run: python upgrade_manager.py
 
-    # 5. 빌드 및 실행
     - name: 💥 Build & Run (Parallel Safe)
       run: |
         mkdir -p output_data/data
@@ -256,6 +281,7 @@ jobs:
           make -j$(nproc) all
           chmod +x server_app_core
           cp server_app_core final_binary
+          echo "::: Executing Binary (Max Timeout Protected) :::"
           ./server_app_core
         else
           mkdir -p build
@@ -269,7 +295,6 @@ jobs:
         
         if [ -d "output" ]; then cp -r output/* output_data/; fi
 
-    # 6. 리포트 생성
     - name: 📊 Generate Report
       run: |
         cat <<'EOF' > gen_report.py
@@ -278,14 +303,13 @@ jobs:
         EOF
         python gen_report.py
 
-    # 7. 아티팩트 업로드 (격리된 이름 사용)
     - name: 🏁 Finalize
       run: |
         if [[ "$OS_TYPE" == "Linux" ]]; then sha256sum final_binary > checksum.sha256; else sha256sum final_binary.exe > checksum.sha256; fi
 
     - uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.ARTIFACT_NAME }}  # Run ID가 포함된 고유 이름
+        name: ${{ env.ARTIFACT_NAME }}
         path: |
           final_binary*
           checksum.sha256
@@ -298,16 +322,16 @@ jobs:
     name: 🐳 Dockerize
     needs: managed-build
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
       
-      # [Isolation] Linux 아티팩트 다운로드 (동적 이름 대응)
       - uses: actions/download-artifact@v4
         with:
-          name: Binary-Linux-${{ github.run_id }} # 정확히 내 Run ID의 아티팩트만 가져옴
+          name: Binary-Linux-${{ github.run_id }}
 
       - name: ⚙️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -329,7 +353,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # [Concurrency] 여러 workflow가 동시에 돌아도 각자의 Run Number로 태깅하여 충돌 없음
       - uses: docker/build-push-action@v5
         with:
           context: .
@@ -347,14 +370,15 @@ jobs:
     name: 📦 Managed Release V3
     needs: [managed-build, docker-publish]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
-      # 내 Run ID에 해당하는 Windows/Linux 파일만 다운로드
       - uses: actions/download-artifact@v4
         with:
           name: Binary-Linux-${{ github.run_id }}
           path: linux_pkg
+
       - uses: actions/download-artifact@v4
         with:
           name: Binary-Windows-${{ github.run_id }}
@@ -369,7 +393,6 @@ jobs:
           cd release_assets
           zip -r ../parallel_system_v${{ github.run_number }}.zip .
 
-      # 릴리즈 생성 (Main 브랜치일 때만, 태그 충돌 방지)
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
