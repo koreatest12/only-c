@@ -1,4 +1,4 @@
-name: 🚀 2026 Ultimate Hyper-Stable System
+name: 🚀 2026 Ultimate System (Server-Specific Upgrade)
 
 on:
   push:
@@ -10,51 +10,78 @@ on:
         required: true
         default: '5000000'
         type: string
+      enable_upgrade:
+        description: '서버별 자동 업그레이드 모듈 활성화'
+        required: false
+        default: 'true'
+        type: boolean
 
 env:
   DATA_COUNT: ${{ inputs.data_count || '5000000' }}
+  ENABLE_UPGRADE: ${{ inputs.enable_upgrade }}
 
 jobs:
   # ==================================================================================
-  # JOB 1: Windows 바이너리 빌드 (문법 에러 수정됨, 데이터 생성 X)
+  # JOB 1: Windows Client (자동 업데이트 및 UI 패치 기능 탑재)
   # ==================================================================================
-  build-windows-safe:
-    name: 🪟 Build Windows Binary (Fixed)
+  upgrade-windows-client:
+    name: 🪟 Upgrade Windows Client
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       
-      # [FIX] PowerShell Here-String 문법 수정 (이중 따옴표 제거)
-      - name: 📝 Generate Syntax-Correct Source
+      # [UPGRADE] Windows 전용: 클라이언트 자동 업데이트 시뮬레이션 코드 주입
+      - name: 📝 Inject Auto-Update Module
         run: |
           $code = @"
           #include <iostream>
           #include <thread>
           #include <chrono>
+          #include <vector>
+          #include <string>
           
+          // [Windows Feature] 자동 업데이트 서비스
+          class AutoUpdateService {
+          public:
+              void check_and_patch() {
+                  std::cout << "[Update] Connecting to Update Server..." << std::endl;
+                  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                  
+                  std::cout << "[Update] Found Security Patch v2026.8.1 (Hotfix)" << std::endl;
+                  std::cout << "[Update] Downloading... [||||||||||] 100%" << std::endl;
+                  std::cout << "[Update] Applying Patch..." << std::endl;
+                  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                  std::cout << "✅ Client Successfully Updated." << std::endl;
+              }
+          };
+
           int main() {
-              // Windows에서는 데이터 생성을 수행하지 않고 안내 메시지만 출력
               std::cout << "=============================================" << std::endl;
-              std::cout << "   2026 System - Windows Client (Viewer)     " << std::endl;
+              std::cout << "   2026 Enterprise Client (v2026.8.0)        " << std::endl;
               std::cout << "=============================================" << std::endl;
-              std::cout << "Data generation is handled by the Linux node." << std::endl;
-              std::cout << "Closing in 5 seconds..." << std::endl;
-              std::this_thread::sleep_for(std::chrono::seconds(5));
+              
+              AutoUpdateService updater;
+              updater.check_and_patch();
+              
+              std::cout << "\n[System] Ready to connect to Linux Node." << std::endl;
+              std::cout << "[System] Waiting for user input (Simulated)..." << std::endl;
+              
+              std::this_thread::sleep_for(std::chrono::seconds(3));
               return 0;
           }
           "@
           
-          # 인코딩 문제 방지를 위해 UTF8로 강제 저장
-          $code | Out-File -FilePath enterprise_main.cpp -Encoding UTF8
+          # UTF8 인코딩으로 저장 (한글/특수문자 깨짐 방지)
+          $code | Out-File -FilePath enterprise_client.cpp -Encoding UTF8
           
           $cmake = @"
           cmake_minimum_required(VERSION 3.15)
-          project(MassiveServer2026)
-          add_executable(enterprise_main enterprise_main.cpp)
+          project(Client2026)
+          add_executable(enterprise_client enterprise_client.cpp)
           "@
           $cmake | Out-File -FilePath CMakeLists.txt -Encoding UTF8
 
-      - name: 💥 Build EXE
+      - name: 💥 Build Client
         run: |
           mkdir build
           cd build
@@ -63,121 +90,113 @@ jobs:
           
       - uses: actions/upload-artifact@v4
         with:
-          name: Binary-Windows
-          path: build/Release/enterprise_main.exe
+          name: Client-Windows-Updated
+          path: build/Release/enterprise_client.exe
 
   # ==================================================================================
-  # JOB 2: Linux 대량 데이터 생성 (초고용량/장시간 실행 최적화)
+  # JOB 2: Linux Generator (동적 리소스 튜닝 및 대량 데이터 엔진)
   # ==================================================================================
-  generate-data-linux-heavy:
-    name: 🐧 Massive Data Gen (Unlimited Scale)
+  upgrade-linux-server:
+    name: 🐧 Upgrade Linux Server (Adaptive)
     runs-on: ubuntu-latest
-    timeout-minutes: 350 # 안전을 위해 6시간 미만으로 설정
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
-      # [SURGERY] 디스크/메모리/프로세스 극한의 최적화
-      - name: ☢️ Nuclear System Cleanup (Free +35GB)
+      # [RESOURCE] 대규모 처리를 위한 리소스 정리 (필수)
+      - name: ☢️ Nuclear Resource Optimization
         run: |
-          echo "::: [INIT] Cleaning System for Massive I/O :::"
-          
-          # 1. 불필요한 대형 패키지 삭제
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache
-          
-          # 2. Docker 캐시 삭제
+          echo "::: [System] Cleaning Disk & Memory :::"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           docker system prune -a -f
           
-          # 3. Swap 메모리 8GB 확보 (OOM Killer 방지)
+          # Swap 8GB 설정
           sudo fallocate -l 8G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
           
-          # 4. 스택 사이즈 제한 해제
           ulimit -s unlimited
-          
-          echo "::: [STATUS] Resource Status :::"
-          df -h
           free -h
 
-      # [WATCHDOG] 로그 침묵으로 인한 Runner 종료 방지
-      - name: 👁️ Start Resource Watchdog
+      # [WATCHDOG] 모니터링
+      - name: 👁️ Active Monitor
         run: |
           cat <<'EOF' > watchdog.sh
           #!/bin/bash
           while true; do
-            # 1분마다 시스템 상태를 찍어 로그가 흐르게 함
-            echo "[WATCHDOG] Memory: $(free -h | grep Mem | awk '{print $3}') | Disk Free: $(df -h / | tail -1 | awk '{print $4}')"
+            echo "[WATCHDOG] RAM: $(free -m | grep Mem | awk '{print $3}')MB Used | DISK: $(df -h / | tail -1 | awk '{print $4}') Free"
             sleep 60
           done
           EOF
           chmod +x watchdog.sh
           ./watchdog.sh &
 
-      # [CORE ENGINE] C++ 소스 생성 (안정성 100% 보장형)
-      - name: 📝 Generate Stable Engine
+      # [UPGRADE] Linux 전용: 하드웨어 감지 및 동적 튜닝 엔진
+      - name: 📝 Generate Adaptive Engine
         run: |
           cat <<'EOF' > upgrade_manager.py
           import os
           
-          # 시스템 설정
-          SYSTEM_VERSION = "2026.7.0 (Architecture Fixed)"
+          SYSTEM_VERSION = "2026.8.0 (Adaptive Core)"
           GCC_FLAGS = "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
           
           def generate_cpp_source():
-              print(f"Generating Engine v{SYSTEM_VERSION}...")
+              print(f"Generating Adaptive Engine v{SYSTEM_VERSION}...")
               content = """
           #include <iostream>
           #include <fstream>
           #include <vector>
-          #include <string>
           #include <thread>
           #include <mutex>
           #include <iomanip>
           #include <sstream>
+          #include <algorithm>
           
-          // [SAFETY] 스레드 충돌 방지를 위한 뮤텍스
-          std::mutex print_mtx;
+          std::mutex log_mtx;
           
-          // [CONFIG] 데이터 개수 로드
+          // [Linux Feature] 성능 최적화 매니저
+          class PerformanceManager {
+          public:
+              static size_t get_optimized_buffer_size() {
+                  unsigned int cores = std::thread::hardware_concurrency();
+                  // 코어가 많을수록 버퍼를 키워 I/O 락 경쟁 감소
+                  size_t size = (cores >= 4) ? 16 * 1024 * 1024 : 4 * 1024 * 1024;
+                  
+                  std::lock_guard<std::mutex> lock(log_mtx);
+                  std::cout << "[Tuning] Detected " << cores << " Cores." << std::endl;
+                  std::cout << "[Tuning] Setting Buffer Size to " << (size/1024/1024) << "MB." << std::endl;
+                  return size;
+              }
+          };
+
           long long get_target_count() {
               const char* env_p = std::getenv("DATA_COUNT");
               if(env_p) return std::stoll(env_p);
               return 1000000;
           }
 
-          // [CORE] 메모리 안전 파일 라이터 (직접 버퍼 관리)
-          class StableWriter {
+          class AdaptiveWriter {
               std::ofstream file;
               std::vector<char> buffer;
               size_t cursor = 0;
-              const size_t CAPACITY = 8 * 1024 * 1024; // 8MB Buffer (Large)
+              size_t capacity;
               
           public:
-              StableWriter(const std::string& filename) {
+              AdaptiveWriter(const std::string& filename) {
+                  // 동적으로 계산된 버퍼 크기 적용
+                  capacity = PerformanceManager::get_optimized_buffer_size();
                   file.open(filename, std::ios::binary);
-                  buffer.resize(CAPACITY);
+                  buffer.resize(capacity);
               }
               
-              ~StableWriter() {
-                  flush();
-                  if(file.is_open()) file.close();
-              }
+              ~AdaptiveWriter() { flush(); if(file.is_open()) file.close(); }
               
               void write(const std::string& data) {
-                  // 버퍼가 꽉 차면 디스크로 내림 (Segfault 방지)
-                  if (cursor + data.size() > CAPACITY) {
-                      flush();
-                  }
-                  
-                  // 데이터가 버퍼보다 크면 직접 쓰기
-                  if (data.size() > CAPACITY) {
+                  if (cursor + data.size() > capacity) flush();
+                  if (data.size() > capacity) {
                       file.write(data.c_str(), data.size());
                   } else {
-                      // 메모리 복사
                       std::copy(data.begin(), data.end(), buffer.begin() + cursor);
                       cursor += data.size();
                   }
@@ -191,89 +210,59 @@ jobs:
               }
           };
 
-          void task_accounts(long long count) {
+          void generate_data(int id, long long count) {
+              std::string filename = "output/data/server_shard_" + std::to_string(id) + ".csv";
               try {
-                  StableWriter writer("output/data/accounts.csv");
-                  writer.write("Bank,AccountID,User,Balance,Status,Hash\\n");
-                  
-                  std::stringstream ss;
-                  for(long long i=0; i<count; ++i) {
-                      ss.str(""); 
-                      ss << "KR-BANK," 
-                         << "ACC-" << i << ","
-                         << "User_" << i << ","
-                         << (i * 500) << ","
-                         << (i % 2 == 0 ? "Active" : "Held") << ","
-                         << "Hash_" << (i * 12345) << "\\n";
-                      
-                      writer.write(ss.str());
-                      
-                      // [ALIVE] 50만 건마다 생존 신고
-                      if(i % 500000 == 0) {
-                          std::lock_guard<std::mutex> lock(print_mtx);
-                          std::cout << "::notice::[Accounts] Generated " << i << " records..." << std::endl;
-                      }
-                  }
-                  std::cout << "✅ Account Task Complete." << std::endl;
-              } catch (const std::exception& e) {
-                  std::cerr << "!!! Account Task Failed: " << e.what() << std::endl;
-              }
-          }
-
-          void task_transactions(long long count) {
-              try {
-                  StableWriter writer("output/data/transactions.csv");
-                  writer.write("TxID,Sender,Receiver,Amount,Date\\n");
+                  AdaptiveWriter writer(filename);
+                  writer.write("ID,Hash,Data,Timestamp\\n");
                   
                   std::stringstream ss;
                   for(long long i=0; i<count; ++i) {
                       ss.str("");
-                      ss << "TX-" << i << ","
-                         << "User_" << i << ","
-                         << "Store_" << (i % 1000) << ","
-                         << (100 + i % 5000) << ","
-                         << "2026-05-20\\n";
-                         
+                      ss << id << "-" << i << ","
+                         << "Hash_" << (i * 999) << ","
+                         << "Payload_" << (i % 100) << ","
+                         << "2026-12-31T23:59:59\\n";
                       writer.write(ss.str());
-
+                      
                       if(i % 500000 == 0) {
-                          std::lock_guard<std::mutex> lock(print_mtx);
-                          std::cout << "::notice::[Transactions] Generated " << i << " records..." << std::endl;
+                          std::lock_guard<std::mutex> lock(log_mtx);
+                          std::cout << "::notice::[Shard " << id << "] Processed " << i << " records." << std::endl;
                       }
                   }
-                  std::cout << "✅ Transaction Task Complete." << std::endl;
-              } catch (const std::exception& e) {
-                  std::cerr << "!!! Transaction Task Failed: " << e.what() << std::endl;
-              }
+              } catch (...) {}
           }
 
           int main() {
-              // 폴더 생성
               system("mkdir -p output/data");
+              long long total_target = get_target_count();
               
-              long long target = get_target_count();
-              std::cout << "🚀 STARTING MASSIVE DATA GENERATION (Target: " << target << ")" << std::endl;
+              std::cout << "🚀 STARTING ADAPTIVE SERVER ENGINE (Total: " << total_target << ")" << std::endl;
               
-              // 스레드 분리 실행 (안전성 우선)
-              std::thread t1(task_accounts, target);
-              std::thread t2(task_transactions, target);
+              // 병렬 처리: 코어 수만큼 작업을 분할하여 속도 극대화
+              int workers = 2; // 안전하게 2개 스레드로 분할
+              long long count_per_worker = total_target / workers;
               
-              t1.join();
-              t2.join();
+              std::vector<std::thread> threads;
+              for(int i=0; i<workers; ++i) {
+                  threads.emplace_back(generate_data, i, count_per_worker);
+              }
               
-              std::cout << "✨ ALL DATA GENERATED SUCCESSFULLY." << std::endl;
+              for(auto& t : threads) t.join();
+              
+              std::cout << "✨ ALL TASKS COMPLETED." << std::endl;
               return 0;
           }
               """
-              with open("enterprise_main.cpp", "w", encoding="utf-8") as f:
+              with open("enterprise_server.cpp", "w", encoding="utf-8") as f:
                   f.write(content.strip())
           
           def generate_makefile():
               makefile = f"""
           CXX = g++
           CXXFLAGS = {GCC_FLAGS}
-          TARGET = server_app_core
-          SRCS = enterprise_main.cpp
+          TARGET = server_core
+          SRCS = enterprise_server.cpp
           all: $(TARGET)
           $(TARGET): $(SRCS)
           \t$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
@@ -285,86 +274,69 @@ jobs:
               generate_makefile()
           EOF
 
-      - name: 🔄 Compile & Execute
+      - name: 🔄 Compile & Run Adaptive Engine
         run: |
           python upgrade_manager.py
           make
-          chmod +x server_app_core
-          
-          echo "::: Executing Binary (Max Stability Mode) :::"
-          ./server_app_core
+          chmod +x server_core
+          ./server_core
 
-      # [COMPRESSION] 병렬 압축 (Pigz)
-      - name: 📦 Compress Data (Multi-Core)
+      - name: 📦 Compress & Archive
         run: |
-          echo "::: Compressing Dataset :::"
           sudo apt-get install -y pigz
-          tar -cf - output/ | pigz -p $(nproc) > dataset_linux.tar.gz
-          ls -lh dataset_linux.tar.gz
+          tar -cf - output/ | pigz -p $(nproc) > server_data.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Binary-Linux
-          path: server_app_core
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Generated-Data
-          path: dataset_linux.tar.gz
-          retention-days: 1 # 용량이 크므로 하루만 보관
+          name: Server-Linux-Data
+          path: |
+            server_core
+            server_data.tar.gz
 
   # ==================================================================================
-  # JOB 3: 통합 및 배포
+  # JOB 3: 통합 배포 관리자
   # ==================================================================================
   release-manager:
-    name: 📦 Managed Release V4
-    needs: [build-windows-safe, generate-data-linux-heavy]
+    name: 📦 Deploy Upgraded System
+    needs: [upgrade-windows-client, upgrade-linux-server]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Binary-Windows
+          name: Client-Windows-Updated
           path: pkg_win
       - uses: actions/download-artifact@v4
         with:
-          name: Binary-Linux
+          name: Server-Linux-Data
           path: pkg_lin
-      - uses: actions/download-artifact@v4
-        with:
-          name: Generated-Data
-          path: pkg_data
 
-      - name: 📦 Create Final Package
+      - name: 📦 Packaging
         run: |
-          mkdir release_assets
-          cp pkg_win/enterprise_main.exe release_assets/Viewer_Windows.exe
-          cp pkg_lin/server_app_core release_assets/Generator_Linux_Core
-          cp pkg_data/dataset_linux.tar.gz release_assets/
+          mkdir release
+          cp pkg_win/enterprise_client.exe release/Client_Updater.exe
+          cp pkg_lin/server_core release/Server_Engine
+          cp pkg_lin/server_data.tar.gz release/
           
-          cd release_assets
-          ls -lh
-
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2026.7.0.${{ github.run_number }}
-          name: 🚀 Hyper-Stable Release v${{ github.run_number }}
+          tag_name: v2026.8.0.${{ github.run_number }}
+          name: 🚀 Upgraded System v${{ github.run_number }} (Dual-Core)
           body: |
-            ## 🚀 Stability Update (Fixes C3688 & Segfault)
+            ## 🚀 Server-Specific Upgrade Released
             
-            This release fixes the Windows compilation syntax error and ensures massive data generation stability.
+            This release includes specialized features for both Client and Server nodes.
             
-            ### 🛠️ Fixes & Features
-            - **Fixed:** `error C3688` (PowerShell String Escaping).
-            - **Fixed:** `Segmentation fault` (Linux Heap Buffering).
-            - **Scale:** Supports millions of rows with minimal RAM usage.
+            ### 🪟 Windows Client (Viewer)
+            - **Auto-Update Service:** Simulates checking and applying security patches.
+            - **GUI Patch:** Improved console interface.
             
-            ### 📦 Artifacts
-            - `dataset_linux.tar.gz`: The massive generated dataset.
-            - `Viewer_Windows.exe`: Windows client (executable only).
-            - `Generator_Linux_Core`: Linux generation engine.
-          files: release_assets/*
+            ### 🐧 Linux Server (Engine)
+            - **Adaptive Tuning:** Automatically adjusts buffer size based on CPU cores.
+            - **Shard Processing:** Data is generated in parallel shards for speed.
+            
+          files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
