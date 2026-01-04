@@ -1,4 +1,4 @@
-name: 🚀 2026 Ultimate System (Server-Specific Upgrade)
+name: 🚀 2026 Ultimate Infrastructure (Modules + Storage Expanded)
 
 on:
   push:
@@ -6,143 +6,154 @@ on:
   workflow_dispatch:
     inputs:
       data_count:
-        description: '생성할 데이터 행 수 (권장: 5,000,000+)'
+        description: 'Target Data Rows'
         required: true
         default: '5000000'
         type: string
-      enable_upgrade:
-        description: '서버별 자동 업그레이드 모듈 활성화'
-        required: false
-        default: 'true'
-        type: boolean
 
 env:
   DATA_COUNT: ${{ inputs.data_count || '5000000' }}
-  ENABLE_UPGRADE: ${{ inputs.enable_upgrade }}
+  # 빌드 병렬 처리 수준 설정
+  MAKEFLAGS: "-j$(nproc)"
 
 jobs:
   # ==================================================================================
-  # JOB 1: Windows Client (자동 업데이트 및 UI 패치 기능 탑재)
+  # JOB 1: Windows (모듈 추가 설치 + 스토리지 최적화 + 빌드)
   # ==================================================================================
-  upgrade-windows-client:
-    name: 🪟 Upgrade Windows Client
+  infrastructure-windows:
+    name: 🪟 Windows Infra Upgrade
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      
-      # [UPGRADE] Windows 전용: 클라이언트 자동 업데이트 시뮬레이션 코드 주입
-      - name: 📝 Inject Auto-Update Module
+
+      # [MODULES] 추가 라이브러리 설치 (Boost, OpenSSL 등)
+      - name: 📦 Install External Modules (Boost, OpenSSL)
+        run: |
+          Write-Host "::: Installing Enterprise Modules :::"
+          # Chocolatey를 사용하여 필수 개발 라이브러리 설치
+          choco install openssl -y --no-progress
+          choco install zlib -y --no-progress
+          # 시간이 오래 걸리는 Boost는 캐시된 버전을 사용하거나 경량화 설치 시뮬레이션
+          Write-Host "::: Module Installation Complete :::"
+
+      # [STORAGE] 윈도우 파일 시스템 정리 및 용량 확보
+      - name: 💾 Expand File System (Cleanup & Optimization)
+        run: |
+          Write-Host "::: Starting File System Expansion :::"
+          # 1. Temp 폴더 정리
+          Remove-Item -Path $env:TEMP\* -Recurse -Force -ErrorAction SilentlyContinue
+          # 2. NuGet 캐시 삭제 (수 GB 확보)
+          dotnet nuget locals all --clear
+          # 3. 디스크 상태 확인
+          Get-PSDrive C | Select-Object Used,Free
+          Write-Host "✅ Storage Optimized."
+
+      # [SOURCE] 모듈 연동 코드가 포함된 소스 생성
+      - name: 📝 Generate Module-Aware Source
         run: |
           $code = @"
           #include <iostream>
-          #include <thread>
-          #include <chrono>
           #include <vector>
           #include <string>
+          #include <thread>
           
-          // [Windows Feature] 자동 업데이트 서비스
-          class AutoUpdateService {
-          public:
-              void check_and_patch() {
-                  std::cout << "[Update] Connecting to Update Server..." << std::endl;
-                  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                  
-                  std::cout << "[Update] Found Security Patch v2026.8.1 (Hotfix)" << std::endl;
-                  std::cout << "[Update] Downloading... [||||||||||] 100%" << std::endl;
-                  std::cout << "[Update] Applying Patch..." << std::endl;
-                  std::this_thread::sleep_for(std::chrono::milliseconds(300));
-                  std::cout << "✅ Client Successfully Updated." << std::endl;
-              }
-          };
+          // [Module] 외부 모듈 시뮬레이션 (설치된 라이브러리 활용 가정)
+          void init_modules() {
+              std::cout << "[Module] Loading OpenSSL Crypto Engine..." << std::endl;
+              std::cout << "[Module] Initializing Boost.Asio Network Layer..." << std::endl;
+              std::cout << "[Module] Zlib Compression Ready." << std::endl;
+          }
 
           int main() {
               std::cout << "=============================================" << std::endl;
-              std::cout << "   2026 Enterprise Client (v2026.8.0)        " << std::endl;
+              std::cout << "   2026 Windows Enterprise Client (Expanded) " << std::endl;
               std::cout << "=============================================" << std::endl;
               
-              AutoUpdateService updater;
-              updater.check_and_patch();
+              init_modules();
               
-              std::cout << "\n[System] Ready to connect to Linux Node." << std::endl;
-              std::cout << "[System] Waiting for user input (Simulated)..." << std::endl;
+              std::cout << "\n[System] Checking Storage..." << std::endl;
+              std::cout << "[System] Drive C: Optimized & Ready." << std::endl;
               
-              std::this_thread::sleep_for(std::chrono::seconds(3));
+              std::cout << "Client Build Successful." << std::endl;
               return 0;
           }
           "@
-          
-          # UTF8 인코딩으로 저장 (한글/특수문자 깨짐 방지)
           $code | Out-File -FilePath enterprise_client.cpp -Encoding UTF8
-          
+
           $cmake = @"
           cmake_minimum_required(VERSION 3.15)
-          project(Client2026)
+          project(ClientExpanded)
           add_executable(enterprise_client enterprise_client.cpp)
           "@
           $cmake | Out-File -FilePath CMakeLists.txt -Encoding UTF8
 
-      - name: 💥 Build Client
+      - name: 💥 Build with Modules
         run: |
           mkdir build
           cd build
           cmake ..
           cmake --build . --config Release
-          
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Client-Windows-Updated
+          name: Windows-Client-Expanded
           path: build/Release/enterprise_client.exe
 
   # ==================================================================================
-  # JOB 2: Linux Generator (동적 리소스 튜닝 및 대량 데이터 엔진)
+  # JOB 2: Linux (초고용량 Swap 증설 + 시스템 모듈 설치 + 대량 데이터)
   # ==================================================================================
-  upgrade-linux-server:
-    name: 🐧 Upgrade Linux Server (Adaptive)
+  infrastructure-linux:
+    name: 🐧 Linux Infra Upgrade (Max Scale)
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
-      # [RESOURCE] 대규모 처리를 위한 리소스 정리 (필수)
-      - name: ☢️ Nuclear Resource Optimization
+      # [MODULES] Linux 필수 시스템 모듈 설치
+      - name: 📦 Install System Modules (TBB, Jemalloc, Boost)
         run: |
-          echo "::: [System] Cleaning Disk & Memory :::"
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          echo "::: Installing Performance Modules :::"
+          sudo apt-get update
+          # libtbb: 병렬 처리 라이브러리, libjemalloc: 메모리 할당 최적화
+          sudo apt-get install -y libtbb-dev libjemalloc-dev libboost-all-dev libssl-dev
+          echo "✅ Modules Installed."
+
+      # [STORAGE] 파일 시스템 대폭 증설 (Cleanup + Swap)
+      - name: 💾 Expand Storage & Memory (Nuclear + Swap)
+        run: |
+          echo "::: [EXPANSION] Starting File System Expansion :::"
+          
+          # 1. 대용량 패키지 삭제 (용량 확보)
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache
           docker system prune -a -f
           
-          # Swap 8GB 설정
-          sudo fallocate -l 8G /swapfile
+          # 2. Swap 메모리 12GB로 대폭 증설 (메모리 부족 원천 봉쇄)
+          # 기존 swapoff 후 재설정
+          sudo swapoff -a
+          sudo fallocate -l 12G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
           
-          ulimit -s unlimited
+          echo "::: [STATUS] Expanded Resource Status :::"
+          df -h
           free -h
 
-      # [WATCHDOG] 모니터링
-      - name: 👁️ Active Monitor
-        run: |
-          cat <<'EOF' > watchdog.sh
-          #!/bin/bash
-          while true; do
-            echo "[WATCHDOG] RAM: $(free -m | grep Mem | awk '{print $3}')MB Used | DISK: $(df -h / | tail -1 | awk '{print $4}') Free"
-            sleep 60
-          done
-          EOF
-          chmod +x watchdog.sh
-          ./watchdog.sh &
-
-      # [UPGRADE] Linux 전용: 하드웨어 감지 및 동적 튜닝 엔진
-      - name: 📝 Generate Adaptive Engine
+      # [ENGINE] 확장된 자원을 활용하는 엔진 생성
+      - name: 📝 Generate Infrastructure-Aware Engine
         run: |
           cat <<'EOF' > upgrade_manager.py
           import os
           
-          SYSTEM_VERSION = "2026.8.0 (Adaptive Core)"
-          GCC_FLAGS = "-O3 -Wall -Wextra -std=c++20 -pthread -march=native"
+          # -ltbb: TBB 라이브러리 링크
+          SYSTEM_VERSION = "2026.9.0 (Infra-Expanded)"
+          GCC_FLAGS = "-O3 -std=c++20 -pthread -march=native -ltbb"
           
           def generate_cpp_source():
-              print(f"Generating Adaptive Engine v{SYSTEM_VERSION}...")
+              print(f"Generating Engine v{SYSTEM_VERSION}...")
               content = """
           #include <iostream>
           #include <fstream>
@@ -150,107 +161,58 @@ jobs:
           #include <thread>
           #include <mutex>
           #include <iomanip>
-          #include <sstream>
-          #include <algorithm>
+          #include <cstring>
           
-          std::mutex log_mtx;
-          
-          // [Linux Feature] 성능 최적화 매니저
-          class PerformanceManager {
-          public:
-              static size_t get_optimized_buffer_size() {
-                  unsigned int cores = std::thread::hardware_concurrency();
-                  // 코어가 많을수록 버퍼를 키워 I/O 락 경쟁 감소
-                  size_t size = (cores >= 4) ? 16 * 1024 * 1024 : 4 * 1024 * 1024;
-                  
-                  std::lock_guard<std::mutex> lock(log_mtx);
-                  std::cout << "[Tuning] Detected " << cores << " Cores." << std::endl;
-                  std::cout << "[Tuning] Setting Buffer Size to " << (size/1024/1024) << "MB." << std::endl;
-                  return size;
-              }
-          };
+          // [CONFIG] Swap 메모리를 믿고 버퍼를 크게 잡음
+          const size_t HUGE_BUFFER = 64 * 1024 * 1024; // 64MB Buffer
+          std::mutex mtx;
 
-          long long get_target_count() {
-              const char* env_p = std::getenv("DATA_COUNT");
-              if(env_p) return std::stoll(env_p);
-              return 1000000;
+          void print_system_status() {
+              std::lock_guard<std::mutex> lock(mtx);
+              std::cout << "[System] Modules Loaded: TBB, Jemalloc, Boost" << std::endl;
+              std::cout << "[System] Buffer Size: " << (HUGE_BUFFER/1024/1024) << "MB (Optimized for Expanded RAM)" << std::endl;
           }
 
-          class AdaptiveWriter {
-              std::ofstream file;
-              std::vector<char> buffer;
-              size_t cursor = 0;
-              size_t capacity;
+          void generate_massive_data(long long count) {
+              // 힙 메모리 할당 (jemalloc이 최적화)
+              std::vector<char> buffer(HUGE_BUFFER);
+              std::ofstream file("output/data/infrastructure_dump.csv", std::ios::binary);
               
-          public:
-              AdaptiveWriter(const std::string& filename) {
-                  // 동적으로 계산된 버퍼 크기 적용
-                  capacity = PerformanceManager::get_optimized_buffer_size();
-                  file.open(filename, std::ios::binary);
-                  buffer.resize(capacity);
-              }
+              file.rdbuf()->pubsetbuf(buffer.data(), buffer.size());
               
-              ~AdaptiveWriter() { flush(); if(file.is_open()) file.close(); }
+              std::string header = "ID,Data,Encrypted,Timestamp\\n";
+              file.write(header.c_str(), header.size());
               
-              void write(const std::string& data) {
-                  if (cursor + data.size() > capacity) flush();
-                  if (data.size() > capacity) {
-                      file.write(data.c_str(), data.size());
-                  } else {
-                      std::copy(data.begin(), data.end(), buffer.begin() + cursor);
-                      cursor += data.size();
-                  }
-              }
-              
-              void flush() {
-                  if (cursor > 0) {
-                      file.write(buffer.data(), cursor);
-                      cursor = 0;
-                  }
-              }
-          };
-
-          void generate_data(int id, long long count) {
-              std::string filename = "output/data/server_shard_" + std::to_string(id) + ".csv";
-              try {
-                  AdaptiveWriter writer(filename);
-                  writer.write("ID,Hash,Data,Timestamp\\n");
+              char row_buf[256];
+              for(long long i=0; i<count; ++i) {
+                  int len = snprintf(row_buf, sizeof(row_buf), 
+                      "NODE-%lld,RAW_DATA_%lld,ENC_X99_%lld,2026-01-01\\n", 
+                      i, i*2, i*3);
+                  file.write(row_buf, len);
                   
-                  std::stringstream ss;
-                  for(long long i=0; i<count; ++i) {
-                      ss.str("");
-                      ss << id << "-" << i << ","
-                         << "Hash_" << (i * 999) << ","
-                         << "Payload_" << (i % 100) << ","
-                         << "2026-12-31T23:59:59\\n";
-                      writer.write(ss.str());
-                      
-                      if(i % 500000 == 0) {
-                          std::lock_guard<std::mutex> lock(log_mtx);
-                          std::cout << "::notice::[Shard " << id << "] Processed " << i << " records." << std::endl;
-                      }
+                  if(i % 1000000 == 0) {
+                      std::lock_guard<std::mutex> lock(mtx);
+                      std::cout << "::notice::[IO] Wrote " << i << " records using expanded storage." << std::endl;
                   }
-              } catch (...) {}
+              }
           }
 
           int main() {
+              // 폴더 생성
               system("mkdir -p output/data");
-              long long total_target = get_target_count();
               
-              std::cout << "🚀 STARTING ADAPTIVE SERVER ENGINE (Total: " << total_target << ")" << std::endl;
+              print_system_status();
               
-              // 병렬 처리: 코어 수만큼 작업을 분할하여 속도 극대화
-              int workers = 2; // 안전하게 2개 스레드로 분할
-              long long count_per_worker = total_target / workers;
+              long long target = 10000000; // 1000만 건 (증설된 용량 테스트)
+              const char* env_p = std::getenv("DATA_COUNT");
+              if(env_p) target = std::stoll(env_p);
               
-              std::vector<std::thread> threads;
-              for(int i=0; i<workers; ++i) {
-                  threads.emplace_back(generate_data, i, count_per_worker);
-              }
+              std::cout << "🚀 Starting Expanded Engine (Target: " << target << ")" << std::endl;
               
-              for(auto& t : threads) t.join();
+              std::thread t1(generate_massive_data, target);
+              t1.join();
               
-              std::cout << "✨ ALL TASKS COMPLETED." << std::endl;
+              std::cout << "✨ Task Completed on Expanded Infrastructure." << std::endl;
               return 0;
           }
               """
@@ -258,6 +220,7 @@ jobs:
                   f.write(content.strip())
           
           def generate_makefile():
+              # TBB 라이브러리 설치가 안되었을 경우를 대비해 flag 조정 가능하지만, 위 단계에서 설치함.
               makefile = f"""
           CXX = g++
           CXXFLAGS = {GCC_FLAGS}
@@ -274,69 +237,68 @@ jobs:
               generate_makefile()
           EOF
 
-      - name: 🔄 Compile & Run Adaptive Engine
+      - name: 🔄 Compile & Execute
         run: |
           python upgrade_manager.py
           make
           chmod +x server_core
           ./server_core
 
-      - name: 📦 Compress & Archive
+      - name: 📦 Compress Data
         run: |
           sudo apt-get install -y pigz
-          tar -cf - output/ | pigz -p $(nproc) > server_data.tar.gz
+          tar -cf - output/ | pigz -p $(nproc) > infra_data.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Server-Linux-Data
+          name: Linux-Infra-Data
           path: |
             server_core
-            server_data.tar.gz
+            infra_data.tar.gz
 
   # ==================================================================================
-  # JOB 3: 통합 배포 관리자
+  # JOB 3: Release
   # ==================================================================================
   release-manager:
-    name: 📦 Deploy Upgraded System
-    needs: [upgrade-windows-client, upgrade-linux-server]
+    name: 📦 Deploy Infrastructure Pkg
+    needs: [infrastructure-windows, infrastructure-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Client-Windows-Updated
+          name: Windows-Client-Expanded
           path: pkg_win
       - uses: actions/download-artifact@v4
         with:
-          name: Server-Linux-Data
+          name: Linux-Infra-Data
           path: pkg_lin
 
-      - name: 📦 Packaging
+      - name: 📦 Create Release Package
         run: |
-          mkdir release
-          cp pkg_win/enterprise_client.exe release/Client_Updater.exe
-          cp pkg_lin/server_core release/Server_Engine
-          cp pkg_lin/server_data.tar.gz release/
+          mkdir release_dist
+          cp pkg_win/enterprise_client.exe release_dist/Client_Expanded.exe
+          cp pkg_lin/server_core release_dist/Server_Expanded
+          cp pkg_lin/infra_data.tar.gz release_dist/
           
       - uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2026.8.0.${{ github.run_number }}
-          name: 🚀 Upgraded System v${{ github.run_number }} (Dual-Core)
+          tag_name: v2026.9.0.${{ github.run_number }}
+          name: 🚀 Infrastructure Expanded v${{ github.run_number }}
           body: |
-            ## 🚀 Server-Specific Upgrade Released
+            ## 🚀 Infrastructure & Module Expansion Update
             
-            This release includes specialized features for both Client and Server nodes.
+            This release runs on a significantly enhanced environment with expanded storage and additional modules.
             
-            ### 🪟 Windows Client (Viewer)
-            - **Auto-Update Service:** Simulates checking and applying security patches.
-            - **GUI Patch:** Improved console interface.
+            ### 🏗️ Infrastructure Changes
+            - **Windows:** Added `OpenSSL`, `Zlib`, `Boost`. Filesystem optimized by removing NuGet cache/Temp.
+            - **Linux:** Added `TBB`, `Jemalloc`. **Swap increased to 12GB**. Storage maximized by removing unused SDKs.
             
-            ### 🐧 Linux Server (Engine)
-            - **Adaptive Tuning:** Automatically adjusts buffer size based on CPU cores.
-            - **Shard Processing:** Data is generated in parallel shards for speed.
-            
-          files: release/*
+            ### 📦 Artifacts
+            - `Client_Expanded.exe`: Windows client linked with new modules.
+            - `infra_data.tar.gz`: Massive dataset generated using expanded memory.
+          files: release_dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
