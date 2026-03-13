@@ -1,80 +1,80 @@
 {
-  "generated_at": "2026-03-13T16:22:43.981005",
+  "generated_at": "2026-03-13T16:43:07.011671",
   "radar": [
     {
-      "angle": 345,
-      "dist": 32,
+      "angle": 50,
+      "dist": 67,
+      "type": "HOSTILE"
+    },
+    {
+      "angle": 203,
+      "dist": 19,
+      "type": "UNKNOWN"
+    },
+    {
+      "angle": 113,
+      "dist": 69,
       "type": "FRIENDLY"
     },
     {
-      "angle": 75,
-      "dist": 37,
-      "type": "HOSTILE"
+      "angle": 205,
+      "dist": 14,
+      "type": "UNKNOWN"
     },
     {
-      "angle": 155,
-      "dist": 64,
-      "type": "HOSTILE"
-    },
-    {
-      "angle": 265,
-      "dist": 28,
-      "type": "HOSTILE"
-    },
-    {
-      "angle": 76,
-      "dist": 24,
+      "angle": 277,
+      "dist": 70,
       "type": "HOSTILE"
     }
   ],
   "logs": [
-    "[16:22:43] app/blog/main process_id=4127 status=SYNC",
-    "[16:22:43] list process_id=3927 status=SYNC",
-    "[16:22:43] category/list/posts process_id=5378 status=SYNC",
-    "[16:22:43] categories process_id=4385 status=SYNC",
-    "[16:22:43] blog/list process_id=7939 status=SYNC",
-    "[16:22:43] posts/search process_id=4610 status=SYNC",
-    "[16:22:43] search process_id=8439 status=SYNC",
-    "[16:22:43] categories process_id=8800 status=SYNC",
-    "[16:22:43] blog/main/search process_id=6169 status=SYNC",
-    "[16:22:43] explore process_id=9246 status=SYNC",
-    "[16:22:43] categories/blog/category process_id=4022 status=SYNC",
-    "[16:22:43] search/categories process_id=6183 status=SYNC",
-    "[16:22:43] app/blog/category process_id=3799 status=SYNC",
-    "[16:22:43] wp-content process_id=6087 status=SYNC",
-    "[16:22:43] wp-content/tags/blog process_id=7020 status=SYNC",
-    "[16:22:43] explore process_id=5391 status=SYNC",
-    "[16:22:43] category/list process_id=2279 status=SYNC",
-    "[16:22:43] list/app process_id=7343 status=SYNC",
-    "[16:22:43] search process_id=3220 status=SYNC",
-    "[16:22:43] main/posts/category process_id=5700 status=SYNC"
+    "[16:43:07] main/categories/explore process_id=2411 status=SYNC",
+    "[16:43:07] main process_id=5229 status=SYNC",
+    "[16:43:07] list/search process_id=2871 status=SYNC",
+    "[16:43:07] app/wp-content/explore process_id=9586 status=SYNC",
+    "[16:43:07] explore/wp-content/main process_id=9688 status=SYNC",
+    "[16:43:07] main process_id=3842 status=SYNC",
+    "[16:43:07] search/tags process_id=2773 status=SYNC",
+    "[16:43:07] blog/search/list process_id=2500 status=SYNC",
+    "[16:43:07] main/search/tags process_id=6176 status=SYNC",
+    "[16:43:07] search/posts process_id=5434 status=SYNC",
+    "[16:43:07] blog process_id=3407 status=SYNC",
+    "[16:43:07] main/main/tag process_id=1476 status=SYNC",
+    "[16:43:07] wp-content/category/wp-content process_id=7735 status=SYNC",
+    "[16:43:07] posts/wp-content/tags process_id=2226 status=SYNC",
+    "[16:43:07] main/main/blog process_id=8290 status=SYNC",
+    "[16:43:07] tags/explore process_id=3172 status=SYNC",
+    "[16:43:07] main/search/main process_id=1990 status=SYNC",
+    "[16:43:07] wp-content process_id=5771 status=SYNC",
+    "[16:43:07] list/app process_id=6079 status=SYNC",
+    "[16:43:07] tag/explore process_id=1997 status=SYNC"
   ],
   "nodes": [
     {
-      "id": "TER-QUA-000",
+      "id": "TER-DEF-000",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 3590,
+        "temp": 165
+      },
+      "fw_version": "v11.8"
+    },
+    {
+      "id": "TER-QUA-001",
       "sector": "EARTH-CORE",
       "color": "blue",
       "service": "Quantum-Net",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 89,
-        "energy": 4600,
-        "temp": 813
-      },
-      "fw_version": "v10.6"
-    },
-    {
-      "id": "TER-FUS-001",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 96,
-        "energy": 4448,
-        "temp": 197
+        "integrity": 100,
+        "energy": 1975,
+        "temp": 369
       },
-      "fw_version": "v10.4"
+      "fw_version": "v11.7"
     },
     {
       "id": "TER-FUS-002",
@@ -83,22 +83,22 @@
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 1624,
-        "temp": 616
+        "integrity": 95,
+        "energy": 3976,
+        "temp": 136
       },
-      "fw_version": "v10.1"
+      "fw_version": "v12.9"
     },
     {
-      "id": "TER-AI--003",
+      "id": "TER-DEF-003",
       "sector": "EARTH-CORE",
       "color": "blue",
-      "service": "AI-Cortex",
+      "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 98,
-        "energy": 4533,
-        "temp": 594
+        "energy": 1505,
+        "temp": 488
       },
       "fw_version": "v10.8"
     },
@@ -110,62 +110,62 @@
       "status": "ACTIVE",
       "metrics": {
         "integrity": 91,
-        "energy": 3258,
-        "temp": 504
+        "energy": 2345,
+        "temp": 568
       },
-      "fw_version": "v12.9"
+      "fw_version": "v10.5"
     },
     {
-      "id": "TER-LIF-005",
+      "id": "TER-QUA-005",
       "sector": "EARTH-CORE",
       "color": "blue",
-      "service": "Life-Support",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 1174,
+        "temp": 500
+      },
+      "fw_version": "v10.9"
+    },
+    {
+      "id": "TER-QUA-006",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 3204,
+        "temp": 762
+      },
+      "fw_version": "v11.5"
+    },
+    {
+      "id": "TER-FUS-007",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 100,
+        "energy": 2727,
+        "temp": 295
+      },
+      "fw_version": "v11.6"
+    },
+    {
+      "id": "TER-QUA-008",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 93,
-        "energy": 3947,
-        "temp": 254
+        "energy": 2503,
+        "temp": 520
       },
-      "fw_version": "v10.0"
-    },
-    {
-      "id": "TER-AI--006",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 97,
-        "energy": 1864,
-        "temp": 498
-      },
-      "fw_version": "v12.7"
-    },
-    {
-      "id": "TER-LIF-007",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 90,
-        "energy": 1900,
-        "temp": 538
-      },
-      "fw_version": "v12.9"
-    },
-    {
-      "id": "TER-LIF-008",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 91,
-        "energy": 1924,
-        "temp": 295
-      },
-      "fw_version": "v12.5"
+      "fw_version": "v11.9"
     },
     {
       "id": "TER-AI--009",
@@ -174,24 +174,24 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 4085,
-        "temp": 637
+        "integrity": 91,
+        "energy": 363,
+        "temp": 764
       },
-      "fw_version": "v11.2"
+      "fw_version": "v10.8"
     },
     {
-      "id": "TER-AI--010",
+      "id": "TER-LIF-010",
       "sector": "EARTH-CORE",
       "color": "blue",
-      "service": "AI-Cortex",
+      "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 96,
-        "energy": 498,
-        "temp": 274
+        "integrity": 97,
+        "energy": 4298,
+        "temp": 160
       },
-      "fw_version": "v10.9"
+      "fw_version": "v11.7"
     },
     {
       "id": "TER-QUA-011",
@@ -200,37 +200,37 @@
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 93,
-        "energy": 891,
-        "temp": 696
+        "integrity": 92,
+        "energy": 3866,
+        "temp": 334
       },
-      "fw_version": "v11.3"
+      "fw_version": "v12.1"
     },
     {
-      "id": "TER-DEF-012",
+      "id": "TER-FUS-012",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 91,
+        "energy": 1772,
+        "temp": 490
+      },
+      "fw_version": "v10.4"
+    },
+    {
+      "id": "TER-DEF-013",
       "sector": "EARTH-CORE",
       "color": "blue",
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 97,
-        "energy": 3147,
-        "temp": 214
+        "energy": 977,
+        "temp": 268
       },
-      "fw_version": "v10.6"
-    },
-    {
-      "id": "TER-FUS-013",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 100,
-        "energy": 4973,
-        "temp": 131
-      },
-      "fw_version": "v12.1"
+      "fw_version": "v10.4"
     },
     {
       "id": "TER-QUA-014",
@@ -239,11 +239,11 @@
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 93,
-        "energy": 2161,
-        "temp": 632
+        "integrity": 90,
+        "energy": 2274,
+        "temp": 540
       },
-      "fw_version": "v10.0"
+      "fw_version": "v12.0"
     },
     {
       "id": "TER-AI--015",
@@ -252,11 +252,11 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 969,
-        "temp": 776
+        "integrity": 99,
+        "energy": 2168,
+        "temp": 821
       },
-      "fw_version": "v12.1"
+      "fw_version": "v10.3"
     },
     {
       "id": "TER-FUS-016",
@@ -265,115 +265,115 @@
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 100,
-        "energy": 3333,
-        "temp": 883
+        "integrity": 93,
+        "energy": 3494,
+        "temp": 120
       },
-      "fw_version": "v10.7"
+      "fw_version": "v12.9"
     },
     {
-      "id": "TER-DEF-017",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "Defense-Grid",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 63,
-        "energy": 1657,
-        "temp": 651
-      },
-      "fw_version": "v10.7"
-    },
-    {
-      "id": "TER-AI--018",
-      "sector": "EARTH-CORE",
-      "color": "blue",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 100,
-        "energy": 1308,
-        "temp": 350
-      },
-      "fw_version": "v12.6"
-    },
-    {
-      "id": "TER-QUA-019",
+      "id": "TER-QUA-017",
       "sector": "EARTH-CORE",
       "color": "blue",
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 575,
-        "temp": 559
+        "integrity": 94,
+        "energy": 1915,
+        "temp": 530
       },
-      "fw_version": "v10.4"
+      "fw_version": "v11.3"
     },
     {
-      "id": "TER-AI--020",
+      "id": "TER-QUA-018",
       "sector": "EARTH-CORE",
       "color": "blue",
-      "service": "AI-Cortex",
+      "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 96,
-        "energy": 3983,
-        "temp": 369
+        "integrity": 94,
+        "energy": 4510,
+        "temp": 182
       },
-      "fw_version": "v12.0"
+      "fw_version": "v12.3"
     },
     {
-      "id": "TER-LIF-021",
+      "id": "TER-LIF-019",
       "sector": "EARTH-CORE",
       "color": "blue",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 446,
-        "temp": 816
+        "integrity": 100,
+        "energy": 3184,
+        "temp": 231
       },
-      "fw_version": "v10.4"
+      "fw_version": "v10.1"
+    },
+    {
+      "id": "TER-FUS-020",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Fusion-Reactor",
+      "status": "CRITICAL",
+      "metrics": {
+        "integrity": 99,
+        "energy": 4868,
+        "temp": 252
+      },
+      "fw_version": "v11.1"
+    },
+    {
+      "id": "TER-DEF-021",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 97,
+        "energy": 4585,
+        "temp": 285
+      },
+      "fw_version": "v11.4"
     },
     {
       "id": "TER-AI--022",
       "sector": "EARTH-CORE",
       "color": "blue",
       "service": "AI-Cortex",
-      "status": "ACTIVE",
+      "status": "CRITICAL",
       "metrics": {
-        "integrity": 90,
-        "energy": 3953,
+        "integrity": 83,
+        "energy": 4828,
         "temp": 458
       },
-      "fw_version": "v11.8"
+      "fw_version": "v10.0"
     },
     {
-      "id": "TER-DEF-023",
+      "id": "TER-LIF-023",
       "sector": "EARTH-CORE",
       "color": "blue",
-      "service": "Defense-Grid",
+      "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 1512,
-        "temp": 200
+        "integrity": 98,
+        "energy": 3771,
+        "temp": 603
       },
       "fw_version": "v10.8"
     },
     {
-      "id": "TER-FUS-024",
+      "id": "TER-QUA-024",
       "sector": "EARTH-CORE",
       "color": "blue",
-      "service": "Fusion-Reactor",
+      "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 90,
-        "energy": 796,
-        "temp": 592
+        "integrity": 92,
+        "energy": 1551,
+        "temp": 332
       },
-      "fw_version": "v12.1"
+      "fw_version": "v10.1"
     },
     {
       "id": "TER-DEF-025",
@@ -382,50 +382,89 @@
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 2628,
-        "temp": 213
+        "integrity": 98,
+        "energy": 233,
+        "temp": 456
       },
-      "fw_version": "v11.0"
+      "fw_version": "v11.1"
     },
     {
-      "id": "LUN-QUA-000",
+      "id": "TER-DEF-026",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 90,
+        "energy": 942,
+        "temp": 227
+      },
+      "fw_version": "v11.4"
+    },
+    {
+      "id": "TER-QUA-027",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Quantum-Net",
+      "status": "CRITICAL",
+      "metrics": {
+        "integrity": 74,
+        "energy": 2037,
+        "temp": 248
+      },
+      "fw_version": "v10.4"
+    },
+    {
+      "id": "TER-DEF-028",
+      "sector": "EARTH-CORE",
+      "color": "blue",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 100,
+        "energy": 4666,
+        "temp": 761
+      },
+      "fw_version": "v12.9"
+    },
+    {
+      "id": "LUN-LIF-000",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Life-Support",
+      "status": "CRITICAL",
+      "metrics": {
+        "integrity": 82,
+        "energy": 1239,
+        "temp": 412
+      },
+      "fw_version": "v10.6"
+    },
+    {
+      "id": "LUN-FUS-001",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 97,
+        "energy": 4021,
+        "temp": 785
+      },
+      "fw_version": "v11.7"
+    },
+    {
+      "id": "LUN-QUA-002",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 1560,
-        "temp": 249
+        "integrity": 96,
+        "energy": 3555,
+        "temp": 807
       },
-      "fw_version": "v12.7"
-    },
-    {
-      "id": "LUN-AI--001",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 99,
-        "energy": 4614,
-        "temp": 234
-      },
-      "fw_version": "v12.4"
-    },
-    {
-      "id": "LUN-AI--002",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 99,
-        "energy": 3011,
-        "temp": 307
-      },
-      "fw_version": "v12.2"
+      "fw_version": "v12.6"
     },
     {
       "id": "LUN-DEF-003",
@@ -434,113 +473,113 @@
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 96,
-        "energy": 1844,
-        "temp": 820
+        "integrity": 95,
+        "energy": 731,
+        "temp": 356
       },
-      "fw_version": "v10.2"
+      "fw_version": "v12.7"
     },
     {
-      "id": "LUN-LIF-004",
+      "id": "LUN-FUS-004",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 91,
+        "energy": 1226,
+        "temp": 279
+      },
+      "fw_version": "v10.7"
+    },
+    {
+      "id": "LUN-LIF-005",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 2866,
-        "temp": 623
+        "integrity": 98,
+        "energy": 4713,
+        "temp": 427
       },
-      "fw_version": "v11.9"
+      "fw_version": "v10.5"
     },
     {
-      "id": "LUN-DEF-005",
+      "id": "LUN-FUS-006",
       "sector": "LUNAR-BASE",
       "color": "gray",
-      "service": "Defense-Grid",
+      "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 95,
-        "energy": 648,
-        "temp": 151
+        "integrity": 92,
+        "energy": 4399,
+        "temp": 794
       },
-      "fw_version": "v10.2"
+      "fw_version": "v12.7"
     },
     {
-      "id": "LUN-QUA-006",
+      "id": "LUN-LIF-007",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 100,
+        "energy": 2961,
+        "temp": 289
+      },
+      "fw_version": "v11.8"
+    },
+    {
+      "id": "LUN-QUA-008",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 92,
-        "energy": 544,
-        "temp": 381
-      },
-      "fw_version": "v10.1"
-    },
-    {
-      "id": "LUN-AI--007",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "AI-Cortex",
-      "status": "CRITICAL",
-      "metrics": {
         "integrity": 91,
-        "energy": 4693,
-        "temp": 389
-      },
-      "fw_version": "v10.0"
-    },
-    {
-      "id": "LUN-DEF-008",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 100,
-        "energy": 4630,
-        "temp": 892
-      },
-      "fw_version": "v12.9"
-    },
-    {
-      "id": "LUN-LIF-009",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 97,
-        "energy": 778,
-        "temp": 501
+        "energy": 600,
+        "temp": 508
       },
       "fw_version": "v12.0"
     },
     {
-      "id": "LUN-FUS-010",
+      "id": "LUN-FUS-009",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 93,
-        "energy": 2050,
-        "temp": 114
+        "energy": 1595,
+        "temp": 339
       },
-      "fw_version": "v10.6"
+      "fw_version": "v12.1"
     },
     {
-      "id": "LUN-AI--011",
+      "id": "LUN-QUA-010",
       "sector": "LUNAR-BASE",
       "color": "gray",
-      "service": "AI-Cortex",
+      "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 873,
-        "temp": 487
+        "integrity": 97,
+        "energy": 152,
+        "temp": 688
+      },
+      "fw_version": "v12.4"
+    },
+    {
+      "id": "LUN-FUS-011",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 100,
+        "energy": 580,
+        "temp": 439
       },
       "fw_version": "v12.8"
     },
@@ -551,11 +590,11 @@
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 471,
-        "temp": 451
+        "integrity": 93,
+        "energy": 162,
+        "temp": 515
       },
-      "fw_version": "v10.2"
+      "fw_version": "v10.7"
     },
     {
       "id": "LUN-QUA-013",
@@ -564,50 +603,50 @@
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 933,
-        "temp": 587
+        "integrity": 90,
+        "energy": 2984,
+        "temp": 152
       },
-      "fw_version": "v11.5"
+      "fw_version": "v11.7"
     },
     {
-      "id": "LUN-DEF-014",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 94,
-        "energy": 4415,
-        "temp": 246
-      },
-      "fw_version": "v11.4"
-    },
-    {
-      "id": "LUN-FUS-015",
+      "id": "LUN-FUS-014",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Fusion-Reactor",
-      "status": "CRITICAL",
+      "status": "ACTIVE",
       "metrics": {
-        "integrity": 88,
-        "energy": 4794,
-        "temp": 612
+        "integrity": 91,
+        "energy": 4685,
+        "temp": 345
       },
-      "fw_version": "v12.5"
+      "fw_version": "v11.3"
     },
     {
-      "id": "LUN-DEF-016",
+      "id": "LUN-AI--015",
       "sector": "LUNAR-BASE",
       "color": "gray",
-      "service": "Defense-Grid",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 92,
-        "energy": 946,
-        "temp": 501
+        "energy": 3300,
+        "temp": 853
       },
-      "fw_version": "v10.8"
+      "fw_version": "v12.8"
+    },
+    {
+      "id": "LUN-QUA-016",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 95,
+        "energy": 2621,
+        "temp": 665
+      },
+      "fw_version": "v10.7"
     },
     {
       "id": "LUN-FUS-017",
@@ -616,50 +655,50 @@
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 2527,
-        "temp": 603
+        "integrity": 98,
+        "energy": 4751,
+        "temp": 589
       },
-      "fw_version": "v10.5"
+      "fw_version": "v10.8"
     },
     {
-      "id": "LUN-DEF-018",
+      "id": "LUN-AI--018",
       "sector": "LUNAR-BASE",
       "color": "gray",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 95,
-        "energy": 3657,
-        "temp": 413
-      },
-      "fw_version": "v12.3"
-    },
-    {
-      "id": "LUN-QUA-019",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 94,
-        "energy": 1587,
-        "temp": 833
-      },
-      "fw_version": "v12.7"
-    },
-    {
-      "id": "LUN-QUA-020",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Quantum-Net",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 96,
-        "energy": 2511,
-        "temp": 494
+        "energy": 833,
+        "temp": 682
       },
       "fw_version": "v12.5"
+    },
+    {
+      "id": "LUN-LIF-019",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 302,
+        "temp": 539
+      },
+      "fw_version": "v12.5"
+    },
+    {
+      "id": "LUN-AI--020",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "AI-Cortex",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 98,
+        "energy": 3731,
+        "temp": 561
+      },
+      "fw_version": "v12.7"
     },
     {
       "id": "LUN-QUA-021",
@@ -668,11 +707,11 @@
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 92,
-        "energy": 778,
-        "temp": 776
+        "integrity": 94,
+        "energy": 1818,
+        "temp": 811
       },
-      "fw_version": "v12.7"
+      "fw_version": "v10.4"
     },
     {
       "id": "LUN-DEF-022",
@@ -681,102 +720,63 @@
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 95,
-        "energy": 1538,
-        "temp": 662
-      },
-      "fw_version": "v12.1"
-    },
-    {
-      "id": "LUN-AI--023",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 100,
-        "energy": 902,
-        "temp": 847
-      },
-      "fw_version": "v12.8"
-    },
-    {
-      "id": "LUN-QUA-024",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 97,
-        "energy": 2353,
-        "temp": 324
-      },
-      "fw_version": "v12.3"
-    },
-    {
-      "id": "LUN-QUA-025",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 95,
-        "energy": 1021,
-        "temp": 180
+        "integrity": 96,
+        "energy": 4566,
+        "temp": 744
       },
       "fw_version": "v12.2"
     },
     {
-      "id": "LUN-AI--026",
+      "id": "LUN-QUA-023",
+      "sector": "LUNAR-BASE",
+      "color": "gray",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 93,
+        "energy": 4044,
+        "temp": 208
+      },
+      "fw_version": "v12.3"
+    },
+    {
+      "id": "LUN-AI--024",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 95,
-        "energy": 2959,
-        "temp": 302
+        "integrity": 92,
+        "energy": 3807,
+        "temp": 177
       },
-      "fw_version": "v11.4"
+      "fw_version": "v10.5"
     },
     {
-      "id": "LUN-DEF-027",
+      "id": "LUN-DEF-025",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 95,
-        "energy": 1164,
-        "temp": 481
+        "integrity": 92,
+        "energy": 1426,
+        "temp": 369
       },
-      "fw_version": "v11.8"
+      "fw_version": "v12.2"
     },
     {
-      "id": "LUN-LIF-028",
-      "sector": "LUNAR-BASE",
-      "color": "gray",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 95,
-        "energy": 4649,
-        "temp": 600
-      },
-      "fw_version": "v10.1"
-    },
-    {
-      "id": "LUN-DEF-029",
+      "id": "LUN-DEF-026",
       "sector": "LUNAR-BASE",
       "color": "gray",
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 4518,
-        "temp": 183
+        "integrity": 93,
+        "energy": 616,
+        "temp": 643
       },
-      "fw_version": "v11.6"
+      "fw_version": "v11.1"
     },
     {
       "id": "MRS-AI--000",
@@ -785,76 +785,76 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 3741,
-        "temp": 756
+        "integrity": 99,
+        "energy": 2012,
+        "temp": 329
       },
-      "fw_version": "v11.3"
+      "fw_version": "v11.9"
     },
     {
-      "id": "MRS-FUS-001",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 93,
-        "energy": 1349,
-        "temp": 897
-      },
-      "fw_version": "v12.5"
-    },
-    {
-      "id": "MRS-DEF-002",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 92,
-        "energy": 1673,
-        "temp": 360
-      },
-      "fw_version": "v12.9"
-    },
-    {
-      "id": "MRS-FUS-003",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 91,
-        "energy": 1419,
-        "temp": 612
-      },
-      "fw_version": "v12.3"
-    },
-    {
-      "id": "MRS-LIF-004",
+      "id": "MRS-LIF-001",
       "sector": "MARS-COLONY",
       "color": "red",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 908,
-        "temp": 829
+        "integrity": 93,
+        "energy": 3584,
+        "temp": 263
       },
-      "fw_version": "v11.6"
+      "fw_version": "v11.2"
     },
     {
-      "id": "MRS-DEF-005",
+      "id": "MRS-AI--002",
       "sector": "MARS-COLONY",
       "color": "red",
-      "service": "Defense-Grid",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 2584,
-        "temp": 560
+        "integrity": 93,
+        "energy": 3186,
+        "temp": 499
       },
-      "fw_version": "v11.9"
+      "fw_version": "v10.0"
+    },
+    {
+      "id": "MRS-QUA-003",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 97,
+        "energy": 802,
+        "temp": 206
+      },
+      "fw_version": "v11.1"
+    },
+    {
+      "id": "MRS-FUS-004",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 2738,
+        "temp": 734
+      },
+      "fw_version": "v10.5"
+    },
+    {
+      "id": "MRS-LIF-005",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 100,
+        "energy": 4088,
+        "temp": 339
+      },
+      "fw_version": "v10.9"
     },
     {
       "id": "MRS-AI--006",
@@ -863,115 +863,115 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 98,
-        "energy": 142,
-        "temp": 799
+        "integrity": 94,
+        "energy": 3920,
+        "temp": 693
       },
-      "fw_version": "v10.6"
+      "fw_version": "v11.0"
     },
     {
-      "id": "MRS-FUS-007",
+      "id": "MRS-QUA-007",
       "sector": "MARS-COLONY",
       "color": "red",
-      "service": "Fusion-Reactor",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 94,
+        "energy": 2674,
+        "temp": 699
+      },
+      "fw_version": "v12.9"
+    },
+    {
+      "id": "MRS-AI--008",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 98,
-        "energy": 3057,
-        "temp": 272
+        "energy": 995,
+        "temp": 237
       },
-      "fw_version": "v12.7"
+      "fw_version": "v10.7"
     },
     {
-      "id": "MRS-FUS-008",
+      "id": "MRS-AI--009",
       "sector": "MARS-COLONY",
       "color": "red",
-      "service": "Fusion-Reactor",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 93,
-        "energy": 147,
-        "temp": 310
+        "integrity": 90,
+        "energy": 2294,
+        "temp": 173
       },
-      "fw_version": "v10.9"
+      "fw_version": "v11.2"
     },
     {
-      "id": "MRS-FUS-009",
+      "id": "MRS-FUS-010",
       "sector": "MARS-COLONY",
       "color": "red",
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 90,
-        "energy": 124,
-        "temp": 488
-      },
-      "fw_version": "v11.2"
-    },
-    {
-      "id": "MRS-DEF-010",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 98,
-        "energy": 3704,
-        "temp": 437
-      },
-      "fw_version": "v10.6"
-    },
-    {
-      "id": "MRS-FUS-011",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 92,
-        "energy": 579,
-        "temp": 724
-      },
-      "fw_version": "v12.8"
-    },
-    {
-      "id": "MRS-DEF-012",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 99,
-        "energy": 1655,
+        "energy": 3006,
         "temp": 359
       },
-      "fw_version": "v11.5"
+      "fw_version": "v12.5"
     },
     {
-      "id": "MRS-AI--013",
+      "id": "MRS-AI--011",
       "sector": "MARS-COLONY",
       "color": "red",
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 174,
-        "temp": 756
+        "integrity": 98,
+        "energy": 3563,
+        "temp": 203
+      },
+      "fw_version": "v10.7"
+    },
+    {
+      "id": "MRS-QUA-012",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 91,
+        "energy": 3470,
+        "temp": 347
       },
       "fw_version": "v11.7"
     },
     {
-      "id": "MRS-DEF-014",
+      "id": "MRS-QUA-013",
       "sector": "MARS-COLONY",
       "color": "red",
-      "service": "Defense-Grid",
-      "status": "CRITICAL",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
       "metrics": {
-        "integrity": 69,
-        "energy": 2965,
-        "temp": 843
+        "integrity": 100,
+        "energy": 4249,
+        "temp": 757
       },
-      "fw_version": "v10.8"
+      "fw_version": "v11.3"
+    },
+    {
+      "id": "MRS-QUA-014",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 92,
+        "energy": 727,
+        "temp": 618
+      },
+      "fw_version": "v11.5"
     },
     {
       "id": "MRS-FUS-015",
@@ -980,401 +980,375 @@
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 96,
-        "energy": 1486,
-        "temp": 731
+        "integrity": 91,
+        "energy": 2578,
+        "temp": 661
       },
-      "fw_version": "v12.6"
+      "fw_version": "v12.1"
     },
     {
-      "id": "MRS-AI--016",
+      "id": "MRS-DEF-016",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Defense-Grid",
+      "status": "CRITICAL",
+      "metrics": {
+        "integrity": 53,
+        "energy": 1499,
+        "temp": 875
+      },
+      "fw_version": "v11.5"
+    },
+    {
+      "id": "MRS-LIF-017",
+      "sector": "MARS-COLONY",
+      "color": "red",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 92,
+        "energy": 3309,
+        "temp": 857
+      },
+      "fw_version": "v10.9"
+    },
+    {
+      "id": "MRS-AI--018",
       "sector": "MARS-COLONY",
       "color": "red",
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 1008,
-        "temp": 189
+        "integrity": 96,
+        "energy": 1297,
+        "temp": 147
       },
-      "fw_version": "v10.5"
+      "fw_version": "v10.2"
     },
     {
-      "id": "MRS-QUA-017",
+      "id": "MRS-FUS-019",
       "sector": "MARS-COLONY",
       "color": "red",
-      "service": "Quantum-Net",
+      "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 98,
-        "energy": 2094,
-        "temp": 666
-      },
-      "fw_version": "v11.2"
-    },
-    {
-      "id": "MRS-QUA-018",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 98,
-        "energy": 1056,
-        "temp": 386
-      },
-      "fw_version": "v11.0"
-    },
-    {
-      "id": "MRS-QUA-019",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 92,
-        "energy": 3519,
-        "temp": 315
-      },
-      "fw_version": "v12.2"
-    },
-    {
-      "id": "MRS-QUA-020",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 100,
-        "energy": 3605,
-        "temp": 246
-      },
-      "fw_version": "v12.7"
-    },
-    {
-      "id": "MRS-QUA-021",
-      "sector": "MARS-COLONY",
-      "color": "red",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 93,
-        "energy": 1822,
-        "temp": 574
+        "integrity": 97,
+        "energy": 2765,
+        "temp": 470
       },
       "fw_version": "v10.0"
     },
     {
-      "id": "MRS-QUA-022",
+      "id": "MRS-LIF-020",
       "sector": "MARS-COLONY",
       "color": "red",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 94,
+        "energy": 4031,
+        "temp": 485
+      },
+      "fw_version": "v11.4"
+    },
+    {
+      "id": "TTN-LIF-000",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 93,
+        "energy": 2344,
+        "temp": 605
+      },
+      "fw_version": "v10.2"
+    },
+    {
+      "id": "TTN-FUS-001",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 97,
+        "energy": 1420,
+        "temp": 584
+      },
+      "fw_version": "v11.9"
+    },
+    {
+      "id": "TTN-QUA-002",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 92,
-        "energy": 3770,
-        "temp": 155
+        "integrity": 100,
+        "energy": 1265,
+        "temp": 367
       },
-      "fw_version": "v10.8"
+      "fw_version": "v12.2"
     },
     {
-      "id": "TTN-DEF-000",
+      "id": "TTN-AI--003",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "AI-Cortex",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 90,
+        "energy": 3245,
+        "temp": 488
+      },
+      "fw_version": "v12.1"
+    },
+    {
+      "id": "TTN-FUS-004",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 100,
+        "energy": 557,
+        "temp": 425
+      },
+      "fw_version": "v11.2"
+    },
+    {
+      "id": "TTN-DEF-005",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 3650,
-        "temp": 382
+        "integrity": 94,
+        "energy": 3303,
+        "temp": 648
       },
-      "fw_version": "v11.8"
+      "fw_version": "v12.2"
     },
     {
-      "id": "TTN-LIF-001",
+      "id": "TTN-QUA-006",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 90,
+        "energy": 2612,
+        "temp": 340
+      },
+      "fw_version": "v10.7"
+    },
+    {
+      "id": "TTN-LIF-007",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 90,
-        "energy": 3523,
-        "temp": 298
+        "energy": 222,
+        "temp": 724
       },
-      "fw_version": "v12.7"
+      "fw_version": "v10.2"
     },
     {
-      "id": "TTN-DEF-002",
+      "id": "TTN-FUS-008",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "Defense-Grid",
+      "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 3733,
-        "temp": 403
+        "integrity": 90,
+        "energy": 870,
+        "temp": 446
       },
-      "fw_version": "v11.2"
+      "fw_version": "v10.3"
     },
     {
-      "id": "TTN-LIF-003",
+      "id": "TTN-LIF-009",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 100,
-        "energy": 2124,
-        "temp": 826
+        "integrity": 93,
+        "energy": 3125,
+        "temp": 456
       },
-      "fw_version": "v10.9"
+      "fw_version": "v11.1"
     },
     {
-      "id": "TTN-AI--004",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 97,
-        "energy": 4303,
-        "temp": 613
-      },
-      "fw_version": "v12.6"
-    },
-    {
-      "id": "TTN-AI--005",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "AI-Cortex",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 67,
-        "energy": 2127,
-        "temp": 621
-      },
-      "fw_version": "v11.9"
-    },
-    {
-      "id": "TTN-FUS-006",
+      "id": "TTN-FUS-010",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 95,
-        "energy": 2135,
-        "temp": 512
-      },
-      "fw_version": "v11.5"
-    },
-    {
-      "id": "TTN-FUS-007",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 98,
-        "energy": 3702,
-        "temp": 282
-      },
-      "fw_version": "v11.3"
-    },
-    {
-      "id": "TTN-QUA-008",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Quantum-Net",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 65,
-        "energy": 1417,
-        "temp": 119
-      },
-      "fw_version": "v11.8"
-    },
-    {
-      "id": "TTN-FUS-009",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Fusion-Reactor",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 83,
-        "energy": 4426,
-        "temp": 339
-      },
-      "fw_version": "v12.4"
-    },
-    {
-      "id": "TTN-AI--010",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 95,
-        "energy": 2784,
-        "temp": 764
-      },
-      "fw_version": "v11.4"
-    },
-    {
-      "id": "TTN-AI--011",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 92,
-        "energy": 4489,
-        "temp": 116
+        "energy": 797,
+        "temp": 638
       },
-      "fw_version": "v10.3"
+      "fw_version": "v10.7"
     },
     {
-      "id": "TTN-DEF-012",
+      "id": "TTN-LIF-011",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "Defense-Grid",
+      "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 4252,
-        "temp": 180
+        "integrity": 99,
+        "energy": 2482,
+        "temp": 427
       },
-      "fw_version": "v11.7"
+      "fw_version": "v10.6"
+    },
+    {
+      "id": "TTN-FUS-012",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Fusion-Reactor",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 95,
+        "energy": 3271,
+        "temp": 248
+      },
+      "fw_version": "v12.2"
     },
     {
       "id": "TTN-FUS-013",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Fusion-Reactor",
-      "status": "ACTIVE",
+      "status": "CRITICAL",
       "metrics": {
-        "integrity": 93,
-        "energy": 4236,
-        "temp": 587
+        "integrity": 65,
+        "energy": 190,
+        "temp": 809
       },
-      "fw_version": "v11.4"
+      "fw_version": "v11.8"
     },
     {
-      "id": "TTN-AI--014",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "AI-Cortex",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 98,
-        "energy": 2012,
-        "temp": 454
-      },
-      "fw_version": "v10.8"
-    },
-    {
-      "id": "TTN-QUA-015",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 99,
-        "energy": 2984,
-        "temp": 420
-      },
-      "fw_version": "v11.6"
-    },
-    {
-      "id": "TTN-FUS-016",
+      "id": "TTN-FUS-014",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 3196,
-        "temp": 164
+        "integrity": 91,
+        "energy": 4477,
+        "temp": 102
       },
-      "fw_version": "v12.4"
+      "fw_version": "v12.5"
     },
     {
-      "id": "TTN-QUA-017",
+      "id": "TTN-AI--015",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "Quantum-Net",
+      "service": "AI-Cortex",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 93,
+        "energy": 1984,
+        "temp": 228
+      },
+      "fw_version": "v11.9"
+    },
+    {
+      "id": "TTN-AI--016",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 90,
-        "energy": 3472,
-        "temp": 765
+        "energy": 1444,
+        "temp": 197
       },
-      "fw_version": "v10.4"
+      "fw_version": "v10.1"
     },
     {
-      "id": "TTN-QUA-018",
+      "id": "TTN-DEF-017",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "Quantum-Net",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 4886,
+        "temp": 788
+      },
+      "fw_version": "v10.8"
+    },
+    {
+      "id": "TTN-DEF-018",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 92,
-        "energy": 4914,
-        "temp": 745
+        "energy": 1740,
+        "temp": 185
       },
-      "fw_version": "v10.5"
+      "fw_version": "v12.8"
     },
     {
-      "id": "TTN-LIF-019",
+      "id": "TTN-AI--019",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "AI-Cortex",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 93,
+        "energy": 3500,
+        "temp": 545
+      },
+      "fw_version": "v10.8"
+    },
+    {
+      "id": "TTN-LIF-020",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 95,
-        "energy": 3177,
-        "temp": 883
+        "energy": 2479,
+        "temp": 582
       },
-      "fw_version": "v11.0"
+      "fw_version": "v12.9"
     },
     {
-      "id": "TTN-AI--020",
+      "id": "TTN-FUS-021",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "AI-Cortex",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 66,
-        "energy": 488,
-        "temp": 178
-      },
-      "fw_version": "v11.0"
-    },
-    {
-      "id": "TTN-AI--021",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "AI-Cortex",
+      "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 96,
-        "energy": 1717,
-        "temp": 458
+        "energy": 1946,
+        "temp": 283
       },
       "fw_version": "v12.0"
     },
     {
-      "id": "TTN-QUA-022",
+      "id": "TTN-DEF-022",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "Quantum-Net",
-      "status": "CRITICAL",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
       "metrics": {
-        "integrity": 88,
-        "energy": 4153,
-        "temp": 515
+        "integrity": 96,
+        "energy": 2714,
+        "temp": 659
       },
-      "fw_version": "v11.4"
+      "fw_version": "v12.3"
     },
     {
       "id": "TTN-FUS-023",
@@ -1383,115 +1357,76 @@
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 766,
-        "temp": 788
+        "integrity": 93,
+        "energy": 1284,
+        "temp": 379
       },
-      "fw_version": "v10.9"
+      "fw_version": "v12.5"
     },
     {
-      "id": "TTN-FUS-024",
+      "id": "TTN-DEF-024",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
-      "service": "Fusion-Reactor",
+      "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 93,
-        "energy": 4931,
+        "integrity": 97,
+        "energy": 4959,
+        "temp": 470
+      },
+      "fw_version": "v12.9"
+    },
+    {
+      "id": "TTN-DEF-025",
+      "sector": "TITAN-OUTPOST",
+      "color": "yellow",
+      "service": "Defense-Grid",
+      "status": "CRITICAL",
+      "metrics": {
+        "integrity": 79,
+        "energy": 843,
         "temp": 214
       },
-      "fw_version": "v10.9"
+      "fw_version": "v10.5"
     },
     {
-      "id": "TTN-FUS-025",
+      "id": "TTN-LIF-026",
       "sector": "TITAN-OUTPOST",
       "color": "yellow",
+      "service": "Life-Support",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 97,
+        "energy": 3912,
+        "temp": 869
+      },
+      "fw_version": "v11.8"
+    },
+    {
+      "id": "ORB-FUS-000",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 90,
-        "energy": 3817,
-        "temp": 177
+        "integrity": 92,
+        "energy": 1487,
+        "temp": 616
       },
-      "fw_version": "v12.6"
+      "fw_version": "v11.4"
     },
     {
-      "id": "TTN-FUS-026",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Fusion-Reactor",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 96,
-        "energy": 3092,
-        "temp": 555
-      },
-      "fw_version": "v10.7"
-    },
-    {
-      "id": "TTN-DEF-027",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
+      "id": "ORB-DEF-001",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
       "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 95,
-        "energy": 3344,
-        "temp": 581
+        "energy": 3107,
+        "temp": 747
       },
-      "fw_version": "v11.6"
-    },
-    {
-      "id": "TTN-QUA-028",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Quantum-Net",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 90,
-        "energy": 1077,
-        "temp": 752
-      },
-      "fw_version": "v10.8"
-    },
-    {
-      "id": "TTN-DEF-029",
-      "sector": "TITAN-OUTPOST",
-      "color": "yellow",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 94,
-        "energy": 1918,
-        "temp": 600
-      },
-      "fw_version": "v10.0"
-    },
-    {
-      "id": "ORB-LIF-000",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 95,
-        "energy": 1453,
-        "temp": 285
-      },
-      "fw_version": "v12.8"
-    },
-    {
-      "id": "ORB-LIF-001",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 94,
-        "energy": 4580,
-        "temp": 283
-      },
-      "fw_version": "v11.7"
+      "fw_version": "v10.2"
     },
     {
       "id": "ORB-AI--002",
@@ -1500,24 +1435,24 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 3406,
-        "temp": 221
+        "integrity": 95,
+        "energy": 3543,
+        "temp": 479
       },
-      "fw_version": "v11.3"
+      "fw_version": "v10.8"
     },
     {
-      "id": "ORB-QUA-003",
+      "id": "ORB-FUS-003",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
-      "service": "Quantum-Net",
+      "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 93,
-        "energy": 187,
-        "temp": 263
+        "integrity": 99,
+        "energy": 3785,
+        "temp": 580
       },
-      "fw_version": "v11.7"
+      "fw_version": "v11.8"
     },
     {
       "id": "ORB-FUS-004",
@@ -1527,49 +1462,49 @@
       "status": "ACTIVE",
       "metrics": {
         "integrity": 96,
-        "energy": 2931,
-        "temp": 735
+        "energy": 4663,
+        "temp": 700
       },
-      "fw_version": "v11.3"
+      "fw_version": "v11.9"
     },
     {
-      "id": "ORB-LIF-005",
+      "id": "ORB-DEF-005",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 99,
+        "energy": 3857,
+        "temp": 265
+      },
+      "fw_version": "v10.6"
+    },
+    {
+      "id": "ORB-QUA-006",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
+      "service": "Quantum-Net",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 98,
+        "energy": 4123,
+        "temp": 569
+      },
+      "fw_version": "v10.2"
+    },
+    {
+      "id": "ORB-LIF-007",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
       "service": "Life-Support",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 97,
-        "energy": 1375,
-        "temp": 211
+        "integrity": 95,
+        "energy": 4627,
+        "temp": 419
       },
-      "fw_version": "v11.4"
-    },
-    {
-      "id": "ORB-DEF-006",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 96,
-        "energy": 2130,
-        "temp": 486
-      },
-      "fw_version": "v10.2"
-    },
-    {
-      "id": "ORB-DEF-007",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Defense-Grid",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 93,
-        "energy": 3692,
-        "temp": 510
-      },
-      "fw_version": "v12.0"
+      "fw_version": "v12.8"
     },
     {
       "id": "ORB-FUS-008",
@@ -1578,24 +1513,24 @@
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 99,
-        "energy": 1873,
-        "temp": 116
+        "integrity": 90,
+        "energy": 4670,
+        "temp": 198
       },
-      "fw_version": "v12.6"
+      "fw_version": "v11.2"
     },
     {
-      "id": "ORB-LIF-009",
+      "id": "ORB-FUS-009",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
-      "service": "Life-Support",
-      "status": "ACTIVE",
+      "service": "Fusion-Reactor",
+      "status": "CRITICAL",
       "metrics": {
-        "integrity": 99,
-        "energy": 1926,
-        "temp": 535
+        "integrity": 58,
+        "energy": 4370,
+        "temp": 576
       },
-      "fw_version": "v11.9"
+      "fw_version": "v10.8"
     },
     {
       "id": "ORB-QUA-010",
@@ -1604,11 +1539,11 @@
       "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 93,
-        "energy": 456,
-        "temp": 384
+        "integrity": 94,
+        "energy": 1803,
+        "temp": 543
       },
-      "fw_version": "v11.1"
+      "fw_version": "v11.2"
     },
     {
       "id": "ORB-AI--011",
@@ -1617,61 +1552,61 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 96,
-        "energy": 4278,
-        "temp": 477
+        "integrity": 94,
+        "energy": 3713,
+        "temp": 179
       },
-      "fw_version": "v11.9"
+      "fw_version": "v11.4"
     },
     {
-      "id": "ORB-AI--012",
+      "id": "ORB-DEF-012",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
-      "service": "AI-Cortex",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 91,
+        "energy": 710,
+        "temp": 240
+      },
+      "fw_version": "v10.3"
+    },
+    {
+      "id": "ORB-QUA-013",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
+      "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 96,
-        "energy": 1575,
-        "temp": 635
+        "energy": 533,
+        "temp": 844
       },
-      "fw_version": "v12.7"
-    },
-    {
-      "id": "ORB-FUS-013",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Fusion-Reactor",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 71,
-        "energy": 3971,
-        "temp": 640
-      },
-      "fw_version": "v11.3"
+      "fw_version": "v11.6"
     },
     {
       "id": "ORB-QUA-014",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
       "service": "Quantum-Net",
-      "status": "ACTIVE",
+      "status": "CRITICAL",
       "metrics": {
-        "integrity": 99,
-        "energy": 1680,
-        "temp": 872
+        "integrity": 64,
+        "energy": 280,
+        "temp": 135
       },
-      "fw_version": "v12.9"
+      "fw_version": "v12.7"
     },
     {
-      "id": "ORB-DEF-015",
+      "id": "ORB-QUA-015",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
-      "service": "Defense-Grid",
+      "service": "Quantum-Net",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 94,
-        "energy": 948,
-        "temp": 775
+        "integrity": 90,
+        "energy": 3750,
+        "temp": 706
       },
       "fw_version": "v12.3"
     },
@@ -1682,63 +1617,63 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 92,
-        "energy": 321,
-        "temp": 112
+        "integrity": 95,
+        "energy": 3082,
+        "temp": 187
       },
-      "fw_version": "v12.6"
+      "fw_version": "v10.8"
     },
     {
-      "id": "ORB-FUS-017",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Fusion-Reactor",
-      "status": "CRITICAL",
-      "metrics": {
-        "integrity": 71,
-        "energy": 2035,
-        "temp": 390
-      },
-      "fw_version": "v12.2"
-    },
-    {
-      "id": "ORB-AI--018",
+      "id": "ORB-AI--017",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 95,
-        "energy": 2676,
-        "temp": 715
+        "integrity": 94,
+        "energy": 1575,
+        "temp": 129
       },
-      "fw_version": "v10.3"
+      "fw_version": "v12.8"
     },
     {
-      "id": "ORB-FUS-019",
+      "id": "ORB-DEF-018",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
+      "service": "Defense-Grid",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 95,
+        "energy": 1026,
+        "temp": 720
+      },
+      "fw_version": "v10.6"
+    },
+    {
+      "id": "ORB-AI--019",
+      "sector": "ORBITAL-STATION",
+      "color": "cyan",
+      "service": "AI-Cortex",
+      "status": "ACTIVE",
+      "metrics": {
+        "integrity": 97,
+        "energy": 4221,
+        "temp": 841
+      },
+      "fw_version": "v12.8"
+    },
+    {
+      "id": "ORB-FUS-020",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
       "service": "Fusion-Reactor",
       "status": "ACTIVE",
       "metrics": {
         "integrity": 90,
-        "energy": 3860,
-        "temp": 780
+        "energy": 3830,
+        "temp": 276
       },
-      "fw_version": "v10.8"
-    },
-    {
-      "id": "ORB-LIF-020",
-      "sector": "ORBITAL-STATION",
-      "color": "cyan",
-      "service": "Life-Support",
-      "status": "ACTIVE",
-      "metrics": {
-        "integrity": 97,
-        "energy": 598,
-        "temp": 443
-      },
-      "fw_version": "v11.6"
+      "fw_version": "v12.6"
     },
     {
       "id": "ORB-AI--021",
@@ -1747,38 +1682,38 @@
       "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 98,
-        "energy": 2327,
-        "temp": 690
+        "integrity": 96,
+        "energy": 268,
+        "temp": 423
       },
-      "fw_version": "v11.6"
+      "fw_version": "v10.0"
     },
     {
-      "id": "ORB-FUS-022",
+      "id": "ORB-AI--022",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
-      "service": "Fusion-Reactor",
+      "service": "AI-Cortex",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 92,
-        "energy": 611,
-        "temp": 468
+        "integrity": 90,
+        "energy": 1683,
+        "temp": 374
       },
-      "fw_version": "v10.6"
+      "fw_version": "v12.2"
     },
     {
-      "id": "ORB-QUA-023",
+      "id": "ORB-DEF-023",
       "sector": "ORBITAL-STATION",
       "color": "cyan",
-      "service": "Quantum-Net",
+      "service": "Defense-Grid",
       "status": "ACTIVE",
       "metrics": {
-        "integrity": 91,
-        "energy": 3916,
-        "temp": 813
+        "integrity": 96,
+        "energy": 3039,
+        "temp": 230
       },
-      "fw_version": "v12.3"
+      "fw_version": "v11.9"
     }
   ],
-  "global_integrity": 93
+  "global_integrity": 95
 }
